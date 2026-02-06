@@ -3,23 +3,43 @@ import { Product, Category, ApiResponse } from '../types';
 
 class ProductService {
   async getProducts(): Promise<Product[]> {
-    const response = await api.get<ApiResponse<Product[]>>('/products');
-    return response.data?.data || [];
+    try {
+      const response = await api.get<ApiResponse<Product[]>>('/products');
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      return []; // Return empty array instead of throwing
+    }
   }
 
   async getProduct(id: number): Promise<Product | null> {
-    const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
-    return response.data?.data || null;
+    try {
+      const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
+      return response.data?.data || null;
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      return null;
+    }
   }
 
   async getCategories(): Promise<Category[]> {
-    const response = await api.get<ApiResponse<Category[]>>('/categories');
-    return response.data?.data || [];
+    try {
+      const response = await api.get<ApiResponse<Category[]>>('/categories');
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      return []; // Return empty array for now
+    }
   }
 
   async searchProducts(query: string): Promise<Product[]> {
-    const response = await api.get<ApiResponse<Product[]>>(`/products/search?q=${query}`);
-    return response.data?.data || [];
+    try {
+      const response = await api.get<ApiResponse<Product[]>>(`/products/search?q=${query}`);
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
   }
 }
 
