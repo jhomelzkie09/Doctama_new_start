@@ -9,7 +9,7 @@ interface AuthContextType {
   register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
-  isAdmin: boolean; // Add this property
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,7 +39,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await authService.login({ email, password });
+      // Remove the unused variable assignment
+      await authService.login({ email, password });
       const currentUser = authService.getCurrentUser();
       setUser(currentUser);
     } finally {
@@ -50,7 +51,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (email: string, password: string, fullName: string) => {
     setLoading(true);
     try {
-      const response = await authService.register({ email, password, fullName });
+      // Remove the unused variable assignment
+      await authService.register({ email, password, fullName });
       const currentUser = authService.getCurrentUser();
       setUser(currentUser);
     } finally {
@@ -70,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.roles?.includes('admin') || false // Updated this line
+    isAdmin: user?.roles?.includes('admin') || false
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
