@@ -1,61 +1,120 @@
-import api from '../api/config';
-import { User, LoginCredentials, RegisterData, ApiResponse } from '../types';
+import axios from 'axios';
+import { API_URL } from '../api/config';
+import { LoginCredentials, RegisterData, User, ApiResponse, AuthResponse } from '../types';
 
-class AuthService {
-  async register(userData: RegisterData): Promise<ApiResponse<User>> {
-    const response = await api.post<ApiResponse<User>>('/auth/register', userData);
-    
-    if (response.data.token) {
-      this.setAuthData(response.data);
+const authService = {
+  // Login method
+  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+    try {
+      const response = await axios.post<ApiResponse<AuthResponse>>(
+        `${API_URL}/auth/login`,
+        credentials
+      );
+      
+      const data = response.data;
+      
+      if (!data.data) {
+        throw new Error(data.message || 'Login failed');
+      }
+      
+      // Store the token and user data
+      const { user, token } = data.data;
+      
+      localStorage.setItem('token', token || '');
+      localStorage.setItem('user', JSON.stringify({
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        roles: user.roles || ['user']
+      }));
+      
+      return data.data;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw error.response?.data || error.message;
     }
-    
-    return response.data;
-  }
+  },
 
-  async login(credentials: LoginCredentials): Promise<ApiResponse<User>> {
-    const response = await api.post<ApiResponse<User>>('/auth/login', credentials);
-    
-    if (response.data.token) {
-      this.setAuthData(response.data);
+  // Register method
+  register: async (userData: RegisterData): Promise<AuthResponse> => {
+    try {
+      const response = await axios.post<ApiResponse<AuthResponse>>(
+        `${API_URL}/auth/register`,
+        userData
+      );
+      
+      const data = response.data;
+      
+      if (!data.data) {
+        throw new Error(data.message || 'Registration failed');
+      }
+      
+      // Store the token and user data
+      const { user, token } = data.data;
+      
+      localStorage.setItem('token', token || '');
+      localStorage.setItem('user', JSON.stringify({
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        roles: user.roles || ['user']
+      }));
+      
+      return data.data;
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw error.response?.data || error.message;
     }
-    
-    return response.data;
-  }
+  },
 
-  private setAuthData(data: ApiResponse<User>): void {
-    localStorage.setItem('token', data.token || '');
-    localStorage.setItem('user', JSON.stringify({
-      id: data.userId,
-      email: data.email,
-      fullName: data.fullName,
-      roles: data.roles || []
-    }));
-  }
+  // Get current user from localStorage
+  getCurrentUser: (): User | null => {
+    try {
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      
+      if (!userStr || !token) {
+        return null;
+      }
+      
+      const userData = JSON.parse(userStr);
+      return {
+        id: userData.id,
+        email: userData.email,
+        fullName: userData.fullName,
+        roles: userData.roles || [],
+        createdAt: userData.createdAt
+      };
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      return null;
+    }
+  },
 
-  logout(): void {
+  // Logout method
+  logout: (): void => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login';
-  }
+  },
 
-  getCurrentUser(): User | null {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
-  }
-
-  isAuthenticated(): boolean {
+  // Check if user is authenticated
+  isAuthenticated: (): boolean => {
     return !!localStorage.getItem('token');
-  }
+  },
 
-  hasRole(role: string): boolean {
-    const user = this.getCurrentUser();
-    return user ? user.roles.includes(role) : false;
-  }
-
-  getToken(): string | null {
+  // Get auth token
+  getToken: (): string | null => {
     return localStorage.getItem('token');
-  }
-}
+  },
 
-const authService = new AuthService();
+  // Update user data
+  updateUser: (userData: Partial<User>): void => {
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...userData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+  }
+};
+
 export default authService;

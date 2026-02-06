@@ -1,4 +1,5 @@
-import api from '../api/config';
+import api, { API_URL } from '../api/config';
+import axios from 'axios';
 import { Order } from '../types';
 
 class OrderService {
@@ -32,6 +33,23 @@ class OrderService {
   async updateOrderStatus(orderId: string, status: string, trackingNumber?: string): Promise<Order> {
     const response = await api.patch(`/orders/${orderId}/status`, { status, trackingNumber });
     return response.data;
+  }
+
+  // Add getOrderStats method INSIDE the class
+  async getOrderStats(): Promise<{
+    totalOrders: number;
+    totalRevenue: number;
+    pendingOrders: number;
+    deliveredOrders: number;
+  }> {
+    try {
+      const response = await axios.get(`${API_URL}/orders/stats`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || error.message;
+    }
   }
 }
 
