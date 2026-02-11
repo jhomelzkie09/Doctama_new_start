@@ -48,13 +48,21 @@ const Register: React.FC = () => {
       return;
     }
 
+    console.log("📤 Registration attempt:", formData);
+
     setLoading(true);
 
     try {
       await register(formData.email, formData.password, formData.fullName);
+      console.log("✅ Registration successful");
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      console.error("❌ Registration error details:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
+      setError(err.response?.data?.message || 'Failed to register. Please try again.');
     } finally {
       setLoading(false);
     }
