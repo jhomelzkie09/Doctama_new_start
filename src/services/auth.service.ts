@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { API_URL } from '../api/config';
-import { LoginCredentials, RegisterData, User, ApiResponse } from '../types';
+import { LoginCredentials, RegisterData, User } from '../types';
 
 const authService = {
+  // Login method
   login: async (credentials: LoginCredentials): Promise<{
     token: string;
     roles: string[];
@@ -13,32 +14,28 @@ const authService = {
       const response = await axios.post(`${API_URL}/auth/login`, credentials);
       const data = response.data;
       
-      console.log('📥 Login response:', data); // Add this for debugging
+      console.log('Login response:', data);
       
       if (!data.token) {
         throw new Error('Login failed: No token received');
       }
       
-      // Store in localStorage
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify({
         id: data.userId,
         email: data.email,
-        fullName: '', // You might need to get this from backend
-        roles: data.roles || [] // CRITICAL!
+        fullName: '',
+        roles: data.roles || []
       }));
       
       return data;
     } catch (error: any) {
-      console.error('❌ Login error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
+      console.error('Login error:', error);
       throw new Error(error.response?.data?.message || 'Login failed');
     }
   },
 
+  // Register method
   register: async (userData: RegisterData): Promise<any> => {
     try {
       const response = await axios.post(`${API_URL}/auth/register`, userData);
@@ -61,6 +58,7 @@ const authService = {
     }
   },
 
+  // Get current user from localStorage
   getCurrentUser: (): User | null => {
     try {
       const userStr = localStorage.getItem('user');
@@ -71,7 +69,7 @@ const authService = {
         id: userData.id,
         email: userData.email,
         fullName: userData.fullName || '',
-        roles: userData.roles || [] // Make sure this exists
+        roles: userData.roles || []
       };
     } catch (error) {
       console.error('Error parsing user:', error);
@@ -79,15 +77,18 @@ const authService = {
     }
   },
 
+  // Logout method
   logout: (): void => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
 
+  // Check if user is authenticated
   isAuthenticated: (): boolean => {
     return !!localStorage.getItem('token');
   },
 
+  // Get auth token
   getToken: (): string | null => {
     return localStorage.getItem('token');
   }
