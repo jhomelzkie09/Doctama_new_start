@@ -12,40 +12,55 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
-  console.log("📤 Login attempt:", { email, password: '••••••••' });
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+    console.log("📤 Login attempt:", { email, password: '••••••••' });
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  try {
-    console.log("🔐 Calling login function with email:", email);
-    await login(email, password);
-    
-    // Get the current user from auth context to check roles
-    const { user } = useAuth(); // This won't work here because of hooks rules
-    
-    // Better approach: Check localStorage directly
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      const userData = JSON.parse(userStr);
-      const isAdmin = userData.roles?.includes('Admin') || userData.roles?.includes('admin');
+    try {
+      console.log("🔐 Calling login function with email:", email);
+      await login(email, password);
       
-      if (isAdmin) {
-        navigate('/admin'); // Redirect to admin dashboard
-      } else {
-        navigate('/'); // Redirect to products page for regular users
+      // Wait a moment for localStorage to be updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check if user is admin by looking at localStorage directly
+      const userStr = localStorage.getItem('user');
+      console.log("📋 localStorage user data:", userStr);
+      
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          console.log("🔍 Parsed user data:", userData);
+          console.log("🎭 User roles:", userData.roles);
+          
+          // Check for admin role (case-insensitive)
+          const isAdmin = userData.roles?.some((role: string) => 
+            role?.toLowerCase() === 'admin'
+          );
+          
+          console.log("👑 Is admin?", isAdmin);
+          
+          if (isAdmin) {
+            console.log("🚀 Redirecting to admin dashboard");
+            navigate('/admin');
+            return;
+          }
+        } catch (parseError) {
+          console.error("❌ Error parsing user data:", parseError);
+        }
       }
-    } else {
-      navigate('/'); // Fallback
+      
+      console.log("🛒 Redirecting to products page");
+      navigate('/');
+      
+    } catch (err: any) {
+      console.error("❌ Login error:", err);
+      setError(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (err: any) {
-    console.error("❌ Login error details:");
-    setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 px-4">
