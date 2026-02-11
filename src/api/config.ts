@@ -1,40 +1,24 @@
-import axios from 'axios';
+const config = {
+  API_URL: process.env.REACT_APP_API_URL || 'https://doctamaapisimple-production.up.railway.app/api',
+  ENVIRONMENT: process.env.REACT_APP_ENVIRONMENT || 'production'
+};
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000, // 10 second timeout
+console.log('🔧 Config loaded:', {
+  API_URL: config.API_URL,
+  ENVIRONMENT: config.ENVIRONMENT,
+  HasSpace: config.API_URL?.startsWith(' ')
 });
 
-// Add request interceptor to include auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Validate URL
+if (!config.API_URL) {
+  console.error('❌ API_URL is not defined in environment variables');
+}
 
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Auto logout if 401 response
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
+if (config.API_URL?.includes(' ')) {
+  console.error('❌ API_URL contains spaces! Fix your .env file');
+  // Clean up the URL
+  config.API_URL = config.API_URL.trim();
+}
 
-export default api;
-export { API_URL };
+export default config;
+export const { API_URL, ENVIRONMENT } = config;

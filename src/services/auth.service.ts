@@ -11,7 +11,11 @@ const authService = {
     email: string;
   }> => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, credentials);
+      console.log('🌐 Calling API:', `${API_URL}/auth/login`);
+      console.log('🔗 Full URL:', API_URL + '/auth/login');
+      const response = await axios.post(`${API_URL}/auth/login`, credentials, {headers: {
+        'Content-Type': 'application/json'
+      }});
       const data = response.data;
       
       console.log('Login response:', data);
