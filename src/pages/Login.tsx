@@ -12,14 +12,17 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log("📤 Login attempt:", { email, password: '••••••••' }); // Mask password in logs
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
+      console.log("🔐 Calling login function with email:", email);
       await login(email, password);
       navigate('/');
     } catch (err: any) {
+      console.error("❌ Login error details:");
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);

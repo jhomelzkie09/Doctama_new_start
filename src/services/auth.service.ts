@@ -1,119 +1,95 @@
 import axios from 'axios';
 import { API_URL } from '../api/config';
-import { LoginCredentials, RegisterData, User, ApiResponse, AuthResponse } from '../types';
+import { LoginCredentials, RegisterData, User, ApiResponse } from '../types';
 
 const authService = {
-  // Login method
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  login: async (credentials: LoginCredentials): Promise<{
+    token: string;
+    roles: string[];
+    userId: string;
+    email: string;
+  }> => {
     try {
-      const response = await axios.post<ApiResponse<AuthResponse>>(
-        `${API_URL}/auth/login`,
-        credentials
-      );
-      
+      const response = await axios.post(`${API_URL}/auth/login`, credentials);
       const data = response.data;
       
-      if (!data.data) {
-        throw new Error(data.message || 'Login failed');
+      console.log('📥 Login response:', data); // Add this for debugging
+      
+      if (!data.token) {
+        throw new Error('Login failed: No token received');
       }
       
-      // Store the token and user data
-      const { user, token } = data.data;
-      
-      localStorage.setItem('token', token || '');
+      // Store in localStorage
+      localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify({
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        roles: user.roles || ['user']
+        id: data.userId,
+        email: data.email,
+        fullName: '', // You might need to get this from backend
+        roles: data.roles || [] // CRITICAL!
       }));
       
-      return data.data;
+      return data;
     } catch (error: any) {
-      console.error('Login error:', error);
-      throw error.response?.data || error.message;
+      console.error('❌ Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
   },
 
-  // Register method
-  register: async (userData: RegisterData): Promise<AuthResponse> => {
+  register: async (userData: RegisterData): Promise<any> => {
     try {
-      const response = await axios.post<ApiResponse<AuthResponse>>(
-        `${API_URL}/auth/register`,
-        userData
-      );
-      
+      const response = await axios.post(`${API_URL}/auth/register`, userData);
       const data = response.data;
       
-      if (!data.data) {
-        throw new Error(data.message || 'Registration failed');
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify({
+          id: data.userId,
+          email: data.email,
+          fullName: data.fullName || '',
+          roles: data.roles || []
+        }));
       }
       
-      // Store the token and user data
-      const { user, token } = data.data;
-      
-      localStorage.setItem('token', token || '');
-      localStorage.setItem('user', JSON.stringify({
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        roles: user.roles || ['user']
-      }));
-      
-      return data.data;
+      return data;
     } catch (error: any) {
       console.error('Registration error:', error);
       throw error.response?.data || error.message;
     }
   },
 
-  // Get current user from localStorage
   getCurrentUser: (): User | null => {
     try {
       const userStr = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
-      
-      if (!userStr || !token) {
-        return null;
-      }
+      if (!userStr) return null;
       
       const userData = JSON.parse(userStr);
       return {
         id: userData.id,
         email: userData.email,
-        fullName: userData.fullName,
-        roles: userData.roles || [],
-        createdAt: userData.createdAt
+        fullName: userData.fullName || '',
+        roles: userData.roles || [] // Make sure this exists
       };
     } catch (error) {
-      console.error('Error parsing user data:', error);
+      console.error('Error parsing user:', error);
       return null;
     }
   },
 
-  // Logout method
   logout: (): void => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
 
-  // Check if user is authenticated
   isAuthenticated: (): boolean => {
     return !!localStorage.getItem('token');
   },
 
-  // Get auth token
   getToken: (): string | null => {
     return localStorage.getItem('token');
-  },
-
-  // Update user data
-  updateUser: (userData: Partial<User>): void => {
-    const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      const updatedUser = { ...currentUser, ...userData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
   }
 };
 
