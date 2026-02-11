@@ -1,9 +1,13 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const AdminRoute = () => {
-  const { user, loading } = useAuth();
+interface AdminRouteProps {
+  children: React.ReactNode;
+}
+
+const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
+  const { user, loading, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -14,9 +18,28 @@ const AdminRoute = () => {
   }
 
   // Check if user has admin role
-  const isAdmin = user?.roles?.includes('admin') || false;
+  const userIsAdmin = user?.roles?.some(role => 
+    role?.toLowerCase() === 'admin'
+  );
 
-  return isAdmin ? <Outlet /> : <Navigate to="/" replace />;
+  console.log("🔐 AdminRoute check:");
+  console.log("   User:", user?.email);
+  console.log("   Roles:", user?.roles);
+  console.log("   isAdmin from context:", isAdmin);
+  console.log("   userIsAdmin calculated:", userIsAdmin);
+
+  if (!user) {
+    console.log("❌ No user, redirecting to login");
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!userIsAdmin) {
+    console.log("❌ Not admin, redirecting to home");
+    return <Navigate to="/" replace />;
+  }
+
+  console.log("✅ Admin access granted");
+  return <>{children}</>;
 };
 
 export default AdminRoute;

@@ -11,56 +11,30 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    console.log("📤 Login attempt:", { email, password: '••••••••' });
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
+  setLoading(true);
 
-    try {
-      console.log("🔐 Calling login function with email:", email);
-      await login(email, password);
-      
-      // Wait a moment for localStorage to be updated
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Check if user is admin by looking at localStorage directly
-      const userStr = localStorage.getItem('user');
-      console.log("📋 localStorage user data:", userStr);
-      
-      if (userStr) {
-        try {
-          const userData = JSON.parse(userStr);
-          console.log("🔍 Parsed user data:", userData);
-          console.log("🎭 User roles:", userData.roles);
-          
-          // Check for admin role (case-insensitive)
-          const isAdmin = userData.roles?.some((role: string) => 
-            role?.toLowerCase() === 'admin'
-          );
-          
-          console.log("👑 Is admin?", isAdmin);
-          
-          if (isAdmin) {
-            console.log("🚀 Redirecting to admin dashboard");
-            navigate('/admin');
-            return;
-          }
-        } catch (parseError) {
-          console.error("❌ Error parsing user data:", parseError);
-        }
-      }
-      
-      console.log("🛒 Redirecting to products page");
-      navigate('/');
-      
-    } catch (err: any) {
-      console.error("❌ Login error:", err);
-      setError(err.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    console.log("🔐 Attempting login with:", email);
+    
+    // Call login function
+    await login(email, password);
+    
+    // Give auth context time to update
+    setTimeout(() => {
+      // Always redirect to admin first - AdminRoute will handle the check
+      console.log("🔄 Redirecting to /admin");
+      navigate('/admin');
+    }, 100);
+    
+  } catch (err: any) {
+    console.error("❌ Login error:", err);
+    setError(err.message || 'Login failed.');
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 px-4">

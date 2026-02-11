@@ -2,16 +2,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import AdminRoute from '.././src/components/AdminRoute'; 
+import AdminRoute from './components/AdminRoute';
 
 // Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Products from './pages/Products';
-//import UserProfile from './pages/UserProfile'; // Add if you have
-//import Cart from './pages/Cart'; // Add if you have
-//import Orders from './pages/Orders'; // Add if you have
 
 function App() {
   return (
@@ -36,36 +33,24 @@ function App() {
               </ProtectedRoute>
             } />
             
-            {/*<Route path="/profile" element={
-              <ProtectedRoute>
-                <UserProfile />
-              </ProtectedRoute>
-            } />*/}
+            {/* Admin Route - SIMPLIFIED */}
+            <Route 
+              path="/admin" 
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              } 
+            />
             
-            {/*<Route path="/cart" element={
-              <ProtectedRoute>
-                <Cart />
-              </ProtectedRoute>
-            } />*/}
-            
-            {/*<Route path="/orders" element={
-              <ProtectedRoute>
-                <Orders />
-              </ProtectedRoute>
-            } />*/}
-            
-            {/* Admin Routes */}
-            <Route path="/admin/*" element={<AdminRoute />}>
+            {/* For nested admin routes (if needed later) */}
+            {/* 
+            <Route path="/admin" element={<AdminRoute />}>
               <Route index element={<AdminDashboard />} />
-              {/* Add more admin sub-routes here if needed */}
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="orders" element={<AdminOrders />} />
             </Route>
-            
-            {/* Alternative: Direct admin route */}
-            {/* <Route path="/admin" element={
-              <ProtectedRoute requireAdmin>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } /> */}
+            */}
             
             {/* Redirect unknown routes */}
             <Route path="*" element={<Navigate to="/" />} />
