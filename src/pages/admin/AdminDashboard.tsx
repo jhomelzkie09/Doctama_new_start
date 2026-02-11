@@ -10,7 +10,6 @@ import {
   DollarSign, 
   Eye, 
   Edit, 
-  Trash2, 
   RefreshCw,
   TrendingUp,
   TrendingDown,
@@ -77,7 +76,6 @@ const AdminDashboard = () => {
   });
 
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [recentProducts, setRecentProducts] = useState<Product[]>([]);
   const [topProducts, setTopProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -124,7 +122,6 @@ const AdminDashboard = () => {
 
       // Set recent data
       setRecentOrders(ordersData.orders?.slice(0, 5) || []);
-      setRecentProducts(products.slice(0, 5) || []);
       setTopProducts(sortedProducts);
       
     } catch (err: any) {
@@ -629,10 +626,10 @@ const AdminDashboard = () => {
             <button
               key={action.label}
               onClick={() => navigate(action.path)}
-              className={`flex flex-col items-center justify-center p-5 border-2 border-dashed border-gray-200 rounded-xl hover:border-${action.color}-500 hover:bg-${action.color}-50 transition-all hover:scale-[1.02] group`}
+              className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all hover:scale-[1.02] group"
             >
-              <div className={`p-3 bg-${action.color}-100 rounded-lg mb-3 group-hover:bg-${action.color}-200 transition-colors`}>
-                <action.icon className={`w-6 h-6 text-${action.color}-600`} />
+              <div className="p-3 bg-blue-100 rounded-lg mb-3 group-hover:bg-blue-200 transition-colors">
+                <action.icon className="w-6 h-6 text-blue-600" />
               </div>
               <span className="font-medium text-gray-900 text-sm">{action.label}</span>
               <span className="text-xs text-gray-500 mt-1">{action.desc}</span>
