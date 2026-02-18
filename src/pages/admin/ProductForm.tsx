@@ -3,12 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
-import uploadService from '../../services/upload.service';
 import { 
   Save, 
   X, 
   Loader, 
-  Upload,
   Image as ImageIcon,
   AlertCircle,
   Plus,
@@ -19,8 +17,7 @@ import {
   Palette,
   Wrench
 } from 'lucide-react';
-import { Category, ProductImage } from '../../types';
-import api from '../../api/config';
+import { Category } from '../../types';
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -30,16 +27,13 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingImages, setUploadingImages] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   
-  // Image states
+  // Image states - now just URLs
   const [mainImage, setMainImage] = useState<string>('');
-  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]); // For preview URLs
-  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]); // For upload
-  const [uploadedImages, setUploadedImages] = useState<ProductImage[]>([]); // For storing uploaded image objects
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -79,42 +73,48 @@ const ProductForm = () => {
   };
 
   const fetchProduct = useCallback(async () => {
-  setLoading(true);
-  try {
-    const product = await productService.getProductById(Number(id));
-    if (product) {
-      setMainImage(product.imageUrl || '');
-      
-      // Extract image URLs from ProductImage objects
-      const imageUrls = product.images?.map(img => img.imageUrl) || [];
-      setAdditionalImages(imageUrls);
-      
-      // If you need to store the full ProductImage objects for later use
-      setUploadedImages(product.images || []);
+    setLoading(true);
+    try {
+      const product = await productService.getProductById(Number(id));
+      if (product) {
+        setMainImage(product.imageUrl || '');
+        
+        // Handle images - could be either string[] or ProductImage[]
+        if (product.images) {
+          if (typeof product.images[0] === 'string') {
+            setAdditionalImages(product.images as unknown as string[]);
+          } else {
+            // Extract imageUrl from ProductImage objects
+            const imageUrls = (product.images as any[]).map(img => 
+              typeof img === 'string' ? img : img.imageUrl
+            ).filter(Boolean);
+            setAdditionalImages(imageUrls);
+          }
+        }
 
-      // Convert colors array to comma-separated string
-      const colorsString = product.colorsVariant?.join(', ') || '';
-      
-      setFormData({
-        name: product.name,
-        description: product.description,
-        price: product.price.toString(),
-        categoryId: product.categoryId.toString(),
-        stockQuantity: product.stockQuantity.toString(),
-        colors: colorsString,
-        length: product.length?.toString() || '',
-        width: product.width?.toString() || '',
-        height: product.height?.toString() || '',
-        isActive: product.isActive
-      });
+        // Convert colors array to comma-separated string
+        const colorsString = product.colorsVariant?.join(', ') || '';
+        
+        setFormData({
+          name: product.name,
+          description: product.description,
+          price: product.price.toString(),
+          categoryId: product.categoryId.toString(),
+          stockQuantity: product.stockQuantity.toString(),
+          colors: colorsString,
+          length: product.length?.toString() || '',
+          width: product.width?.toString() || '',
+          height: product.height?.toString() || '',
+          isActive: product.isActive
+        });
+      }
+    } catch (err) {
+      setError('Failed to load product');
+      console.error('Failed to fetch product:', err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError('Failed to load product');
-    console.error('Failed to fetch product:', err);
-  } finally {
-    setLoading(false);
-  }
-}, [id]);
+  }, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -124,63 +124,27 @@ const ProductForm = () => {
     }));
   };
 
-  const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setMainImageFile(file);
-    
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setMainImage(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+  // Simple URL input handlers
+  const addImageUrl = () => {
+    setAdditionalImages(prev => [...prev, '']);
   };
 
-  const handleAdditionalImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const fileArray = Array.from(files);
-    setAdditionalImageFiles(prev => [...prev, ...fileArray]);
-    
-    // Create preview URLs
-    fileArray.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAdditionalImages(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+  const updateImageUrl = (index: number, url: string) => {
+    const newImages = [...additionalImages];
+    newImages[index] = url;
+    setAdditionalImages(newImages);
   };
 
   const removeAdditionalImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, i) => i !== index));
-    setAdditionalImageFiles(prev => prev.filter((_, i) => i !== index));
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
- const moveImage = (fromIndex: number, toIndex: number) => {
-  // Move preview URLs
-  const newPreviewImages = [...additionalImages];
-  const [movedPreview] = newPreviewImages.splice(fromIndex, 1);
-  newPreviewImages.splice(toIndex, 0, movedPreview);
-  setAdditionalImages(newPreviewImages);
-  
-  // Move files
-  const newFiles = [...additionalImageFiles];
-  const [movedFile] = newFiles.splice(fromIndex, 1);
-  newFiles.splice(toIndex, 0, movedFile);
-  setAdditionalImageFiles(newFiles);
-  
-  // Move uploaded image objects if any
-  if (uploadedImages.length > 0) {
-    const newUploaded = [...uploadedImages];
-    const [movedUploaded] = newUploaded.splice(fromIndex, 1);
-    newUploaded.splice(toIndex, 0, movedUploaded);
-    setUploadedImages(newUploaded);
-  }
-};
+  const moveImage = (fromIndex: number, toIndex: number) => {
+    const newImages = [...additionalImages];
+    const [movedImage] = newImages.splice(fromIndex, 1);
+    newImages.splice(toIndex, 0, movedImage);
+    setAdditionalImages(newImages);
+  };
 
   const validateForm = () => {
     if (!formData.name.trim()) return 'Product name is required';
@@ -192,110 +156,66 @@ const ProductForm = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  const validationError = validateForm();
-  if (validationError) {
-    alert(validationError);
-    return;
-  }
+    e.preventDefault();
+    
+    const validationError = validateForm();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
 
-  setSaving(true);
-  setError('');
-  setUploadingImages(true);
-  
-  try {
-    let imageUrl = mainImage;
-    let productImages: ProductImage[] = [...uploadedImages]; // Keep existing uploaded images
-
-    // Upload new images if any
-    const filesToUpload: File[] = [];
-    if (mainImageFile) filesToUpload.push(mainImageFile);
-    filesToUpload.push(...additionalImageFiles);
-
-    if (filesToUpload.length > 0) {
-      console.log('📤 Uploading images...', filesToUpload.length);
+    setSaving(true);
+    setError('');
+    
+    try {
+      // Filter out empty image URLs
+      const filteredImages = additionalImages.filter(url => url.trim() !== '');
       
-      const formData = new FormData();
-      filesToUpload.forEach(file => {
-        formData.append('files', file);
-      });
+      // Convert colors string to array
+      const colorsArray = formData.colors
+        .split(',')
+        .map(color => color.trim())
+        .filter(color => color !== '');
 
-      // Upload to your backend
-      const response = await api.post('/products/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Prepare product data - all URLs are strings
+      const productData: any = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        stockQuantity: parseInt(formData.stockQuantity),
+        categoryId: parseInt(formData.categoryId),
+        imageUrl: mainImage,
+        height: formData.height ? parseFloat(formData.height) : 0,
+        width: formData.width ? parseFloat(formData.width) : 0,
+        length: formData.length ? parseFloat(formData.length) : 0,
+        colorsVariant: colorsArray,
+        isActive: formData.isActive
+      };
 
-      console.log('✅ Upload response:', response.data);
+      // Only add images array if there are additional images
+      if (filteredImages.length > 0) {
+        productData.images = filteredImages;
+      }
 
-      // Handle the response based on your backend format
-      if (response.data.images) {
-        // If backend returns ProductImage objects
-        const newImages = response.data.images;
-        productImages = [...productImages, ...newImages];
-        
-        // Update the main image URL if it was uploaded
-        if (mainImageFile) {
-          imageUrl = newImages[0]?.imageUrl || imageUrl;
-        }
-      } else if (response.data.imageUrls) {
-        // If backend returns URLs, convert to ProductImage objects
-        const urls = response.data.imageUrls;
-        if (mainImageFile) {
-          imageUrl = urls[0];
-        }
-        const newImages = urls.map((url: string) => ({ imageUrl: url }));
-        productImages = [...productImages, ...newImages];
+      console.log('📤 Sending product data:', productData);
+
+      if (isEditMode) {
+        await productService.updateProduct(Number(id), productData);
+        alert('Product updated successfully!');
+      } else {
+        await productService.createProduct(productData);
+        alert('Product created successfully!');
       }
       
-      // Store uploaded images in state
-      setUploadedImages(productImages);
+      navigate('/admin/products');
+      
+    } catch (err: any) {
+      console.error('Save error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to save product');
+    } finally {
+      setSaving(false);
     }
-
-    // Convert colors string to array
-    const colorsArray = formData.colors
-      .split(',')
-      .map(color => color.trim())
-      .filter(color => color !== '');
-
-    // Prepare product data
-    const productData = {
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      stockQuantity: parseInt(formData.stockQuantity),
-      categoryId: parseInt(formData.categoryId),
-      imageUrl: imageUrl,
-      // Don't send images array in the main product creation
-      height: formData.height ? parseFloat(formData.height) : 0,
-      width: formData.width ? parseFloat(formData.width) : 0,
-      length: formData.length ? parseFloat(formData.length) : 0,
-      colorsVariant: colorsArray,
-      isActive: formData.isActive
-    };
-
-    console.log('📤 Sending product data:', productData);
-
-    let savedProduct;
-    if (isEditMode) {
-      savedProduct = await productService.updateProduct(Number(id), productData);
-    } else {
-      savedProduct = await productService.createProduct(productData);
-    }
-
-    alert(`Product ${isEditMode ? 'updated' : 'created'} successfully!`);
-    navigate('/admin/products');
-    
-  } catch (err: any) {
-    console.error('Save error:', err);
-    setError(err.response?.data?.message || err.message || 'Failed to save product');
-  } finally {
-    setSaving(false);
-    setUploadingImages(false);
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -343,100 +263,94 @@ const ProductForm = () => {
               Product Images
             </h2>
             
-            {/* Main Image */}
+            {/* Main Image URL */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Main Image (Thumbnail)
+                Main Image URL *
               </label>
-              <div className="flex items-start space-x-6">
-                <div className="flex-shrink-0">
-                  <div className="w-32 h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
-                    {mainImage ? (
-                      <img src={mainImage} alt="Main" className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageIcon className="w-8 h-8 text-gray-400" />
-                    )}
+              <input
+                type="url"
+                value={mainImage}
+                onChange={(e) => setMainImage(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              {mainImage && (
+                <div className="mt-3">
+                  <p className="text-sm text-gray-500 mb-2">Preview:</p>
+                  <div className="w-32 h-32 border rounded-lg overflow-hidden">
+                    <img 
+                      src={mainImage} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image';
+                      }}
+                    />
                   </div>
                 </div>
-                <div className="flex-1">
-                  <label className="cursor-pointer">
-                    <span className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
-                      <Upload className="w-4 h-4 mr-2" />
-                      {uploadingImages ? 'Uploading...' : 'Upload Main Image'}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleMainImageUpload}
-                      disabled={uploadingImages}
-                      className="hidden"
-                    />
-                  </label>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Main image displayed in product listings
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Additional Images */}
+            {/* Additional Image URLs */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Additional Images (Gallery)
+                Additional Image URLs
               </label>
               
               {/* Image Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
-                {additionalImages.map((img, index) => (
-                  <div key={index} className="relative group">
-                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                      <img src={img} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => moveImage(index, Math.max(0, index - 1))}
-                        className="p-1 bg-white rounded-full hover:bg-gray-100"
-                        title="Move Left"
-                      >
-                        <Move className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeAdditionalImage(index)}
-                        className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                        title="Remove"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveImage(index, Math.min(additionalImages.length - 1, index + 1))}
-                        className="p-1 bg-white rounded-full hover:bg-gray-100"
-                        title="Move Right"
-                      >
-                        <Move className="w-3 h-3 transform rotate-180" />
-                      </button>
-                    </div>
+              <div className="grid grid-cols-1 gap-3 mb-4">
+                {additionalImages.map((url, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => updateImageUrl(index, e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => moveImage(index, Math.max(0, index - 1))}
+                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      title="Move Up"
+                      disabled={index === 0}
+                    >
+                      <Move className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveImage(index, Math.min(additionalImages.length - 1, index + 1))}
+                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      title="Move Down"
+                      disabled={index === additionalImages.length - 1}
+                    >
+                      <Move className="w-4 h-4 transform rotate-180" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeAdditionalImage(index)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
-                
-                {/* Upload Button */}
-                <label className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100">
-                  <Plus className="w-6 h-6 text-gray-400 mb-1" />
-                  <span className="text-xs text-gray-500">Add Images</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleAdditionalImagesUpload}
-                    disabled={uploadingImages}
-                    className="hidden"
-                  />
-                </label>
               </div>
-              <p className="text-xs text-gray-500">
-                Upload multiple images. They will be uploaded when you save.
+              
+              <button
+                type="button"
+                onClick={addImageUrl}
+                className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Another Image URL
+              </button>
+              
+              <p className="mt-3 text-xs text-gray-500">
+                Enter image URLs (they will be saved as-is). Use free image hosts like Unsplash, ImgBB, or Cloudinary.
               </p>
             </div>
           </div>
@@ -647,7 +561,7 @@ const ProductForm = () => {
             </button>
             <button
               type="submit"
-              disabled={saving || uploadingImages}
+              disabled={saving}
               className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {saving ? (
