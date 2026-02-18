@@ -16,6 +16,7 @@ import {
   Move,
   Ruler,
   Package,
+  Palette,
   Wrench
 } from 'lucide-react';
 import { Category } from '../../types';
@@ -44,23 +45,16 @@ const ProductForm = () => {
     price: '',
     categoryId: '',
     stockQuantity: '',
-    material: '',
-    color: '',
-    assemblyRequired: false,
-    warranty: '',
+    
+    // Color variants (as comma-separated string for easy input)
+    colors: '',
     
     // Dimensions
     length: '',
     width: '',
     height: '',
-    dimensionUnit: 'cm' as 'cm' | 'in' | 'm',
     
-    // Weight
-    weight: '',
-    weightUnit: 'kg' as 'kg' | 'lb',
-    
-    isActive: true,
-    isFeatured: false
+    isActive: true
   });
 
   useEffect(() => {
@@ -91,27 +85,20 @@ const ProductForm = () => {
         setMainImage(product.imageUrl || '');
         setAdditionalImages(product.images || []);
         
+        // Convert colors array to comma-separated string
+        const colorsString = product.colorsVariant?.join(', ') || '';
+        
         setFormData({
           name: product.name,
           description: product.description,
           price: product.price.toString(),
           categoryId: product.categoryId.toString(),
           stockQuantity: product.stockQuantity.toString(),
-          material: product.material || '',
-          color: product.color || '',
-          assemblyRequired: product.assemblyRequired || false,
-          warranty: product.warranty || '',
-          
-          length: product.dimensions?.length?.toString() || '',
-          width: product.dimensions?.width?.toString() || '',
-          height: product.dimensions?.height?.toString() || '',
-          dimensionUnit: product.dimensions?.unit || 'cm',
-          
-          weight: product.weight?.value?.toString() || '',
-          weightUnit: product.weight?.unit || 'kg',
-          
-          isActive: product.isActive,
-          isFeatured: product.isFeatured || false
+          colors: colorsString,
+          length: product.length?.toString() || '',
+          width: product.width?.toString() || '',
+          height: product.height?.toString() || '',
+          isActive: product.isActive
         });
       }
     } catch (err) {
@@ -134,10 +121,8 @@ const ProductForm = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Store the file for later upload
     setMainImageFile(file);
     
-    // Show preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setMainImage(reader.result as string);
@@ -150,11 +135,8 @@ const ProductForm = () => {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
-    
-    // Store files for later upload
     setAdditionalImageFiles(prev => [...prev, ...fileArray]);
     
-    // Show previews
     fileArray.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -190,83 +172,88 @@ const ProductForm = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  const validationError = validateForm();
-  if (validationError) {
-    alert(validationError);
-    return;
-  }
+    e.preventDefault();
+    
+    const validationError = validateForm();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
 
-  setSaving(true);
-  setError('');
-  setUploadingImages(true);
-  
-  try {
-    let imageUrl = mainImage;
-    let images: string[] = additionalImages;
+    setSaving(true);
+    setError('');
+    setUploadingImages(true);
+    
+    try {
+      let imageUrl = mainImage;
+      let images: string[] = additionalImages;
 
-    // Upload new images if any
-    const filesToUpload: File[] = [];
-    if (mainImageFile) filesToUpload.push(mainImageFile);
-    filesToUpload.push(...additionalImageFiles);
+      // Upload new images if any
+      const filesToUpload: File[] = [];
+      if (mainImageFile) filesToUpload.push(mainImageFile);
+      filesToUpload.push(...additionalImageFiles);
 
-    if (filesToUpload.length > 0) {
-      console.log('📤 Uploading images...', filesToUpload.length);
-      const uploadedUrls = await uploadService.uploadImages(filesToUpload);
-      
-      // Map uploaded URLs to their positions
-      let urlIndex = 0;
-      if (mainImageFile) {
-        imageUrl = uploadedUrls[urlIndex++];
+      if (filesToUpload.length > 0) {
+        console.log('📤 Uploading images...', filesToUpload.length);
+        const uploadedUrls = await uploadService.uploadImages(filesToUpload);
+        
+        let urlIndex = 0;
+        if (mainImageFile) {
+          imageUrl = uploadedUrls[urlIndex++];
+        }
+        
+        images = additionalImages.map((img, idx) => {
+          if (idx < additionalImageFiles.length) {
+            return uploadedUrls[urlIndex++];
+          }
+          return img;
+        });
+      }
+
+      // Convert colors string to array
+      const colorsArray = formData.colors
+        .split(',')
+        .map(color => color.trim())
+        .filter(color => color !== '');
+
+      // Prepare product data matching your backend's expected format
+      const productData = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        stockQuantity: parseInt(formData.stockQuantity),
+        categoryId: parseInt(formData.categoryId),
+        imageUrl: imageUrl,
+        images: images,
+        // Dimensions
+        height: formData.height ? parseFloat(formData.height) : 0,
+        width: formData.width ? parseFloat(formData.width) : 0,
+        length: formData.length ? parseFloat(formData.length) : 0,
+        // Colors as array
+        colorsVariant: colorsArray,
+        // Status
+        isActive: formData.isActive
+      };
+
+      console.log('📤 Sending product data:', productData);
+
+      if (isEditMode) {
+        await productService.updateProduct(Number(id), productData);
+        alert('Product updated successfully!');
+      } else {
+        await productService.createProduct(productData);
+        alert('Product created successfully!');
       }
       
-      // Replace additional image previews with actual URLs
-      images = additionalImages.map((img, idx) => {
-        if (idx < additionalImageFiles.length) {
-          return uploadedUrls[urlIndex++];
-        }
-        return img; // Keep existing URLs (for edit mode)
-      });
+      navigate('/admin/products');
+    } catch (err: any) {
+      console.error('Save error:', err);
+      setError(err.message || 'Failed to save product');
+    } finally {
+      setSaving(false);
+      setUploadingImages(false);
     }
-
-    // Prepare product data matching your backend's expected format
-    const productData = {
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      stockQuantity: parseInt(formData.stockQuantity),
-      categoryId: parseInt(formData.categoryId),
-      imageUrl: imageUrl,
-      // Dimensions (your backend uses separate fields, not a nested object)
-      height: formData.height ? parseFloat(formData.height) : 0,
-      width: formData.width ? parseFloat(formData.width) : 0,
-      length: formData.length ? parseFloat(formData.length) : 0,
-      // Colors
-      colorsVariant: formData.color ? [formData.color] : [],
-      // Status
-      isActive: formData.isActive
-    };
-
-    console.log('📤 Sending product data:', productData);
-
-    if (isEditMode) {
-      await productService.updateProduct(Number(id), productData);
-      alert('Product updated successfully!');
-    } else {
-      await productService.createProduct(productData);
-      alert('Product created successfully!');
-    }
-    
-    navigate('/admin/products');
-  } catch (err: any) {
-    console.error('Save error:', err);
-    setError(err.message || 'Failed to save product');
-  } finally {
-    setSaving(false);
-    setUploadingImages(false);
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -286,7 +273,7 @@ const ProductForm = () => {
               {isEditMode ? 'Edit Product' : 'Add New Product'}
             </h1>
             <p className="text-gray-600 mt-1">
-              {isEditMode ? 'Update product information' : 'Create a new product with details'}
+              {isEditMode ? 'Update product information' : 'Create a new product'}
             </p>
           </div>
           <button
@@ -407,7 +394,7 @@ const ProductForm = () => {
                 </label>
               </div>
               <p className="text-xs text-gray-500">
-                Upload multiple images. They will be uploaded when you save the product.
+                Upload multiple images. They will be uploaded when you save.
               </p>
             </div>
           </div>
@@ -503,17 +490,42 @@ const ProductForm = () => {
             </div>
           </div>
 
+          {/* Color Variants Section */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <Palette className="w-5 h-5 mr-2 text-blue-600" />
+              Color Variants
+            </h2>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Available Colors
+              </label>
+              <input
+                type="text"
+                name="colors"
+                value={formData.colors}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Brown, Black, White, Gray"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Enter colors separated by commas (e.g., Brown, Black, White)
+              </p>
+            </div>
+          </div>
+
           {/* Dimensions Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Ruler className="w-5 h-5 mr-2 text-blue-600" />
-              Dimensions & Weight
+              Dimensions (in cm)
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Length
+                  Length (cm)
                 </label>
                 <input
                   type="number"
@@ -529,7 +541,7 @@ const ProductForm = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Width
+                  Width (cm)
                 </label>
                 <input
                   type="number"
@@ -545,7 +557,7 @@ const ProductForm = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Height
+                  Height (cm)
                 </label>
                 <input
                   type="number"
@@ -558,140 +570,27 @@ const ProductForm = () => {
                   placeholder="0.0"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Unit
-                </label>
-                <select
-                  name="dimensionUnit"
-                  value={formData.dimensionUnit}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="cm">Centimeters (cm)</option>
-                  <option value="in">Inches (in)</option>
-                  <option value="m">Meters (m)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Weight
-                </label>
-                <input
-                  type="number"
-                  name="weight"
-                  min="0"
-                  step="0.1"
-                  value={formData.weight}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="0.0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Weight Unit
-                </label>
-                <select
-                  name="weightUnit"
-                  value={formData.weightUnit}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="kg">Kilograms (kg)</option>
-                  <option value="lb">Pounds (lb)</option>
-                </select>
-              </div>
             </div>
           </div>
 
-          {/* Additional Details */}
+          {/* Status */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Wrench className="w-5 h-5 mr-2 text-blue-600" />
-              Additional Details
+              Status
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Material
-                </label>
+            <div className="flex items-center space-x-6">
+              <label className="flex items-center">
                 <input
-                  type="text"
-                  name="material"
-                  value={formData.material}
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g., Solid Oak Wood, Leather"
+                  className="w-4 h-4 text-blue-600 rounded"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Color
-                </label>
-                <input
-                  type="text"
-                  name="color"
-                  value={formData.color}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g., Brown, Black, White"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Warranty
-                </label>
-                <input
-                  type="text"
-                  name="warranty"
-                  value={formData.warranty}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g., 2 years, Lifetime"
-                />
-              </div>
-
-              <div className="flex items-center space-x-6 pt-8">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="assemblyRequired"
-                    checked={formData.assemblyRequired}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Assembly Required</span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isFeatured"
-                    checked={formData.isFeatured}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Featured Product</span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isActive"
-                    checked={formData.isActive}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Active</span>
-                </label>
-              </div>
+                <span className="ml-2 text-sm text-gray-700">Active (available for sale)</span>
+              </label>
             </div>
           </div>
 
@@ -723,19 +622,6 @@ const ProductForm = () => {
             </button>
           </div>
         </form>
-
-        {/* Help Section */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-blue-800 mb-2">📝 Tips for good product listings:</h3>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li>Use clear, descriptive product names</li>
-            <li>Write detailed descriptions highlighting features and benefits</li>
-            <li>Upload high-quality images showing the product from different angles</li>
-            <li>Include accurate dimensions and weight for furniture items</li>
-            <li>Specify material, color, and assembly requirements</li>
-            <li>Set accurate prices and stock quantities</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

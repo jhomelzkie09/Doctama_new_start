@@ -21,7 +21,7 @@ export interface User {
 }
 
 // Add these type helpers for better type safety
-export type UserRole = 'admin' | 'user' | 'manager'; // Define possible roles
+export type UserRole = 'admin' | 'user' | 'manager';
 
 export interface LoginCredentials {
   email: string;
@@ -32,7 +32,7 @@ export interface RegisterData extends LoginCredentials {
   fullName: string;
 }
 
-
+// Product types - CLEANED VERSION with only what your backend uses
 export interface Product {
   id: number;
   name: string;
@@ -43,27 +43,19 @@ export interface Product {
   categoryId: number;
   stockQuantity: number;
   isActive: boolean;
-  isFeatured?: boolean;
   createdAt: string;
   updatedAt?: string;
+  
+  // From your backend Product model
+  height: number;
+  width: number;
+  length: number;
+  colorsVariant: string[]; // Array of available colors
+  
+  // Optional fields that might come from API
   rating?: number;
   reviewCount?: number;
-  
-  // New dimension fields
-  dimensions?: {
-    length: number;
-    width: number;
-    height: number;
-    unit: 'cm' | 'in' | 'm'; // centimeters, inches, or meters
-  };
-  weight?: {
-    value: number;
-    unit: 'kg' | 'lb'; // kilograms or pounds
-  };
-  material?: string;
-  color?: string;
-  assemblyRequired?: boolean;
-  warranty?: string;
+  isFeatured?: boolean;
 }
 
 export interface CreateProductData {
@@ -74,24 +66,16 @@ export interface CreateProductData {
   images?: string[];
   categoryId: number;
   stockQuantity: number;
+  
+  // From your backend
+  height: number;
+  width: number;
+  length: number;
+  colorsVariant: string[];
+  
+  // Status
   isActive?: boolean;
   isFeatured?: boolean;
-  
-  // Dimension fields
-  dimensions?: {
-    length: number;
-    width: number;
-    height: number;
-    unit: 'cm' | 'in' | 'm';
-  };
-  weight?: {
-    value: number;
-    unit: 'kg' | 'lb';
-  };
-  material?: string;
-  color?: string;
-  assemblyRequired?: boolean;
-  warranty?: string;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {}
@@ -102,9 +86,10 @@ export interface Category {
   name: string;
   description?: string;
   imageUrl?: string;
+  productCount?: number;
 }
 
-// Cart types (unchanged)
+// Cart types
 export interface CartItem {
   id: number;
   productId: number;
@@ -123,14 +108,14 @@ export interface Cart {
   totalPrice: number;
 }
 
-// Order types - Updated to match your structure
+// Order types
 export interface OrderItem {
   id?: string;
   productId: string;
   productName: string;
   quantity: number;
-  price: number;  // Make this required since it's used for calculations
-  unitPrice?: number; // Keep as optional for backward compatibility
+  price: number;
+  unitPrice?: number;
   imageUrl: string;
   color?: string;
   size?: string;
@@ -138,11 +123,11 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  orderNumber: string; // Made required
+  orderNumber: string;
   userId: string;
   orderDate: string;
   totalAmount: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'; // Added specific statuses
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   items: OrderItem[];
   shippingAddress?: string;
   paymentMethod?: string;
@@ -150,12 +135,12 @@ export interface Order {
   updatedAt?: string;
 }
 
-// API response types - Updated to include user data structure
+// API response types
 export interface ApiResponse<T = any> {
   data?: T;
   message?: string;
   token?: string;
-  user?: { // Add this structure for auth responses
+  user?: {
     id: string;
     email: string;
     fullName: string;
@@ -165,7 +150,7 @@ export interface ApiResponse<T = any> {
   success?: boolean;
 }
 
-// Add Auth-specific types
+// Auth-specific types
 export interface AuthUser {
   id: string;
   email: string;
