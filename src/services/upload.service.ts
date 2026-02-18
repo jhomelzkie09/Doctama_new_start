@@ -1,7 +1,7 @@
 import api from '../api/config';
 
 class UploadService {
-  private readonly baseUrl = '/upload';
+  private readonly baseUrl = '/products'; // Changed from '/upload' to '/products'
 
   // Upload multiple images and return URLs
   async uploadImages(files: File[]): Promise<string[]> {
@@ -10,37 +10,39 @@ class UploadService {
       
       const formData = new FormData();
       files.forEach(file => {
-        formData.append('files', file);
+        formData.append('files', file); // Backend expects 'files' field
       });
 
-      // Try your backend upload endpoint first
-      try {
-        const response = await api.post(`${this.baseUrl}/images`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        // Handle different response formats
-        if (response.data.urls) {
-          return response.data.urls;
-        } else if (Array.isArray(response.data)) {
-          return response.data;
-        } else if (response.data.imageUrls) {
-          return response.data.imageUrls;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          return response.data.data;
-        }
-      } catch (error) {
-        console.log('Backend upload failed, using mock service...');
+      // Use your backend's product upload endpoint
+      const response = await api.post(`${this.baseUrl}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      console.log('✅ Images uploaded:', response.data);
+      
+      // Handle different response formats
+      if (response.data.imageUrls) {
+        return response.data.imageUrls;
+      } else if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data.urls) {
+        return response.data.urls;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
       }
-
-      // Fallback: Create object URLs for development
-      return files.map(file => URL.createObjectURL(file));
+      
+      // If response contains the product with images
+      if (response.data.images) {
+        return response.data.images.map((img: any) => img.imageUrl);
+      }
+      
+      return [];
       
     } catch (error: any) {
-      console.error('❌ Error uploading images:', error);
-      throw new Error('Failed to upload images');
+      console.error('❌ Error uploading images:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to upload images');
     }
   }
 

@@ -20,7 +20,6 @@ export interface User {
   lastLogin?: string;
 }
 
-// Add these type helpers for better type safety
 export type UserRole = 'admin' | 'user' | 'manager';
 
 export interface LoginCredentials {
@@ -32,14 +31,22 @@ export interface RegisterData extends LoginCredentials {
   fullName: string;
 }
 
-// Product types - CLEANED VERSION with only what your backend uses
+// Product Image type
+export interface ProductImage {
+  id?: number;
+  imageUrl: string;
+  productId?: number;
+  createdAt?: string;
+}
+
+// Product types
 export interface Product {
   id: number;
   name: string;
   description: string;
   price: number;
   imageUrl: string; // Main/thumbnail image
-  images: string[]; // Array of additional images
+  images?: ProductImage[]; // Array of additional images as objects
   categoryId: number;
   stockQuantity: number;
   isActive: boolean;
@@ -52,7 +59,7 @@ export interface Product {
   length: number;
   colorsVariant: string[]; // Array of available colors
   
-  // Optional fields that might come from API
+  // Optional fields
   rating?: number;
   reviewCount?: number;
   isFeatured?: boolean;
@@ -63,7 +70,7 @@ export interface CreateProductData {
   description: string;
   price: number;
   imageUrl: string;
-  images?: string[];
+  images?: string[] | ProductImage[]; // Can accept either URLs or image objects
   categoryId: number;
   stockQuantity: number;
   

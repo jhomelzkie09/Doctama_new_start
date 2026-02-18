@@ -25,6 +25,18 @@ class ProductService {
       return null;
     }
   }
+  // Add images to an existing product
+async addProductImages(productId: number, imageUrls: string[]): Promise<Product> {
+  try {
+    console.log(`📤 Adding images to product ${productId}...`, imageUrls);
+    const response = await api.post(`/products/${productId}/images`, { imageUrls });
+    console.log('✅ Images added:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error adding images:', error.response?.data || error.message);
+    throw error;
+  }
+}
 
   // Create product with JSON
   async createProduct(productData: any): Promise<Product> {

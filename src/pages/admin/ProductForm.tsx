@@ -19,7 +19,8 @@ import {
   Palette,
   Wrench
 } from 'lucide-react';
-import { Category } from '../../types';
+import { Category, ProductImage } from '../../types';
+import api from '../../api/config';
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -36,9 +37,9 @@ const ProductForm = () => {
   // Image states
   const [mainImage, setMainImage] = useState<string>('');
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
-  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]);
-  
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]); // For preview URLs
+  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]); // For upload
+  const [uploadedImages, setUploadedImages] = useState<ProductImage[]>([]); // For storing uploaded image objects
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -78,36 +79,42 @@ const ProductForm = () => {
   };
 
   const fetchProduct = useCallback(async () => {
-    setLoading(true);
-    try {
-      const product = await productService.getProductById(Number(id));
-      if (product) {
-        setMainImage(product.imageUrl || '');
-        setAdditionalImages(product.images || []);
-        
-        // Convert colors array to comma-separated string
-        const colorsString = product.colorsVariant?.join(', ') || '';
-        
-        setFormData({
-          name: product.name,
-          description: product.description,
-          price: product.price.toString(),
-          categoryId: product.categoryId.toString(),
-          stockQuantity: product.stockQuantity.toString(),
-          colors: colorsString,
-          length: product.length?.toString() || '',
-          width: product.width?.toString() || '',
-          height: product.height?.toString() || '',
-          isActive: product.isActive
-        });
-      }
-    } catch (err) {
-      setError('Failed to load product');
-      console.error('Failed to fetch product:', err);
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const product = await productService.getProductById(Number(id));
+    if (product) {
+      setMainImage(product.imageUrl || '');
+      
+      // Extract image URLs from ProductImage objects
+      const imageUrls = product.images?.map(img => img.imageUrl) || [];
+      setAdditionalImages(imageUrls);
+      
+      // If you need to store the full ProductImage objects for later use
+      setUploadedImages(product.images || []);
+
+      // Convert colors array to comma-separated string
+      const colorsString = product.colorsVariant?.join(', ') || '';
+      
+      setFormData({
+        name: product.name,
+        description: product.description,
+        price: product.price.toString(),
+        categoryId: product.categoryId.toString(),
+        stockQuantity: product.stockQuantity.toString(),
+        colors: colorsString,
+        length: product.length?.toString() || '',
+        width: product.width?.toString() || '',
+        height: product.height?.toString() || '',
+        isActive: product.isActive
+      });
     }
-  }, [id]);
+  } catch (err) {
+    setError('Failed to load product');
+    console.error('Failed to fetch product:', err);
+  } finally {
+    setLoading(false);
+  }
+}, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -131,12 +138,13 @@ const ProductForm = () => {
   };
 
   const handleAdditionalImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
     setAdditionalImageFiles(prev => [...prev, ...fileArray]);
     
+    // Create preview URLs
     fileArray.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -149,18 +157,30 @@ const ProductForm = () => {
   const removeAdditionalImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, i) => i !== index));
     setAdditionalImageFiles(prev => prev.filter((_, i) => i !== index));
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const moveImage = (fromIndex: number, toIndex: number) => {
-    const newImages = [...additionalImages];
-    const newFiles = [...additionalImageFiles];
-    const [movedImage] = newImages.splice(fromIndex, 1);
-    const [movedFile] = newFiles.splice(fromIndex, 1);
-    newImages.splice(toIndex, 0, movedImage);
-    newFiles.splice(toIndex, 0, movedFile);
-    setAdditionalImages(newImages);
-    setAdditionalImageFiles(newFiles);
-  };
+ const moveImage = (fromIndex: number, toIndex: number) => {
+  // Move preview URLs
+  const newPreviewImages = [...additionalImages];
+  const [movedPreview] = newPreviewImages.splice(fromIndex, 1);
+  newPreviewImages.splice(toIndex, 0, movedPreview);
+  setAdditionalImages(newPreviewImages);
+  
+  // Move files
+  const newFiles = [...additionalImageFiles];
+  const [movedFile] = newFiles.splice(fromIndex, 1);
+  newFiles.splice(toIndex, 0, movedFile);
+  setAdditionalImageFiles(newFiles);
+  
+  // Move uploaded image objects if any
+  if (uploadedImages.length > 0) {
+    const newUploaded = [...uploadedImages];
+    const [movedUploaded] = newUploaded.splice(fromIndex, 1);
+    newUploaded.splice(toIndex, 0, movedUploaded);
+    setUploadedImages(newUploaded);
+  }
+};
 
   const validateForm = () => {
     if (!formData.name.trim()) return 'Product name is required';
@@ -172,88 +192,110 @@ const ProductForm = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const validationError = validateForm();
-    if (validationError) {
-      alert(validationError);
-      return;
-    }
+  e.preventDefault();
+  
+  const validationError = validateForm();
+  if (validationError) {
+    alert(validationError);
+    return;
+  }
 
-    setSaving(true);
-    setError('');
-    setUploadingImages(true);
-    
-    try {
-      let imageUrl = mainImage;
-      let images: string[] = additionalImages;
+  setSaving(true);
+  setError('');
+  setUploadingImages(true);
+  
+  try {
+    let imageUrl = mainImage;
+    let productImages: ProductImage[] = [...uploadedImages]; // Keep existing uploaded images
 
-      // Upload new images if any
-      const filesToUpload: File[] = [];
-      if (mainImageFile) filesToUpload.push(mainImageFile);
-      filesToUpload.push(...additionalImageFiles);
+    // Upload new images if any
+    const filesToUpload: File[] = [];
+    if (mainImageFile) filesToUpload.push(mainImageFile);
+    filesToUpload.push(...additionalImageFiles);
 
-      if (filesToUpload.length > 0) {
-        console.log('📤 Uploading images...', filesToUpload.length);
-        const uploadedUrls = await uploadService.uploadImages(filesToUpload);
+    if (filesToUpload.length > 0) {
+      console.log('📤 Uploading images...', filesToUpload.length);
+      
+      const formData = new FormData();
+      filesToUpload.forEach(file => {
+        formData.append('files', file);
+      });
+
+      // Upload to your backend
+      const response = await api.post('/products/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('✅ Upload response:', response.data);
+
+      // Handle the response based on your backend format
+      if (response.data.images) {
+        // If backend returns ProductImage objects
+        const newImages = response.data.images;
+        productImages = [...productImages, ...newImages];
         
-        let urlIndex = 0;
+        // Update the main image URL if it was uploaded
         if (mainImageFile) {
-          imageUrl = uploadedUrls[urlIndex++];
+          imageUrl = newImages[0]?.imageUrl || imageUrl;
         }
-        
-        images = additionalImages.map((img, idx) => {
-          if (idx < additionalImageFiles.length) {
-            return uploadedUrls[urlIndex++];
-          }
-          return img;
-        });
-      }
-
-      // Convert colors string to array
-      const colorsArray = formData.colors
-        .split(',')
-        .map(color => color.trim())
-        .filter(color => color !== '');
-
-      // Prepare product data matching your backend's expected format
-      const productData = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        stockQuantity: parseInt(formData.stockQuantity),
-        categoryId: parseInt(formData.categoryId),
-        imageUrl: imageUrl,
-        images: images,
-        // Dimensions
-        height: formData.height ? parseFloat(formData.height) : 0,
-        width: formData.width ? parseFloat(formData.width) : 0,
-        length: formData.length ? parseFloat(formData.length) : 0,
-        // Colors as array
-        colorsVariant: colorsArray,
-        // Status
-        isActive: formData.isActive
-      };
-
-      console.log('📤 Sending product data:', productData);
-
-      if (isEditMode) {
-        await productService.updateProduct(Number(id), productData);
-        alert('Product updated successfully!');
-      } else {
-        await productService.createProduct(productData);
-        alert('Product created successfully!');
+      } else if (response.data.imageUrls) {
+        // If backend returns URLs, convert to ProductImage objects
+        const urls = response.data.imageUrls;
+        if (mainImageFile) {
+          imageUrl = urls[0];
+        }
+        const newImages = urls.map((url: string) => ({ imageUrl: url }));
+        productImages = [...productImages, ...newImages];
       }
       
-      navigate('/admin/products');
-    } catch (err: any) {
-      console.error('Save error:', err);
-      setError(err.message || 'Failed to save product');
-    } finally {
-      setSaving(false);
-      setUploadingImages(false);
+      // Store uploaded images in state
+      setUploadedImages(productImages);
     }
-  };
+
+    // Convert colors string to array
+    const colorsArray = formData.colors
+      .split(',')
+      .map(color => color.trim())
+      .filter(color => color !== '');
+
+    // Prepare product data
+    const productData = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      stockQuantity: parseInt(formData.stockQuantity),
+      categoryId: parseInt(formData.categoryId),
+      imageUrl: imageUrl,
+      // Don't send images array in the main product creation
+      height: formData.height ? parseFloat(formData.height) : 0,
+      width: formData.width ? parseFloat(formData.width) : 0,
+      length: formData.length ? parseFloat(formData.length) : 0,
+      colorsVariant: colorsArray,
+      isActive: formData.isActive
+    };
+
+    console.log('📤 Sending product data:', productData);
+
+    let savedProduct;
+    if (isEditMode) {
+      savedProduct = await productService.updateProduct(Number(id), productData);
+    } else {
+      savedProduct = await productService.createProduct(productData);
+    }
+
+    alert(`Product ${isEditMode ? 'updated' : 'created'} successfully!`);
+    navigate('/admin/products');
+    
+  } catch (err: any) {
+    console.error('Save error:', err);
+    setError(err.response?.data?.message || err.message || 'Failed to save product');
+  } finally {
+    setSaving(false);
+    setUploadingImages(false);
+  }
+};
 
   if (loading) {
     return (
