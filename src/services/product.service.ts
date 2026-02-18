@@ -129,30 +129,16 @@ class ProductService {
   }
 
   // Upload product image
-  async uploadProductImage(file: File): Promise<string> {
-    try {
-      console.log('📤 Uploading product image...');
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      const response = await api.post(`${this.baseUrl}/upload-image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      console.log('✅ Image uploaded:', response.data);
-      
-      if (response.data.imageUrl) {
-        return response.data.imageUrl;
-      } else if (response.data.url) {
-        return response.data.url;
-      }
-      
-      throw new Error('No image URL in response');
-    } catch (error: any) {
-      console.error('❌ Error uploading image:', error.response?.data || error.message);
-      throw error;
-    }
+ async uploadProductImage(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // For now, just return the data URL as the image
+        // This won't persist but allows testing
+        resolve(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   // Get categories
