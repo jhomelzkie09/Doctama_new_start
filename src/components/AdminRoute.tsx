@@ -1,45 +1,33 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-interface AdminRouteProps {
-  children: React.ReactNode;
-}
+const AdminRoute = () => {
+  const { user, isAdmin } = useAuth();
 
-const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
-  const { user, loading, isAdmin } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  // Check if user has admin role
+  console.log('🔐 AdminRoute check:');
+  console.log('   User:', user?.email);
+  console.log('   Roles:', user?.roles);
+  console.log('   isAdmin from context:', isAdmin);
+  
   const userIsAdmin = user?.roles?.some(role => 
-    role?.toLowerCase() === 'admin'
-  );
-
-  console.log("🔐 AdminRoute check:");
-  console.log("   User:", user?.email);
-  console.log("   Roles:", user?.roles);
-  console.log("   isAdmin from context:", isAdmin);
-  console.log("   userIsAdmin calculated:", userIsAdmin);
+    role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
+  ) || false;
+  
+  console.log('   userIsAdmin calculated:', userIsAdmin);
 
   if (!user) {
-    console.log("❌ No user, redirecting to login");
-    return <Navigate to="/login" replace />;
+    console.log('❌ No user, redirecting to login');
+    return <Navigate to="/login" />;
   }
 
-  if (!userIsAdmin) {
-    console.log("❌ Not admin, redirecting to home");
-    return <Navigate to="/" replace />;
+  if (!isAdmin && !userIsAdmin) {
+    console.log('❌ Not admin, redirecting to home');
+    return <Navigate to="/" />;
   }
 
-  console.log("✅ Admin access granted");
-  return <>{children}</>;
+  console.log('✅ Admin access granted, rendering outlet');
+  return <Outlet />;
 };
 
 export default AdminRoute;

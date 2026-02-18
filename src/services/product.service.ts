@@ -4,10 +4,8 @@ import axios from 'axios';
 import { Product, Category, ApiResponse } from '../types';
 
 class ProductService {
-  baseUrl: any;
-  toggleProductStatus(id: number, arg1: boolean) {
-      throw new Error('Method not implemented.');
-  }
+  private readonly baseUrl = '/products';
+
   // Default getProducts method (no pagination)
   async getProducts(): Promise<Product[]> {
     try {
@@ -41,6 +39,7 @@ class ProductService {
     }
   }
 
+  // Get single product by ID
   async getProduct(id: number): Promise<Product | null> {
     try {
       const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
@@ -51,18 +50,112 @@ class ProductService {
     }
   }
 
-  async deleteProduct(id: number): Promise<boolean> {
-  try {
-    console.log(`📤 Deleting product ${id}...`);
-    await api.delete(`${this.baseUrl}/admin/products/${id}`);
-    console.log(`✅ Product ${id} deleted`);
-    return true;
-  } catch (error: any) {
-    console.error(`❌ Error deleting product ${id}:`, error.response?.data || error.message);
-    throw error;
+  // Alias for getProduct (to match the method name used in ProductForm)
+  async getProductById(id: number): Promise<Product | null> {
+    return this.getProduct(id);
   }
-}
 
+  // Create new product (Admin only)
+  async createProduct(productData: any): Promise<Product> {
+    try {
+      console.log('📤 Creating product...', productData);
+      const response = await api.post(`${this.baseUrl}/admin/products`, productData);
+      console.log('✅ Product created:', response.data);
+      
+      if (response.data) {
+        return response.data;
+      } else if (response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error('Invalid response format');
+    } catch (error: any) {
+      console.error('❌ Error creating product:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Update product (Admin only)
+  async updateProduct(id: number, productData: any): Promise<Product> {
+    try {
+      console.log(`📤 Updating product ${id}...`, productData);
+      const response = await api.put(`${this.baseUrl}/admin/products/${id}`, productData);
+      console.log('✅ Product updated:', response.data);
+      
+      if (response.data) {
+        return response.data;
+      } else if (response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error('Invalid response format');
+    } catch (error: any) {
+      console.error(`❌ Error updating product ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Delete product (Admin only)
+  async deleteProduct(id: number): Promise<boolean> {
+    try {
+      console.log(`📤 Deleting product ${id}...`);
+      await api.delete(`${this.baseUrl}/admin/products/${id}`);
+      console.log(`✅ Product ${id} deleted`);
+      return true;
+    } catch (error: any) {
+      console.error(`❌ Error deleting product ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Toggle product status (Admin only)
+  async toggleProductStatus(id: number, isActive: boolean): Promise<Product> {
+    try {
+      console.log(`📤 Toggling product ${id} status to ${isActive ? 'active' : 'inactive'}...`);
+      const response = await api.patch(`${this.baseUrl}/admin/products/${id}/status`, { isActive });
+      console.log('✅ Product status toggled:', response.data);
+      
+      if (response.data) {
+        return response.data;
+      } else if (response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error('Invalid response format');
+    } catch (error: any) {
+      console.error(`❌ Error toggling product status ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Upload product image
+  async uploadProductImage(file: File): Promise<string> {
+    try {
+      console.log('📤 Uploading product image...');
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await api.post(`${this.baseUrl}/upload-image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      console.log('✅ Image uploaded:', response.data);
+      
+      if (response.data.imageUrl) {
+        return response.data.imageUrl;
+      } else if (response.data.url) {
+        return response.data.url;
+      }
+      
+      throw new Error('No image URL in response');
+    } catch (error: any) {
+      console.error('❌ Error uploading image:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // Get categories
   async getCategories(): Promise<Category[]> {
     try {
       const response = await api.get<ApiResponse<Category[]>>('/categories');
@@ -73,6 +166,7 @@ class ProductService {
     }
   }
 
+  // Search products
   async searchProducts(query: string): Promise<Product[]> {
     try {
       const response = await api.get<ApiResponse<Product[]>>(`/products/search?q=${query}`);
@@ -83,8 +177,6 @@ class ProductService {
     }
   }
 }
-
-
 
 const productService = new ProductService();
 export default productService;
