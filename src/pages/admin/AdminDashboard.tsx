@@ -251,9 +251,11 @@ if (Array.isArray(orders)) {
     // Process orders with customer details
     const ordersWithDetails: OrderWithDetails[] = Array.isArray(orders) 
       ? orders.slice(0, 5).map((order: Order) => {
-          const customer = Array.isArray(users) 
+          // Safely find customer even if users array is empty
+          const customer = Array.isArray(users) && users.length > 0
             ? users.find((u: User) => u.id === order.userId)
             : undefined;
+          
           return {
             ...order,
             customerName: customer?.fullName || 'Guest Customer',

@@ -4,6 +4,10 @@ import axios from 'axios';
 import { Product, Category, ApiResponse } from '../types';
 
 class ProductService {
+  baseUrl: any;
+  toggleProductStatus(id: number, arg1: boolean) {
+      throw new Error('Method not implemented.');
+  }
   // Default getProducts method (no pagination)
   async getProducts(): Promise<Product[]> {
     try {
@@ -47,6 +51,18 @@ class ProductService {
     }
   }
 
+  async deleteProduct(id: number): Promise<boolean> {
+  try {
+    console.log(`📤 Deleting product ${id}...`);
+    await api.delete(`${this.baseUrl}/admin/products/${id}`);
+    console.log(`✅ Product ${id} deleted`);
+    return true;
+  } catch (error: any) {
+    console.error(`❌ Error deleting product ${id}:`, error.response?.data || error.message);
+    throw error;
+  }
+}
+
   async getCategories(): Promise<Category[]> {
     try {
       const response = await api.get<ApiResponse<Category[]>>('/categories');
@@ -67,6 +83,8 @@ class ProductService {
     }
   }
 }
+
+
 
 const productService = new ProductService();
 export default productService;

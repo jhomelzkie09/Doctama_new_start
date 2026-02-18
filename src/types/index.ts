@@ -33,6 +33,7 @@ export interface RegisterData extends LoginCredentials {
 }
 
 // Product types - UPDATED with rating and reviewCount
+// Add these to your existing Product interface
 export interface Product {
   id: number;
   name: string;
@@ -40,13 +41,28 @@ export interface Product {
   price: number;
   imageUrl: string;
   categoryId: number;
+  category?: Category; // Add this for populated category
   stockQuantity: number;
   isActive: boolean;
+  isFeatured?: boolean;
   createdAt: string;
   updatedAt?: string;
-  rating?: number;        // ADD THIS - optional rating
-  reviewCount?: number;   // ADD THIS - optional review count
+  rating?: number;
+  reviewCount?: number;
 }
+
+export interface CreateProductData {
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  categoryId: number;
+  stockQuantity: number;
+  isActive?: boolean;
+  isFeatured?: boolean;
+}
+
+export interface UpdateProductData extends Partial<CreateProductData> {}
 
 // Category types
 export interface Category {

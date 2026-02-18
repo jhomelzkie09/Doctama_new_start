@@ -53,27 +53,49 @@ class UserService {
    * Get all users (Admin only)
    */
   async getAllUsers(): Promise<UserProfile[]> {
-    try {
-      console.log('📤 Fetching all users...');
-      const response = await api.get(`${this.baseUrl}/admin/users`);
-      console.log('✅ Users fetched:', response.data);
-      
-      // Handle different response formats
-      if (Array.isArray(response.data)) {
-        return response.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        return response.data.data;
-      } else if (response.data.users && Array.isArray(response.data.users)) {
-        return response.data.users;
-      }
-      
-      return [];
-    } catch (error: any) {
-      console.error('❌ Error fetching users:', error.response?.data || error.message);
-      // Return empty array instead of throwing to prevent dashboard from crashing
-      return [];
+  try {
+    console.log('📤 Fetching all users...');
+    const response = await api.get(`${this.baseUrl}/admin/users`);
+    console.log('✅ Users fetched:', response.data);
+    
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    } else if (response.data.users && Array.isArray(response.data.users)) {
+      return response.data.users;
     }
+    
+    return [];
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      console.log('ℹ️ Users endpoint not available yet, using mock data');
+      // Return mock users for development
+      return [
+        {
+          id: '1',
+          email: 'admin@doctama.com',
+          fullName: 'Admin User',
+          roles: ['Admin'],
+          isActive: true,
+          emailConfirmed: true,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: '2',
+          email: 'user@example.com',
+          fullName: 'Test User',
+          roles: ['User'],
+          isActive: true,
+          emailConfirmed: true,
+          createdAt: new Date().toISOString()
+        }
+      ] as UserProfile[];
+    }
+    console.error('❌ Error fetching users:', error.response?.data || error.message);
+    return [];
   }
+}
 
   /**
    * Get user by ID
