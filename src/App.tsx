@@ -13,6 +13,7 @@ import Products from './pages/Products';
 // Admin Product Pages - Import these
 import AdminProducts from './pages/admin/AdminProducts';
 import ProductForm from './pages/admin/ProductForm';
+import CategoriesManagement from './pages/admin/CategoryManagement';
 
 function App() {
   return (
@@ -43,7 +44,8 @@ function App() {
               <Route path="products" element={<AdminProducts />} />
               <Route path="products/new" element={<ProductForm />} />
               <Route path="products/edit/:id" element={<ProductForm />} />
-              <Route path="products/:id" element={<ProductForm />} /> {/* For viewing */}
+              <Route path="products/:id" element={<ProductForm />} /> 
+              <Route path="categories" element={<CategoriesManagement />} />
             </Route>
             
             {/* Redirect unknown routes */}

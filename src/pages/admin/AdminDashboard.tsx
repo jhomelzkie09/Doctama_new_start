@@ -27,7 +27,8 @@ import {
   Truck,
   Star,
   MessageSquare,
-  Loader
+  Loader,
+  Folder
 } from 'lucide-react';
 import { Order, Product, User, OrderItem } from '../../types';
 
@@ -756,6 +757,7 @@ if (Array.isArray(orders)) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { icon: Package, label: 'Add Product', desc: 'Create new listing', path: '/admin/products/new' },
+            { icon: Folder, label: 'Manage Categories', desc: 'Organize products', path: '/admin/categories' }, 
             { icon: ShoppingCart, label: 'Process Orders', desc: 'Update status', path: '/admin/orders' },
             { icon: Users, label: 'Manage Users', desc: 'View customers', path: '/admin/users' },
             { icon: BarChart3, label: 'View Reports', desc: 'Sales analytics', path: '/admin/analytics' },
