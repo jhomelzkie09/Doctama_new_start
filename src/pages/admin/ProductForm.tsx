@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,  useCallback} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import productService from '../../services/product.service';
@@ -14,9 +14,7 @@ import {
   Trash2,
   Move,
   Ruler,
-  Weight,
   Package,
-  Palette,
   Wrench
 } from 'lucide-react';
 import { Category } from '../../types';
@@ -80,44 +78,56 @@ const ProductForm = () => {
     }
   };
 
-  const fetchProduct = async () => {
-    setLoading(true);
-    try {
-      const product = await productService.getProductById(Number(id));
-      if (product) {
-        setMainImage(product.imageUrl || '');
-        setAdditionalImages(product.images || []);
+  const fetchProduct = useCallback(async () => {
+  setLoading(true);
+  try {
+    const product = await productService.getProductById(Number(id));
+    if (product) {
+      setMainImage(product.imageUrl || '');
+      setAdditionalImages(product.images || []);
+      
+      setFormData({
+        name: product.name,
+        description: product.description,
+        price: product.price.toString(),
+        categoryId: product.categoryId.toString(),
+        stockQuantity: product.stockQuantity.toString(),
+        material: product.material || '',
+        color: product.color || '',
+        assemblyRequired: product.assemblyRequired || false,
+        warranty: product.warranty || '',
         
-        setFormData({
-          name: product.name,
-          description: product.description,
-          price: product.price.toString(),
-          categoryId: product.categoryId.toString(),
-          stockQuantity: product.stockQuantity.toString(),
-          material: product.material || '',
-          color: product.color || '',
-          assemblyRequired: product.assemblyRequired || false,
-          warranty: product.warranty || '',
-          
-          length: product.dimensions?.length?.toString() || '',
-          width: product.dimensions?.width?.toString() || '',
-          height: product.dimensions?.height?.toString() || '',
-          dimensionUnit: product.dimensions?.unit || 'cm',
-          
-          weight: product.weight?.value?.toString() || '',
-          weightUnit: product.weight?.unit || 'kg',
-          
-          isActive: product.isActive,
-          isFeatured: product.isFeatured || false
-        });
-      }
-    } catch (err) {
-      setError('Failed to load product');
-      console.error('Failed to fetch product:', err);
-    } finally {
-      setLoading(false);
+        length: product.dimensions?.length?.toString() || '',
+        width: product.dimensions?.width?.toString() || '',
+        height: product.dimensions?.height?.toString() || '',
+        dimensionUnit: product.dimensions?.unit || 'cm',
+        
+        weight: product.weight?.value?.toString() || '',
+        weightUnit: product.weight?.unit || 'kg',
+        
+        isActive: product.isActive,
+        isFeatured: product.isFeatured || false
+      });
     }
-  };
+  } catch (err) {
+    setError('Failed to load product');
+    console.error('Failed to fetch product:', err);
+  } finally {
+    setLoading(false);
+  }
+}, [id]); // Add id as dependency
+
+// Then update the useEffect:
+useEffect(() => {
+  if (!isAdmin) {
+    navigate('/admin');
+    return;
+  }
+  fetchCategories();
+  if (isEditMode) {
+    fetchProduct();
+  }
+}, [isAdmin, navigate, isEditMode, fetchProduct]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

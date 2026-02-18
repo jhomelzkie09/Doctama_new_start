@@ -1,7 +1,5 @@
 import api from '../api/config';
-import { API_URL } from '../api/config';
-import axios from 'axios';
-import { Product, Category, ApiResponse, CreateProductData } from '../types';
+import { Product, Category, CreateProductData } from '../types';
 
 class ProductService {
   private readonly baseUrl = '/products';
