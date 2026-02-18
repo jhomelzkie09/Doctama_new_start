@@ -8,14 +8,53 @@ class ProductService {
 
   // Default getProducts method (no pagination)
   async getProducts(): Promise<Product[]> {
-    try {
-      const response = await api.get<ApiResponse<Product[]>>('/products');
-      return response.data?.data || [];
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      return [];
+  try {
+    console.log('📤 Fetching products...');
+    const response = await api.get('/products');
+    console.log('📦 Raw API Response:', response.data);
+    
+    // Handle different response formats
+    let products: Product[] = [];
+    
+    if (Array.isArray(response.data)) {
+      // Direct array response
+      products = response.data;
+      console.log('✅ Products fetched (direct array):', products.length);
+    } 
+    else if (response.data.data && Array.isArray(response.data.data)) {
+      // Wrapped in data property
+      products = response.data.data;
+      console.log('✅ Products fetched (data property):', products.length);
     }
+    else if (response.data.products && Array.isArray(response.data.products)) {
+      // Wrapped in products property
+      products = response.data.products;
+      console.log('✅ Products fetched (products property):', products.length);
+    }
+    else if (response.data && typeof response.data === 'object') {
+      // Check if it's a single product wrapped in an object
+      console.log('⚠️ Unexpected format, checking for single product...');
+      
+      // If it has an id, it might be a single product
+      if (response.data.id) {
+        products = [response.data];
+        console.log('✅ Single product found');
+      }
+    }
+    
+    // Log the first product to see its structure
+    if (products.length > 0) {
+      console.log('📦 First product structure:', products[0]);
+    } else {
+      console.log('📦 No products found');
+    }
+    
+    return products;
+  } catch (error: any) {
+    console.error('❌ Error fetching products:', error.response?.data || error.message);
+    return [];
   }
+}
 
   // Get products with pagination
   async getProductsPaginated(page?: number, limit?: number): Promise<{
