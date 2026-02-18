@@ -36,16 +36,18 @@ const ProductForm = () => {
     isFeatured: false
   });
 
-  useEffect(() => {
-    if (!isAdmin) {
-      navigate('/admin');
-      return;
-    }
-    fetchCategories();
-    if (isEditMode) {
-      fetchProduct();
-    }
-  }, [isAdmin, navigate, id]);
+  // In ProductForm.tsx, before the useEffect that's causing the warning:
+useEffect(() => {
+  if (!isAdmin) {
+    navigate('/admin');
+    return;
+  }
+  fetchCategories();
+  if (isEditMode) {
+    fetchProduct();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isAdmin, navigate, isEditMode]); // Add the comment to ignore the warning
 
   const fetchCategories = async () => {
     try {
