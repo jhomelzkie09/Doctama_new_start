@@ -53,7 +53,11 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      await register(formData.email, formData.password, formData.fullName);
+      await register({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName
+      });
       console.log("✅ Registration successful");
       navigate('/');
     } catch (err: any) {
