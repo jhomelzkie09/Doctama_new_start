@@ -190,102 +190,83 @@ const ProductForm = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const validationError = validateForm();
-    if (validationError) {
-      alert(validationError);
-      return;
-    }
+  e.preventDefault();
+  
+  const validationError = validateForm();
+  if (validationError) {
+    alert(validationError);
+    return;
+  }
 
-    setSaving(true);
-    setError('');
-    setUploadingImages(true);
-    
-    try {
-      let imageUrl = mainImage;
-      let images: string[] = additionalImages;
+  setSaving(true);
+  setError('');
+  setUploadingImages(true);
+  
+  try {
+    let imageUrl = mainImage;
+    let images: string[] = additionalImages;
 
-      // Upload new images if any
-      const filesToUpload: File[] = [];
-      if (mainImageFile) filesToUpload.push(mainImageFile);
-      filesToUpload.push(...additionalImageFiles);
+    // Upload new images if any
+    const filesToUpload: File[] = [];
+    if (mainImageFile) filesToUpload.push(mainImageFile);
+    filesToUpload.push(...additionalImageFiles);
 
-      if (filesToUpload.length > 0) {
-        console.log('📤 Uploading images...', filesToUpload.length);
-        const uploadedUrls = await uploadService.uploadImages(filesToUpload);
-        
-        // Map uploaded URLs to their positions
-        let urlIndex = 0;
-        if (mainImageFile) {
-          imageUrl = uploadedUrls[urlIndex++];
+    if (filesToUpload.length > 0) {
+      console.log('📤 Uploading images...', filesToUpload.length);
+      const uploadedUrls = await uploadService.uploadImages(filesToUpload);
+      
+      // Map uploaded URLs to their positions
+      let urlIndex = 0;
+      if (mainImageFile) {
+        imageUrl = uploadedUrls[urlIndex++];
+      }
+      
+      // Replace additional image previews with actual URLs
+      images = additionalImages.map((img, idx) => {
+        if (idx < additionalImageFiles.length) {
+          return uploadedUrls[urlIndex++];
         }
-        
-        // Replace additional image previews with actual URLs
-        images = additionalImages.map((img, idx) => {
-          if (idx < additionalImageFiles.length) {
-            return uploadedUrls[urlIndex++];
-          }
-          return img; // Keep existing URLs (for edit mode)
-        });
-      }
-
-      // Prepare product data for JSON
-      const productData: any = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        categoryId: parseInt(formData.categoryId),
-        stockQuantity: parseInt(formData.stockQuantity),
-        imageUrl: imageUrl,
-        images: images,
-        isActive: formData.isActive,
-        isFeatured: formData.isFeatured
-      };
-
-      // Add optional fields if they have values
-      if (formData.material) productData.material = formData.material;
-      if (formData.color) productData.color = formData.color;
-      if (formData.assemblyRequired) productData.assemblyRequired = formData.assemblyRequired;
-      if (formData.warranty) productData.warranty = formData.warranty;
-      
-      // Add dimensions if all values are provided
-      if (formData.length && formData.width && formData.height) {
-        productData.dimensions = {
-          length: parseFloat(formData.length),
-          width: parseFloat(formData.width),
-          height: parseFloat(formData.height),
-          unit: formData.dimensionUnit
-        };
-      }
-      
-      // Add weight if provided
-      if (formData.weight) {
-        productData.weight = {
-          value: parseFloat(formData.weight),
-          unit: formData.weightUnit
-        };
-      }
-
-      console.log('📤 Sending product data:', productData);
-
-      if (isEditMode) {
-        await productService.updateProduct(Number(id), productData);
-        alert('Product updated successfully!');
-      } else {
-        await productService.createProduct(productData);
-        alert('Product created successfully!');
-      }
-      
-      navigate('/admin/products');
-    } catch (err: any) {
-      console.error('Save error:', err);
-      setError(err.message || 'Failed to save product');
-    } finally {
-      setSaving(false);
-      setUploadingImages(false);
+        return img; // Keep existing URLs (for edit mode)
+      });
     }
-  };
+
+    // Prepare product data matching your backend's expected format
+    const productData = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      stockQuantity: parseInt(formData.stockQuantity),
+      categoryId: parseInt(formData.categoryId),
+      imageUrl: imageUrl,
+      // Dimensions (your backend uses separate fields, not a nested object)
+      height: formData.height ? parseFloat(formData.height) : 0,
+      width: formData.width ? parseFloat(formData.width) : 0,
+      length: formData.length ? parseFloat(formData.length) : 0,
+      // Colors
+      colorsVariant: formData.color ? [formData.color] : [],
+      // Status
+      isActive: formData.isActive
+    };
+
+    console.log('📤 Sending product data:', productData);
+
+    if (isEditMode) {
+      await productService.updateProduct(Number(id), productData);
+      alert('Product updated successfully!');
+    } else {
+      await productService.createProduct(productData);
+      alert('Product created successfully!');
+    }
+    
+    navigate('/admin/products');
+  } catch (err: any) {
+    console.error('Save error:', err);
+    setError(err.message || 'Failed to save product');
+  } finally {
+    setSaving(false);
+    setUploadingImages(false);
+  }
+};
 
   if (loading) {
     return (

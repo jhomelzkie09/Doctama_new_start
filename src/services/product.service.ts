@@ -34,7 +34,14 @@ class ProductService {
       console.log('✅ Product created:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error creating product:', error.response?.data || error.message);
+      console.error('❌ Error creating product:', error.response?.data);
+      
+      // Extract validation error messages
+      if (error.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors).flat();
+        throw new Error(errorMessages.join(', '));
+      }
+      
       throw new Error(
         error.response?.data?.message || 
         error.response?.data?.title || 
