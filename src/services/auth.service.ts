@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_URL } from '../api/config';
-import { LoginCredentials, RegisterData, User, AuthUser } from '../types';
+import { LoginCredentials, RegisterData, User } from '../types';
 
 // Create a type for the stored user data
 interface StoredUser {

@@ -1,5 +1,5 @@
 import api from '../api/config';
-import { User, ApiResponse } from '../types';
+
 
 export {};
 export interface UserProfile {

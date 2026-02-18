@@ -302,7 +302,7 @@ if (Array.isArray(orders)) {
   } finally {
     setLoading(false);
   }
-}, [timeRange, calculateTrend, generateRecentActivities]);
+}, [calculateTrend, generateRecentActivities]);
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
