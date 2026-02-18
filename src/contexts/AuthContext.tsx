@@ -1,15 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { User, LoginCredentials, RegisterData } from '../types';
 import authService from '../services/auth.service';
-import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
-  logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  register: (data: RegisterData) => Promise<void>;
+  loading: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,39 +23,32 @@ export const useAuth = () => {
   return context;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Get user from storage on mount
     const currentUser = authService.getCurrentUser();
     setUser(currentUser);
     setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    setLoading(true);
     try {
-      // Remove the unused variable assignment
+      setLoading(true);
+      setError(null);
+      
       await authService.login({ email, password });
+      
+      // Get the updated user from storage
       const currentUser = authService.getCurrentUser();
       setUser(currentUser);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (email: string, password: string, fullName: string) => {
-    setLoading(true);
-    try {
-      // Remove the unused variable assignment
-      await authService.register({ email, password, fullName });
-      const currentUser = authService.getCurrentUser();
-      setUser(currentUser);
+      
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -65,15 +59,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
   };
 
-  const value = {
-    user,
-    loading,
-    login,
-    register,
-    logout,
-    isAuthenticated: !!user,
-    isAdmin: user?.roles?.includes('admin') || false
+  const register = async (data: RegisterData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await authService.register(data);
+      
+      const currentUser = authService.getCurrentUser();
+      setUser(currentUser);
+      
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const isAdmin = user?.roles?.some(role => 
+    role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
+  ) || false;
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isAdmin,
+        login,
+        logout,
+        register,
+        loading,
+        error
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };

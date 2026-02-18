@@ -2,10 +2,22 @@
 export interface User {
   id: string;
   email: string;
-  fullName: string;
-  roles: string[]; // Keep as array for multiple roles
-  createdAt?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  profileImage?: string;
+  roles: string[];
+  isActive: boolean;
+  emailConfirmed: boolean;
+  createdAt: string;
   updatedAt?: string;
+  lastLogin?: string;
 }
 
 // Add these type helpers for better type safety
@@ -20,7 +32,7 @@ export interface RegisterData extends LoginCredentials {
   fullName: string;
 }
 
-// Product types (unchanged)
+// Product types - UPDATED with rating and reviewCount
 export interface Product {
   id: number;
   name: string;
@@ -32,8 +44,11 @@ export interface Product {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
+  rating?: number;        // ADD THIS - optional rating
+  reviewCount?: number;   // ADD THIS - optional review count
 }
 
+// Category types
 export interface Category {
   id: number;
   name: string;
@@ -66,7 +81,8 @@ export interface OrderItem {
   productId: string;
   productName: string;
   quantity: number;
-  price: number;
+  price: number;  // Make this required since it's used for calculations
+  unitPrice?: number; // Keep as optional for backward compatibility
   imageUrl: string;
   color?: string;
   size?: string;

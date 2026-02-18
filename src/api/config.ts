@@ -61,5 +61,28 @@ api.interceptors.response.use(
   }
 );
 
+// Request interceptor - add more logging
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    console.log('🔑 Token exists:', !!token);
+    console.log('🔑 Token (first 20 chars):', token?.substring(0, 20) + '...');
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('📤 Added Authorization header');
+    } else {
+      console.warn('⚠️ No token found for request:', config.url);
+    }
+    
+    console.log('📤 Request headers:', config.headers);
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request error:', error);
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 export { API_URL };

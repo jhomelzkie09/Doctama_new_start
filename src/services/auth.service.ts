@@ -1,6 +1,14 @@
 import axios from 'axios';
 import { API_URL } from '../api/config';
-import { LoginCredentials, RegisterData, User } from '../types';
+import { LoginCredentials, RegisterData, User, AuthUser } from '../types';
+
+// Create a type for the stored user data
+interface StoredUser {
+  id: string;
+  email: string;
+  fullName: string;
+  roles: string[];
+}
 
 const authService = {
   // Login method
@@ -9,13 +17,16 @@ const authService = {
     roles: string[];
     userId: string;
     email: string;
+    fullName?: string;
   }> => {
     try {
       console.log('🌐 Calling API:', `${API_URL}/auth/login`);
       console.log('🔗 Full URL:', API_URL + '/auth/login');
-      const response = await axios.post(`${API_URL}/auth/login`, credentials, {headers: {
-        'Content-Type': 'application/json'
-      }});
+      const response = await axios.post(`${API_URL}/auth/login`, credentials, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       const data = response.data;
       
       console.log('Login response:', data);
@@ -24,15 +35,21 @@ const authService = {
         throw new Error('Login failed: No token received');
       }
       
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify({
+      // Store user data with fullName if available
+      const userData = {
         id: data.userId,
         email: data.email,
-        fullName: '',
+        fullName: data.fullName || data.email?.split('@')[0] || 'User',
         roles: data.roles || []
-      }));
+      };
       
-      return data;
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      return {
+        ...data,
+        fullName: userData.fullName
+      };
     } catch (error: any) {
       console.error('Login error:', error);
       throw new Error(error.response?.data?.message || 'Login failed');
@@ -46,13 +63,15 @@ const authService = {
       const data = response.data;
       
       if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify({
+        const userToStore = {
           id: data.userId,
           email: data.email,
-          fullName: data.fullName || '',
+          fullName: data.fullName || userData.fullName || data.email?.split('@')[0] || 'User',
           roles: data.roles || []
-        }));
+        };
+        
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(userToStore));
       }
       
       return data;
@@ -62,19 +81,50 @@ const authService = {
     }
   },
 
-  // Get current user from localStorage
+  // Get current user from localStorage - UPDATED to match User interface
   getCurrentUser: (): User | null => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) return null;
       
-      const userData = JSON.parse(userStr);
-      return {
-        id: userData.id,
-        email: userData.email,
-        fullName: userData.fullName || '',
-        roles: userData.roles || []
+      const storedUser: StoredUser = JSON.parse(userStr);
+      
+      // Return a complete User object with default values for missing fields
+      const fullUser: User = {
+        id: storedUser.id,
+        email: storedUser.email,
+        fullName: storedUser.fullName || storedUser.email?.split('@')[0] || 'User',
+        firstName: storedUser.fullName?.split(' ')[0] || '',
+        lastName: storedUser.fullName?.split(' ').slice(1).join(' ') || '',
+        roles: storedUser.roles || [],
+        isActive: true, // Default value
+        emailConfirmed: true, // Default value
+        createdAt: new Date().toISOString(), // Default value
+        phoneNumber: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: '',
+        profileImage: '',
+        updatedAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString()
       };
+      
+      return fullUser;
+    } catch (error) {
+      console.error('Error parsing user:', error);
+      return null;
+    }
+  },
+
+  // Get minimal user data (useful for contexts that don't need full User)
+  getStoredUser: (): StoredUser | null => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+      
+      return JSON.parse(userStr);
     } catch (error) {
       console.error('Error parsing user:', error);
       return null;
@@ -95,6 +145,27 @@ const authService = {
   // Get auth token
   getToken: (): string | null => {
     return localStorage.getItem('token');
+  },
+
+  // Check if user has admin role
+  isAdmin: (): boolean => {
+    const user = authService.getStoredUser();
+    return user?.roles?.some(role => 
+      role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
+    ) || false;
+  },
+
+  // Update user in storage
+  updateStoredUser: (updates: Partial<StoredUser>): void => {
+    try {
+      const currentUser = authService.getStoredUser();
+      if (currentUser) {
+        const updatedUser = { ...currentUser, ...updates };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error('Error updating stored user:', error);
+    }
   }
 };
 
