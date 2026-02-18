@@ -1,8 +1,9 @@
-import React, { useState, useEffect,  useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
+import uploadService from '../../services/upload.service';
 import { 
   Save, 
   X, 
@@ -27,11 +28,15 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [mainImage, setMainImage] = useState<string>('');
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
+  
+  // Image states
+  const [mainImage, setMainImage] = useState<string>('');
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -79,55 +84,43 @@ const ProductForm = () => {
   };
 
   const fetchProduct = useCallback(async () => {
-  setLoading(true);
-  try {
-    const product = await productService.getProductById(Number(id));
-    if (product) {
-      setMainImage(product.imageUrl || '');
-      setAdditionalImages(product.images || []);
-      
-      setFormData({
-        name: product.name,
-        description: product.description,
-        price: product.price.toString(),
-        categoryId: product.categoryId.toString(),
-        stockQuantity: product.stockQuantity.toString(),
-        material: product.material || '',
-        color: product.color || '',
-        assemblyRequired: product.assemblyRequired || false,
-        warranty: product.warranty || '',
+    setLoading(true);
+    try {
+      const product = await productService.getProductById(Number(id));
+      if (product) {
+        setMainImage(product.imageUrl || '');
+        setAdditionalImages(product.images || []);
         
-        length: product.dimensions?.length?.toString() || '',
-        width: product.dimensions?.width?.toString() || '',
-        height: product.dimensions?.height?.toString() || '',
-        dimensionUnit: product.dimensions?.unit || 'cm',
-        
-        weight: product.weight?.value?.toString() || '',
-        weightUnit: product.weight?.unit || 'kg',
-        
-        isActive: product.isActive,
-        isFeatured: product.isFeatured || false
-      });
+        setFormData({
+          name: product.name,
+          description: product.description,
+          price: product.price.toString(),
+          categoryId: product.categoryId.toString(),
+          stockQuantity: product.stockQuantity.toString(),
+          material: product.material || '',
+          color: product.color || '',
+          assemblyRequired: product.assemblyRequired || false,
+          warranty: product.warranty || '',
+          
+          length: product.dimensions?.length?.toString() || '',
+          width: product.dimensions?.width?.toString() || '',
+          height: product.dimensions?.height?.toString() || '',
+          dimensionUnit: product.dimensions?.unit || 'cm',
+          
+          weight: product.weight?.value?.toString() || '',
+          weightUnit: product.weight?.unit || 'kg',
+          
+          isActive: product.isActive,
+          isFeatured: product.isFeatured || false
+        });
+      }
+    } catch (err) {
+      setError('Failed to load product');
+      console.error('Failed to fetch product:', err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError('Failed to load product');
-    console.error('Failed to fetch product:', err);
-  } finally {
-    setLoading(false);
-  }
-}, [id]); // Add id as dependency
-
-// Then update the useEffect:
-useEffect(() => {
-  if (!isAdmin) {
-    navigate('/admin');
-    return;
-  }
-  fetchCategories();
-  if (isEditMode) {
-    fetchProduct();
-  }
-}, [isAdmin, navigate, isEditMode, fetchProduct]);
+  }, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -137,48 +130,54 @@ useEffect(() => {
     }));
   };
 
-  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingImages(true);
-    try {
-      const urls = await productService.uploadProductImages([file]);
-      if (urls.length > 0) {
-        setMainImage(urls[0]);
-      }
-    } catch (err) {
-      alert('Failed to upload main image');
-    } finally {
-      setUploadingImages(false);
-    }
+    // Store the file for later upload
+    setMainImageFile(file);
+    
+    // Show preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setMainImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleAdditionalImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAdditionalImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setUploadingImages(true);
-    try {
-      const fileArray = Array.from(files);
-      const urls = await productService.uploadProductImages(fileArray);
-      setAdditionalImages(prev => [...prev, ...urls]);
-    } catch (err) {
-      alert('Failed to upload images');
-    } finally {
-      setUploadingImages(false);
-    }
+    const fileArray = Array.from(files);
+    
+    // Store files for later upload
+    setAdditionalImageFiles(prev => [...prev, ...fileArray]);
+    
+    // Show previews
+    fileArray.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAdditionalImages(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const removeAdditionalImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, i) => i !== index));
+    setAdditionalImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const moveImage = (fromIndex: number, toIndex: number) => {
     const newImages = [...additionalImages];
+    const newFiles = [...additionalImageFiles];
     const [movedImage] = newImages.splice(fromIndex, 1);
+    const [movedFile] = newFiles.splice(fromIndex, 1);
     newImages.splice(toIndex, 0, movedImage);
+    newFiles.splice(toIndex, 0, movedFile);
     setAdditionalImages(newImages);
+    setAdditionalImageFiles(newFiles);
   };
 
   const validateForm = () => {
@@ -201,36 +200,74 @@ useEffect(() => {
 
     setSaving(true);
     setError('');
+    setUploadingImages(true);
     
     try {
-      const productData = {
+      let imageUrl = mainImage;
+      let images: string[] = additionalImages;
+
+      // Upload new images if any
+      const filesToUpload: File[] = [];
+      if (mainImageFile) filesToUpload.push(mainImageFile);
+      filesToUpload.push(...additionalImageFiles);
+
+      if (filesToUpload.length > 0) {
+        console.log('📤 Uploading images...', filesToUpload.length);
+        const uploadedUrls = await uploadService.uploadImages(filesToUpload);
+        
+        // Map uploaded URLs to their positions
+        let urlIndex = 0;
+        if (mainImageFile) {
+          imageUrl = uploadedUrls[urlIndex++];
+        }
+        
+        // Replace additional image previews with actual URLs
+        images = additionalImages.map((img, idx) => {
+          if (idx < additionalImageFiles.length) {
+            return uploadedUrls[urlIndex++];
+          }
+          return img; // Keep existing URLs (for edit mode)
+        });
+      }
+
+      // Prepare product data for JSON
+      const productData: any = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
         categoryId: parseInt(formData.categoryId),
         stockQuantity: parseInt(formData.stockQuantity),
-        imageUrl: mainImage,
-        images: additionalImages,
-        material: formData.material || undefined,
-        color: formData.color || undefined,
-        assemblyRequired: formData.assemblyRequired,
-        warranty: formData.warranty || undefined,
-        
-        dimensions: (formData.length && formData.width && formData.height) ? {
+        imageUrl: imageUrl,
+        images: images,
+        isActive: formData.isActive,
+        isFeatured: formData.isFeatured
+      };
+
+      // Add optional fields if they have values
+      if (formData.material) productData.material = formData.material;
+      if (formData.color) productData.color = formData.color;
+      if (formData.assemblyRequired) productData.assemblyRequired = formData.assemblyRequired;
+      if (formData.warranty) productData.warranty = formData.warranty;
+      
+      // Add dimensions if all values are provided
+      if (formData.length && formData.width && formData.height) {
+        productData.dimensions = {
           length: parseFloat(formData.length),
           width: parseFloat(formData.width),
           height: parseFloat(formData.height),
           unit: formData.dimensionUnit
-        } : undefined,
-        
-        weight: formData.weight ? {
+        };
+      }
+      
+      // Add weight if provided
+      if (formData.weight) {
+        productData.weight = {
           value: parseFloat(formData.weight),
           unit: formData.weightUnit
-        } : undefined,
-        
-        isActive: formData.isActive,
-        isFeatured: formData.isFeatured
-      };
+        };
+      }
+
+      console.log('📤 Sending product data:', productData);
 
       if (isEditMode) {
         await productService.updateProduct(Number(id), productData);
@@ -242,10 +279,11 @@ useEffect(() => {
       
       navigate('/admin/products');
     } catch (err: any) {
-      setError(err.message || 'Failed to save product');
       console.error('Save error:', err);
+      setError(err.message || 'Failed to save product');
     } finally {
       setSaving(false);
+      setUploadingImages(false);
     }
   };
 
@@ -388,7 +426,7 @@ useEffect(() => {
                 </label>
               </div>
               <p className="text-xs text-gray-500">
-                Upload multiple images. Drag to reorder after upload.
+                Upload multiple images. They will be uploaded when you save the product.
               </p>
             </div>
           </div>
