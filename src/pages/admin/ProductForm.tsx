@@ -73,48 +73,43 @@ const ProductForm = () => {
   };
 
   const fetchProduct = useCallback(async () => {
-    setLoading(true);
-    try {
-      const product = await productService.getProductById(Number(id));
-      if (product) {
-        setMainImage(product.imageUrl || '');
-        
-        // Handle images - could be either string[] or ProductImage[]
-        if (product.images) {
-          if (typeof product.images[0] === 'string') {
-            setAdditionalImages(product.images as unknown as string[]);
-          } else {
-            // Extract imageUrl from ProductImage objects
-            const imageUrls = (product.images as any[]).map(img => 
-              typeof img === 'string' ? img : img.imageUrl
-            ).filter(Boolean);
-            setAdditionalImages(imageUrls);
-          }
-        }
-
-        // Convert colors array to comma-separated string
-        const colorsString = product.colorsVariant?.join(', ') || '';
-        
-        setFormData({
-          name: product.name,
-          description: product.description,
-          price: product.price.toString(),
-          categoryId: product.categoryId.toString(),
-          stockQuantity: product.stockQuantity.toString(),
-          colors: colorsString,
-          length: product.length?.toString() || '',
-          width: product.width?.toString() || '',
-          height: product.height?.toString() || '',
-          isActive: product.isActive
-        });
+  setLoading(true);
+  try {
+    const product = await productService.getProductById(Number(id));
+    if (product) {
+      setMainImage(product.imageUrl || '');
+      
+      // Handle images - extract URLs from ProductImage objects
+      if (product.images && Array.isArray(product.images)) {
+        const imageUrls = product.images.map(img => 
+          typeof img === 'string' ? img : img.imageUrl
+        ).filter(Boolean);
+        setAdditionalImages(imageUrls);
       }
-    } catch (err) {
-      setError('Failed to load product');
-      console.error('Failed to fetch product:', err);
-    } finally {
-      setLoading(false);
+
+      // Convert colors array to comma-separated string
+      const colorsString = product.colorsVariant?.join(', ') || '';
+      
+      setFormData({
+        name: product.name,
+        description: product.description,
+        price: product.price.toString(),
+        categoryId: product.categoryId.toString(),
+        stockQuantity: product.stockQuantity.toString(),
+        colors: colorsString,
+        length: product.length?.toString() || '',
+        width: product.width?.toString() || '',
+        height: product.height?.toString() || '',
+        isActive: product.isActive
+      });
     }
-  }, [id]);
+  } catch (err) {
+    setError('Failed to load product');
+    console.error('Failed to fetch product:', err);
+  } finally {
+    setLoading(false);
+  }
+}, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -156,66 +151,65 @@ const ProductForm = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
+  
+  const validationError = validateForm();
+  if (validationError) {
+    alert(validationError);
+    return;
+  }
+
+  setSaving(true);
+  setError('');
+  
+  try {
+    // Filter out empty image URLs
+    const filteredImages = additionalImages.filter(url => url.trim() !== '');
     
-    const validationError = validateForm();
-    if (validationError) {
-      alert(validationError);
-      return;
-    }
+    // Convert colors string to array
+    const colorsArray = formData.colors
+      .split(',')
+      .map(color => color.trim())
+      .filter(color => color !== '');
 
-    setSaving(true);
-    setError('');
+    // Convert image URLs to the format your backend expects (ProductImage objects)
+    const imageObjects = filteredImages.map(url => ({ imageUrl: url }));
+
+    // Prepare product data - match your backend's expected format
+    const productData: any = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      stockQuantity: parseInt(formData.stockQuantity),
+      categoryId: parseInt(formData.categoryId),
+      imageUrl: mainImage,
+      images: imageObjects, // Send as array of objects, not strings
+      height: formData.height ? parseFloat(formData.height) : 0,
+      width: formData.width ? parseFloat(formData.width) : 0,
+      length: formData.length ? parseFloat(formData.length) : 0,
+      colorsVariant: colorsArray,
+      isActive: formData.isActive
+    };
+
+    console.log('📤 Sending product data:', productData);
+
+    if (isEditMode) {
+      await productService.updateProduct(Number(id), productData);
+      alert('Product updated successfully!');
+    } else {
+      await productService.createProduct(productData);
+      alert('Product created successfully!');
+    }
     
-    try {
-      // Filter out empty image URLs
-      const filteredImages = additionalImages.filter(url => url.trim() !== '');
-      
-      // Convert colors string to array
-      const colorsArray = formData.colors
-        .split(',')
-        .map(color => color.trim())
-        .filter(color => color !== '');
-
-      // Prepare product data - all URLs are strings
-      const productData: any = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        stockQuantity: parseInt(formData.stockQuantity),
-        categoryId: parseInt(formData.categoryId),
-        imageUrl: mainImage,
-        height: formData.height ? parseFloat(formData.height) : 0,
-        width: formData.width ? parseFloat(formData.width) : 0,
-        length: formData.length ? parseFloat(formData.length) : 0,
-        colorsVariant: colorsArray,
-        isActive: formData.isActive
-      };
-
-      // Only add images array if there are additional images
-      if (filteredImages.length > 0) {
-        productData.images = filteredImages;
-      }
-
-      console.log('📤 Sending product data:', productData);
-
-      if (isEditMode) {
-        await productService.updateProduct(Number(id), productData);
-        alert('Product updated successfully!');
-      } else {
-        await productService.createProduct(productData);
-        alert('Product created successfully!');
-      }
-      
-      navigate('/admin/products');
-      
-    } catch (err: any) {
-      console.error('Save error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to save product');
-    } finally {
-      setSaving(false);
-    }
-  };
+    navigate('/admin/products');
+    
+  } catch (err: any) {
+    console.error('Save error:', err);
+    setError(err.response?.data?.message || err.message || 'Failed to save product');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (
