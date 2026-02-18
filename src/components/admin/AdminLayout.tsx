@@ -19,7 +19,6 @@ import {
   Truck,
   CreditCard,
   Home,
-  ChevronRight
 } from 'lucide-react';
 
 interface MenuItem {
