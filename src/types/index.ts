@@ -32,16 +32,15 @@ export interface RegisterData extends LoginCredentials {
   fullName: string;
 }
 
-// Product types - UPDATED with rating and reviewCount
-// Add these to your existing Product interface
+
 export interface Product {
   id: number;
   name: string;
   description: string;
   price: number;
-  imageUrl: string;
+  imageUrl: string; // Main/thumbnail image
+  images: string[]; // Array of additional images
   categoryId: number;
-  category?: Category; // Add this for populated category
   stockQuantity: number;
   isActive: boolean;
   isFeatured?: boolean;
@@ -49,6 +48,22 @@ export interface Product {
   updatedAt?: string;
   rating?: number;
   reviewCount?: number;
+  
+  // New dimension fields
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+    unit: 'cm' | 'in' | 'm'; // centimeters, inches, or meters
+  };
+  weight?: {
+    value: number;
+    unit: 'kg' | 'lb'; // kilograms or pounds
+  };
+  material?: string;
+  color?: string;
+  assemblyRequired?: boolean;
+  warranty?: string;
 }
 
 export interface CreateProductData {
@@ -56,10 +71,27 @@ export interface CreateProductData {
   description: string;
   price: number;
   imageUrl: string;
+  images?: string[];
   categoryId: number;
   stockQuantity: number;
   isActive?: boolean;
   isFeatured?: boolean;
+  
+  // Dimension fields
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+    unit: 'cm' | 'in' | 'm';
+  };
+  weight?: {
+    value: number;
+    unit: 'kg' | 'lb';
+  };
+  material?: string;
+  color?: string;
+  assemblyRequired?: boolean;
+  warranty?: string;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {}
