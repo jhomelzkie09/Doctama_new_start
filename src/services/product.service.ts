@@ -6,14 +6,26 @@ class ProductService {
 
   // Get all products
   async getProducts(): Promise<Product[]> {
-    try {
-      const response = await api.get('/products');
-      return Array.isArray(response.data) ? response.data : [];
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      return [];
+  try {
+    console.log('📤 Fetching products from /products/simple...');
+    const response = await api.get('/products/simple');
+    console.log('✅ Products fetched:', response.data);
+    
+    // Handle different response formats
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    } else if (response.data.products && Array.isArray(response.data.products)) {
+      return response.data.products;
     }
+    
+    return [];
+  } catch (error: any) {
+    console.error('❌ Error fetching products:', error.response?.data || error.message);
+    return [];
   }
+}
 
   // Get single product
   async getProductById(id: number): Promise<Product | null> {
