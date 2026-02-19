@@ -40,27 +40,16 @@ async addProductImages(productId: number, imageUrls: string[]): Promise<Product>
 
   // Create product with JSON
   async createProduct(productData: any): Promise<Product> {
-    try {
-      console.log('📤 Creating product with JSON...', productData);
-      const response = await api.post('/products', productData);
-      console.log('✅ Product created:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Error creating product:', error.response?.data);
-      
-      // Extract validation error messages
-      if (error.response?.data?.errors) {
-        const errorMessages = Object.values(error.response.data.errors).flat();
-        throw new Error(errorMessages.join(', '));
-      }
-      
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.title || 
-        'Failed to create product'
-      );
-    }
+  try {
+    console.log('📤 Creating product with JSON...', productData);
+    const response = await api.post('/products/simple', productData);
+    console.log('✅ Product created:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error creating product:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Failed to create product');
   }
+}
 
   // Update product with JSON
   async updateProduct(id: number, productData: any): Promise<Product> {
