@@ -21,7 +21,19 @@ import {
   Wrench,
   ArrowLeft
 } from 'lucide-react';
-import { Category, ProductImage } from '../../types';
+import { Category } from '../../types';
+
+interface FormData {
+  name: string;
+  description: string;
+  price: string;
+  categoryId: string;
+  stockQuantity: string;
+  length: string;
+  width: string;
+  height: string;
+  isActive: boolean;
+}
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -39,14 +51,13 @@ const ProductForm = () => {
   // Image states
   const [mainImage, setMainImage] = useState<string>('');
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]); // For preview/URLs
-  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]); // For upload
-  const [uploadedImages, setUploadedImages] = useState<ProductImage[]>([]); // Stored image objects
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]);
   
   // Color states
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     price: '',
@@ -86,22 +97,18 @@ const ProductForm = () => {
       console.log('✅ Product data loaded:', product);
       
       if (product) {
-        // Set main image
         setMainImage(product.imageUrl || '');
         
-        // Handle images - convert ProductImage objects to URLs
+        // Handle images - extract URLs
         if (product.images && Array.isArray(product.images)) {
-          const imageUrls = product.images.map(img => img.imageUrl);
+          const imageUrls = product.images.map(img => 
+            typeof img === 'string' ? img : img.imageUrl
+          );
           setAdditionalImages(imageUrls);
-          setUploadedImages(product.images);
-          console.log('📸 Loaded images:', imageUrls.length);
         }
 
-        // Set colors array
         setSelectedColors(product.colorsVariant || []);
-        console.log('🎨 Loaded colors:', product.colorsVariant);
         
-        // Set form data
         setFormData({
           name: product.name || '',
           description: product.description || '',
@@ -162,36 +169,27 @@ const ProductForm = () => {
   const removeAdditionalImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, i) => i !== index));
     setAdditionalImageFiles(prev => prev.filter((_, i) => i !== index));
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const moveImage = (fromIndex: number, toIndex: number) => {
-    // Move preview URLs
     const newPreviewImages = [...additionalImages];
     const [movedPreview] = newPreviewImages.splice(fromIndex, 1);
     newPreviewImages.splice(toIndex, 0, movedPreview);
     setAdditionalImages(newPreviewImages);
     
-    // Move files
     const newFiles = [...additionalImageFiles];
     const [movedFile] = newFiles.splice(fromIndex, 1);
     newFiles.splice(toIndex, 0, movedFile);
     setAdditionalImageFiles(newFiles);
-    
-    // Move uploaded image objects
-    const newUploaded = [...uploadedImages];
-    const [movedUploaded] = newUploaded.splice(fromIndex, 1);
-    newUploaded.splice(toIndex, 0, movedUploaded);
-    setUploadedImages(newUploaded);
   };
 
-  const validateForm = () => {
+  const validateForm = (): string | null => {
     if (!formData.name.trim()) return 'Product name is required';
     if (!formData.description.trim()) return 'Description is required';
     if (!formData.price || parseFloat(formData.price) <= 0) return 'Valid price is required';
     if (!formData.categoryId) return 'Category is required';
     if (!formData.stockQuantity || parseInt(formData.stockQuantity) < 0) return 'Valid stock quantity is required';
-    return '';
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,7 +208,7 @@ const ProductForm = () => {
     
     try {
       let finalMainImage = mainImage;
-      let finalImages: ProductImage[] = [...uploadedImages];
+      let finalImageUrls: string[] = [];
 
       // Upload new images if any
       const filesToUpload: File[] = [];
@@ -220,47 +218,39 @@ const ProductForm = () => {
       if (filesToUpload.length > 0) {
         console.log('📤 Uploading images...', filesToUpload.length);
         
-        // Upload all images at once
         const uploadedUrls = await uploadService.uploadImages(filesToUpload);
         console.log('✅ Upload response:', uploadedUrls);
         setUploadProgress(100);
         
-        // Check if uploadedUrls is an array
         if (Array.isArray(uploadedUrls) && uploadedUrls.length > 0) {
           let urlIndex = 0;
-          const newImages: ProductImage[] = [];
           
-          // Handle main image
           if (mainImageFile) {
             finalMainImage = uploadedUrls[urlIndex++];
           }
           
-          // Handle additional images
           for (let i = 0; i < additionalImageFiles.length; i++) {
             if (urlIndex < uploadedUrls.length) {
-              newImages.push({ 
-                imageUrl: uploadedUrls[urlIndex++],
-                productId: id ? parseInt(id) : undefined
-              });
+              finalImageUrls.push(uploadedUrls[urlIndex++]);
             }
           }
-          
-          // Combine existing images with new ones
-          finalImages = [...uploadedImages, ...newImages];
-        } else {
-          console.warn('⚠️ Upload response is not an array:', uploadedUrls);
         }
       }
 
-      // Prepare product data
-      const productData: any = {
-        name: formData.name,
-        description: formData.description,
+      // Combine existing and new image URLs
+      const allImageUrls = [
+        ...additionalImages.filter(url => !url.startsWith('blob:')), // Keep existing URLs
+        ...finalImageUrls // Add new ones
+      ];
+
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         price: parseFloat(formData.price),
         stockQuantity: parseInt(formData.stockQuantity),
         categoryId: parseInt(formData.categoryId),
         imageUrl: finalMainImage,
-        images: finalImages.map(img => img.imageUrl),
+        images: allImageUrls,
         height: formData.height ? parseFloat(formData.height) : 0,
         width: formData.width ? parseFloat(formData.width) : 0,
         length: formData.length ? parseFloat(formData.length) : 0,
@@ -289,6 +279,10 @@ const ProductForm = () => {
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Error';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -300,7 +294,7 @@ const ProductForm = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
-        {/* Header with back button */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <button
@@ -325,10 +319,7 @@ const ProductForm = () => {
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
             <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-red-800 font-medium">Error</p>
-              <p className="text-red-600 text-sm mt-1">{error}</p>
-            </div>
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
@@ -354,20 +345,15 @@ const ProductForm = () => {
                         src={mainImage} 
                         alt="Main" 
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Error';
-                        }}
+                        onError={handleImageError}
                       />
                     ) : (
                       <div className="text-center">
                         <ImageIcon className="w-8 h-8 text-gray-400 mx-auto" />
-                        <span className="text-xs text-gray-400 mt-1 block">No image</span>
+                        <span className="text-xs text-gray-400 mt-1">No image</span>
                       </div>
                     )}
                   </div>
-                  {isEditMode && mainImage && !mainImageFile && (
-                    <p className="text-xs text-green-600 mt-1">Current image</p>
-                  )}
                 </div>
                 <div className="flex-1">
                   <label className="cursor-pointer">
@@ -384,19 +370,18 @@ const ProductForm = () => {
                     />
                   </label>
                   <p className="mt-2 text-xs text-gray-500">
-                    {mainImageFile ? 'New image selected (will replace current)' : 'Main image displayed in product listings. Recommended size: 800x800px.'}
+                    Recommended size: 800x800px
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Additional Images Gallery */}
+            {/* Additional Images */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Additional Images (Gallery)
+                Additional Images
               </label>
               
-              {/* Image Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
                 {additionalImages.map((img, index) => (
                   <div key={index} className="relative group">
@@ -405,17 +390,14 @@ const ProductForm = () => {
                         src={img} 
                         alt={`Product ${index + 1}`} 
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Error';
-                        }}
+                        onError={handleImageError}
                       />
                     </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center space-x-2">
+                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center space-x-1">
                       <button
                         type="button"
                         onClick={() => moveImage(index, Math.max(0, index - 1))}
-                        className="p-1 bg-white rounded-full hover:bg-gray-100 transition-colors"
-                        title="Move Left"
+                        className="p-1 bg-white rounded-full hover:bg-gray-100"
                         disabled={index === 0}
                       >
                         <Move className="w-3 h-3" />
@@ -423,16 +405,14 @@ const ProductForm = () => {
                       <button
                         type="button"
                         onClick={() => removeAdditionalImage(index)}
-                        className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                        title="Remove"
+                        className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
                       <button
                         type="button"
                         onClick={() => moveImage(index, Math.min(additionalImages.length - 1, index + 1))}
-                        className="p-1 bg-white rounded-full hover:bg-gray-100 transition-colors"
-                        title="Move Right"
+                        className="p-1 bg-white rounded-full hover:bg-gray-100"
                         disabled={index === additionalImages.length - 1}
                       >
                         <Move className="w-3 h-3 transform rotate-180" />
@@ -441,8 +421,7 @@ const ProductForm = () => {
                   </div>
                 ))}
                 
-                {/* Upload Button */}
-                <label className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                <label className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100">
                   <Plus className="w-6 h-6 text-gray-400 mb-1" />
                   <span className="text-xs text-gray-500">Add Images</span>
                   <input
@@ -456,7 +435,6 @@ const ProductForm = () => {
                 </label>
               </div>
               
-              {/* Upload Progress */}
               {uploadingImages && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-1">
@@ -471,14 +449,10 @@ const ProductForm = () => {
                   </div>
                 </div>
               )}
-              
-              <p className="text-xs text-gray-500 mt-2">
-                {isEditMode ? 'Current images shown. Upload new images to add more.' : 'Upload multiple images at once. Drag to reorder after upload.'}
-              </p>
             </div>
           </div>
 
-          {/* Basic Info Section */}
+          {/* Basic Info */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Package className="w-5 h-5 mr-2 text-blue-600" />
@@ -496,7 +470,7 @@ const ProductForm = () => {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., Modern Leather Sofa"
                 />
               </div>
@@ -510,7 +484,7 @@ const ProductForm = () => {
                   required
                   value={formData.categoryId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select Category</option>
                   {categories.map(cat => (
@@ -529,7 +503,7 @@ const ProductForm = () => {
                   rows={4}
                   value={formData.description}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Detailed product description..."
                 />
               </div>
@@ -546,7 +520,7 @@ const ProductForm = () => {
                   step="0.01"
                   value={formData.price}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />
               </div>
@@ -562,14 +536,14 @@ const ProductForm = () => {
                   min="0"
                   value={formData.stockQuantity}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="0"
                 />
               </div>
             </div>
           </div>
 
-          {/* Color Variants Section */}
+          {/* Color Variants */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Palette className="w-5 h-5 mr-2 text-blue-600" />
@@ -580,22 +554,19 @@ const ProductForm = () => {
               colors={selectedColors}
               onChange={setSelectedColors}
             />
-            {isEditMode && selectedColors.length > 0 && (
-              <p className="text-xs text-green-600 mt-2">Current colors loaded</p>
-            )}
           </div>
 
-          {/* Dimensions Section */}
+          {/* Dimensions */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Ruler className="w-5 h-5 mr-2 text-blue-600" />
-              Dimensions (in cm)
+              Dimensions (cm)
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Length (cm)
+                  Length
                 </label>
                 <input
                   type="number"
@@ -604,14 +575,14 @@ const ProductForm = () => {
                   step="0.1"
                   value={formData.length}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="0.0"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Width (cm)
+                  Width
                 </label>
                 <input
                   type="number"
@@ -620,14 +591,14 @@ const ProductForm = () => {
                   step="0.1"
                   value={formData.width}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="0.0"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Height (cm)
+                  Height
                 </label>
                 <input
                   type="number"
@@ -636,7 +607,7 @@ const ProductForm = () => {
                   step="0.1"
                   value={formData.height}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="0.0"
                 />
               </div>
@@ -650,33 +621,31 @@ const ProductForm = () => {
               Status
             </h2>
             
-            <div className="flex items-center space-x-6">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Active (available for sale)</span>
-              </label>
-            </div>
+            <label className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={formData.isActive}
+                onChange={handleChange}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Active (available for sale)</span>
+            </label>
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3">
             <button
               type="button"
               onClick={() => navigate('/admin/products')}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors font-medium"
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || uploadingImages}
-              className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {saving ? (
                 <>

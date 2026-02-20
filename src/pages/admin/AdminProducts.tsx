@@ -76,64 +76,47 @@ const AdminProducts = () => {
       ));
     } catch (err: any) {
       alert('Failed to update product status');
-      await fetchData(); // Refresh to ensure consistency
+      await fetchData();
     }
   };
 
-  // Improved helper function to get the main image URL with HTTPS fix
-  const getMainImageUrl = (product: Product): string => {
-    let imageUrl = '';
+  // Get all image URLs for a product (main + additional)
+  const getAllImageUrls = (product: Product): string[] => {
+    const urls: string[] = [];
     
-    // Try to get from imageUrl first
+    // Add main image if it exists
     if (product.imageUrl) {
-      imageUrl = product.imageUrl;
-    }
-    // Otherwise try to get the first image from images array
-    else if (product.images && product.images.length > 0) {
-      imageUrl = product.images[0].imageUrl;
+      urls.push(product.imageUrl);
     }
     
-    // Fix mixed content - ensure HTTPS
-    if (imageUrl && imageUrl.startsWith('http://')) {
-      imageUrl = imageUrl.replace('http://', 'https://');
+    // Add additional images
+    if (product.images && Array.isArray(product.images)) {
+      // Handle both string[] and ProductImage[] types
+      const imageUrls = product.images.map(img => 
+        typeof img === 'string' ? img : img.imageUrl
+      );
+      urls.push(...imageUrls);
     }
     
-    return imageUrl;
+    return urls.filter(url => url && url.trim() !== '');
   };
 
-  // Helper function to get additional images count
-  const getAdditionalImagesCount = (product: Product): number => {
-    if (product.images) {
-      return product.images.length;
-    }
-    return 0;
+  // Get main image URL (first image)
+  const getMainImageUrl = (product: Product): string => {
+    const allUrls = getAllImageUrls(product);
+    return allUrls.length > 0 ? allUrls[0] : '';
   };
 
-  // Improved error handler with better fallback
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, product: Product) => {
+  // Get additional images (all except first)
+  const getAdditionalImages = (product: Product): string[] => {
+    const allUrls = getAllImageUrls(product);
+    return allUrls.slice(1);
+  };
+
+  // Handle image error with simple fallback
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
-    // Try different fallback options
-    const fallbackUrls = [
-      `https://via.placeholder.com/400x300?text=${encodeURIComponent(product.name)}`,
-      'https://via.placeholder.com/400x300?text=No+Image',
-      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop' // Default furniture image
-    ];
-    
-    // Try the next fallback URL or stop after all attempts
-    const currentSrc = target.src;
-    const nextFallback = fallbackUrls.find(url => !currentSrc.includes(url));
-    
-    if (nextFallback) {
-      target.src = nextFallback;
-    } else {
-      // If all fallbacks fail, show a simple colored div
-      target.style.display = 'none';
-      target.parentElement?.classList.add('bg-gray-200', 'flex', 'items-center', 'justify-center');
-      const icon = document.createElement('div');
-      icon.innerHTML = '📦';
-      icon.className = 'text-2xl';
-      target.parentElement?.appendChild(icon);
-    }
+    target.src = 'https://via.placeholder.com/400x300?text=No+Image';
   };
 
   // Filter products
@@ -228,39 +211,67 @@ const AdminProducts = () => {
             <tbody className="divide-y divide-gray-200">
               {paginatedProducts.map((product) => {
                 const mainImageUrl = getMainImageUrl(product);
-                const additionalCount = getAdditionalImagesCount(product);
+                const additionalImages = getAdditionalImages(product);
+                const totalImages = getAllImageUrls(product).length;
                 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden mr-3 flex-shrink-0">
+                      <div className="flex items-start space-x-3">
+                        {/* Main image */}
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {mainImageUrl ? (
                             <img 
                               src={mainImageUrl} 
                               alt={product.name} 
                               className="w-full h-full object-cover"
-                              onError={(e) => handleImageError(e, product)}
+                              onError={handleImageError}
                               loading="lazy"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <ImageIcon className="w-5 h-5 text-gray-400" />
+                              <ImageIcon className="w-6 h-6 text-gray-400" />
                             </div>
                           )}
                         </div>
-                        <div className="min-w-0">
+                        
+                        {/* Additional images preview */}
+                        <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-xs text-gray-500 truncate max-w-xs">{product.description}</div>
+                          <div className="text-xs text-gray-500 mb-2">{product.description}</div>
+                          
+                          {/* Thumbnail gallery */}
+                          {additionalImages.length > 0 && (
+                            <div className="flex items-center space-x-1">
+                              {additionalImages.slice(0, 3).map((url, index) => (
+                                <div key={index} className="w-8 h-8 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                                  <img 
+                                    src={url} 
+                                    alt={`${product.name} ${index + 2}`} 
+                                    className="w-full h-full object-cover"
+                                    onError={handleImageError}
+                                  />
+                                </div>
+                              ))}
+                              {additionalImages.length > 3 && (
+                                <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-600 font-medium">
+                                  +{additionalImages.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
+                    
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {categories.find(c => c.id === product.categoryId)?.name || 'Unknown'}
                     </td>
+                    
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       ${product.price.toFixed(2)}
                     </td>
+                    
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         product.stockQuantity > 10 
@@ -272,6 +283,7 @@ const AdminProducts = () => {
                         {product.stockQuantity}
                       </span>
                     </td>
+                    
                     <td className="px-6 py-4">
                       <button
                         onClick={() => handleToggleStatus(product.id, product.isActive)}
@@ -284,16 +296,18 @@ const AdminProducts = () => {
                         {product.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </td>
+                    
                     <td className="px-6 py-4">
-                      {additionalCount > 0 ? (
+                      {totalImages > 0 ? (
                         <div className="flex items-center text-sm text-gray-600">
                           <Images className="w-4 h-4 mr-1 text-blue-500" />
-                          <span>{additionalCount}</span>
+                          <span>{totalImages} {totalImages === 1 ? 'image' : 'images'}</span>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">None</span>
+                        <span className="text-sm text-gray-400">No images</span>
                       )}
                     </td>
+                    
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
                         <button
