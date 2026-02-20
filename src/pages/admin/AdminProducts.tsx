@@ -80,26 +80,60 @@ const AdminProducts = () => {
     }
   };
 
-  // Helper function to get the main image URL
+  // Improved helper function to get the main image URL with HTTPS fix
   const getMainImageUrl = (product: Product): string => {
-    // If imageUrl exists, use it
+    let imageUrl = '';
+    
+    // Try to get from imageUrl first
     if (product.imageUrl) {
-      return product.imageUrl;
+      imageUrl = product.imageUrl;
     }
     // Otherwise try to get the first image from images array
-    if (product.images && product.images.length > 0) {
-      return product.images[0].imageUrl;
+    else if (product.images && product.images.length > 0) {
+      imageUrl = product.images[0].imageUrl;
     }
-    return '';
+    
+    // Fix mixed content - ensure HTTPS
+    if (imageUrl && imageUrl.startsWith('http://')) {
+      imageUrl = imageUrl.replace('http://', 'https://');
+    }
+    
+    return imageUrl;
   };
 
   // Helper function to get additional images count
   const getAdditionalImagesCount = (product: Product): number => {
     if (product.images) {
-      // If product has imageUrl, don't count the first image as additional
-      return product.imageUrl ? product.images.length : product.images.length;
+      return product.images.length;
     }
     return 0;
+  };
+
+  // Improved error handler with better fallback
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, product: Product) => {
+    const target = e.target as HTMLImageElement;
+    // Try different fallback options
+    const fallbackUrls = [
+      `https://via.placeholder.com/400x300?text=${encodeURIComponent(product.name)}`,
+      'https://via.placeholder.com/400x300?text=No+Image',
+      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop' // Default furniture image
+    ];
+    
+    // Try the next fallback URL or stop after all attempts
+    const currentSrc = target.src;
+    const nextFallback = fallbackUrls.find(url => !currentSrc.includes(url));
+    
+    if (nextFallback) {
+      target.src = nextFallback;
+    } else {
+      // If all fallbacks fail, show a simple colored div
+      target.style.display = 'none';
+      target.parentElement?.classList.add('bg-gray-200', 'flex', 'items-center', 'justify-center');
+      const icon = document.createElement('div');
+      icon.innerHTML = '📦';
+      icon.className = 'text-2xl';
+      target.parentElement?.appendChild(icon);
+    }
   };
 
   // Filter products
@@ -206,9 +240,8 @@ const AdminProducts = () => {
                               src={mainImageUrl} 
                               alt={product.name} 
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/48?text=Error';
-                              }}
+                              onError={(e) => handleImageError(e, product)}
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-200">
