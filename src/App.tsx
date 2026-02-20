@@ -12,7 +12,7 @@ import Products from './pages/Products';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
-import ProductsManagement from './pages/admin/ProductsManagement'; // 👈 CHANGE THIS
+import ProductsManagement from './pages/admin/ProductManagement'; // 👈 CHANGE THIS
 import ProductForm from './pages/admin/ProductForm';
 import CategoriesManagement from './pages/admin/CategoryManagement';
 
