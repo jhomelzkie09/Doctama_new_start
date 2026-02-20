@@ -1,7 +1,7 @@
 import api from '../api/config';
 
 class UploadService {
-  private readonly baseUrl = '/products'; // Changed from '/upload' to '/products'
+  private readonly baseUrl = '/products';
 
   // Upload multiple images and return URLs
   async uploadImages(files: File[]): Promise<string[]> {
@@ -9,12 +9,14 @@ class UploadService {
       console.log('📤 Uploading images...', files.length);
       
       const formData = new FormData();
+      
+      // Your backend expects the files with key 'files'
       files.forEach(file => {
-        formData.append('files', file); // Backend expects 'files' field
+        formData.append('files', file);
       });
 
-      // Use your backend's product upload endpoint
-      const response = await api.post(`${this.baseUrl}/upload`, formData, {
+      // FIX: Change from '/upload' to '/upload-images' to match your backend
+      const response = await api.post(`${this.baseUrl}/upload-images`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -22,20 +24,13 @@ class UploadService {
       
       console.log('✅ Images uploaded:', response.data);
       
-      // Handle different response formats
-      if (response.data.imageUrls) {
-        return response.data.imageUrls;
+      // Handle the response format from your controller
+      if (response.data.urls) {
+        return response.data.urls;
       } else if (Array.isArray(response.data)) {
         return response.data;
-      } else if (response.data.urls) {
-        return response.data.urls;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        return response.data.data;
-      }
-      
-      // If response contains the product with images
-      if (response.data.images) {
-        return response.data.images.map((img: any) => img.imageUrl);
+      } else if (response.data.imageUrls) {
+        return response.data.imageUrls;
       }
       
       return [];
