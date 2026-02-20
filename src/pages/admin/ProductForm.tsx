@@ -238,6 +238,8 @@ const ProductForm = () => {
       }
     }
 
+    
+
     // Convert colors string to array
     const colorsArray = formData.colors
       .split(',')
@@ -252,14 +254,15 @@ const ProductForm = () => {
       stockQuantity: parseInt(formData.stockQuantity),
       categoryId: parseInt(formData.categoryId),
       imageUrl: finalMainImage,
-      images: finalImages.map(img => ({ imageUrl: img.imageUrl })), // Safe mapping
+      // Send as array of strings, NOT objects
+      images: finalImages.map(img => img.imageUrl),
       height: formData.height ? parseFloat(formData.height) : 0,
       width: formData.width ? parseFloat(formData.width) : 0,
       length: formData.length ? parseFloat(formData.length) : 0,
       colorsVariant: colorsArray,
       isActive: formData.isActive
     };
-
+    
     console.log('📤 Sending product data:', productData);
 
     if (isEditMode) {
