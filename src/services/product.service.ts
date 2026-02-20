@@ -80,16 +80,18 @@ async addProductImages(productId: number, imageUrls: string[]): Promise<Product>
     }
   }
 
-  // Delete product
   async deleteProduct(id: number): Promise<boolean> {
-    try {
-      await api.delete(`/products/${id}`);
-      return true;
-    } catch (error: any) {
-      console.error(`❌ Error deleting product:`, error);
-      throw error;
-    }
+  try {
+    console.log(`📤 Deleting product ${id}...`);
+    // Make sure this matches your backend endpoint
+    await api.delete(`/products/simple/${id}`);
+    console.log(`✅ Product ${id} deleted`);
+    return true;
+  } catch (error: any) {
+    console.error(`❌ Error deleting product ${id}:`, error.response?.data || error.message);
+    throw error;
   }
+}
 
   // Toggle product status
   async toggleProductStatus(id: number, isActive: boolean): Promise<Product> {
