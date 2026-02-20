@@ -19,6 +19,7 @@ import {
   Truck,
   CreditCard,
   Home,
+  ChevronRight
 } from 'lucide-react';
 
 interface MenuItem {
@@ -75,53 +76,6 @@ const AdminLayout = () => {
       title: 'Categories',
       path: '/admin/categories',
       icon: <FolderTree className="w-5 h-5" />
-    },
-    {
-      title: 'Analytics',
-      path: '/admin/analytics',
-      icon: <BarChart3 className="w-5 h-5" />,
-      submenu: [
-        { title: 'Sales Report', path: '/admin/analytics/sales' },
-        { title: 'Inventory Report', path: '/admin/analytics/inventory' },
-        { title: 'Customer Report', path: '/admin/analytics/customers' }
-      ]
-    },
-    {
-      title: 'Promotions',
-      path: '/admin/promotions',
-      icon: <Tag className="w-5 h-5" />,
-      submenu: [
-        { title: 'Discount Codes', path: '/admin/promotions' },
-        { title: 'Flash Sales', path: '/admin/promotions/flash-sales' }
-      ]
-    },
-    {
-      title: 'Shipping',
-      path: '/admin/shipping',
-      icon: <Truck className="w-5 h-5" />,
-      submenu: [
-        { title: 'Shipping Zones', path: '/admin/shipping/zones' },
-        { title: 'Shipping Rates', path: '/admin/shipping/rates' }
-      ]
-    },
-    {
-      title: 'Payments',
-      path: '/admin/payments',
-      icon: <CreditCard className="w-5 h-5" />,
-      submenu: [
-        { title: 'Payment Methods', path: '/admin/payments/methods' },
-        { title: 'Transactions', path: '/admin/payments/transactions' }
-      ]
-    },
-    {
-      title: 'Settings',
-      path: '/admin/settings',
-      icon: <Settings className="w-5 h-5" />,
-      submenu: [
-        { title: 'General Settings', path: '/admin/settings/general' },
-        { title: 'Store Settings', path: '/admin/settings/store' },
-        { title: 'Email Settings', path: '/admin/settings/email' }
-      ]
     }
   ];
 
@@ -268,16 +222,19 @@ const AdminLayout = () => {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Search Bar */}
-            <div className="hidden md:flex items-center flex-1 max-w-md ml-4">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <button onClick={() => navigate('/admin')} className="hover:text-blue-600">
+                Dashboard
+              </button>
+              {location.pathname !== '/admin' && (
+                <>
+                  <ChevronRight className="w-4 h-4" />
+                  <span className="text-gray-900 font-medium">
+                    {location.pathname.split('/').pop()?.replace(/-/g, ' ')}
+                  </span>
+                </>
+              )}
             </div>
 
             {/* Right Icons */}
@@ -286,7 +243,10 @@ const AdminLayout = () => {
                 <Bell className="w-5 h-5 text-gray-600" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg">
+              <button 
+                onClick={() => window.open('/', '_blank')}
+                className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg"
+              >
                 <Home className="w-5 h-5 text-gray-600" />
                 <span className="text-sm text-gray-600 hidden md:inline">View Store</span>
               </button>
