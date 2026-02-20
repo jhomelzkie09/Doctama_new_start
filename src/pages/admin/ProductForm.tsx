@@ -43,7 +43,7 @@ const ProductForm = () => {
   const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]); // For upload
   const [uploadedImages, setUploadedImages] = useState<ProductImage[]>([]); // Stored image objects
   
-  // Color states - replace the colors string with array
+  // Color states
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   
   const [formData, setFormData] = useState({
@@ -81,8 +81,12 @@ const ProductForm = () => {
   const fetchProduct = useCallback(async () => {
     setLoading(true);
     try {
+      console.log('📤 Fetching product for edit:', id);
       const product = await productService.getProductById(Number(id));
+      console.log('✅ Product data loaded:', product);
+      
       if (product) {
+        // Set main image
         setMainImage(product.imageUrl || '');
         
         // Handle images - convert ProductImage objects to URLs
@@ -90,26 +94,29 @@ const ProductForm = () => {
           const imageUrls = product.images.map(img => img.imageUrl);
           setAdditionalImages(imageUrls);
           setUploadedImages(product.images);
+          console.log('📸 Loaded images:', imageUrls.length);
         }
 
         // Set colors array
         setSelectedColors(product.colorsVariant || []);
+        console.log('🎨 Loaded colors:', product.colorsVariant);
         
+        // Set form data
         setFormData({
-          name: product.name,
-          description: product.description,
-          price: product.price.toString(),
-          categoryId: product.categoryId.toString(),
-          stockQuantity: product.stockQuantity.toString(),
+          name: product.name || '',
+          description: product.description || '',
+          price: product.price?.toString() || '',
+          categoryId: product.categoryId?.toString() || '',
+          stockQuantity: product.stockQuantity?.toString() || '',
           length: product.length?.toString() || '',
           width: product.width?.toString() || '',
           height: product.height?.toString() || '',
-          isActive: product.isActive
+          isActive: product.isActive ?? true
         });
       }
     } catch (err) {
-      setError('Failed to load product');
       console.error('Failed to fetch product:', err);
+      setError('Failed to load product');
     } finally {
       setLoading(false);
     }
@@ -253,12 +260,11 @@ const ProductForm = () => {
         stockQuantity: parseInt(formData.stockQuantity),
         categoryId: parseInt(formData.categoryId),
         imageUrl: finalMainImage,
-        // Send as array of strings, NOT objects
         images: finalImages.map(img => img.imageUrl),
         height: formData.height ? parseFloat(formData.height) : 0,
         width: formData.width ? parseFloat(formData.width) : 0,
         length: formData.length ? parseFloat(formData.length) : 0,
-        colorsVariant: selectedColors, // Use the array directly
+        colorsVariant: selectedColors,
         isActive: formData.isActive
       };
       
@@ -313,13 +319,6 @@ const ProductForm = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/admin/products')}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg lg:hidden"
-            title="Cancel"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Error Message */}
@@ -366,12 +365,15 @@ const ProductForm = () => {
                       </div>
                     )}
                   </div>
+                  {isEditMode && mainImage && !mainImageFile && (
+                    <p className="text-xs text-green-600 mt-1">Current image</p>
+                  )}
                 </div>
                 <div className="flex-1">
                   <label className="cursor-pointer">
                     <span className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadingImages ? 'Uploading...' : 'Upload Main Image'}
+                      {uploadingImages ? 'Uploading...' : mainImageFile ? 'Change Image' : 'Upload Main Image'}
                     </span>
                     <input
                       type="file"
@@ -382,7 +384,7 @@ const ProductForm = () => {
                     />
                   </label>
                   <p className="mt-2 text-xs text-gray-500">
-                    Main image displayed in product listings. Recommended size: 800x800px.
+                    {mainImageFile ? 'New image selected (will replace current)' : 'Main image displayed in product listings. Recommended size: 800x800px.'}
                   </p>
                 </div>
               </div>
@@ -471,7 +473,7 @@ const ProductForm = () => {
               )}
               
               <p className="text-xs text-gray-500 mt-2">
-                You can upload multiple images at once. Drag to reorder after upload.
+                {isEditMode ? 'Current images shown. Upload new images to add more.' : 'Upload multiple images at once. Drag to reorder after upload.'}
               </p>
             </div>
           </div>
@@ -567,7 +569,7 @@ const ProductForm = () => {
             </div>
           </div>
 
-          {/* Color Variants Section - Updated with ColorSelector */}
+          {/* Color Variants Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Palette className="w-5 h-5 mr-2 text-blue-600" />
@@ -578,6 +580,9 @@ const ProductForm = () => {
               colors={selectedColors}
               onChange={setSelectedColors}
             />
+            {isEditMode && selectedColors.length > 0 && (
+              <p className="text-xs text-green-600 mt-2">Current colors loaded</p>
+            )}
           </div>
 
           {/* Dimensions Section */}
@@ -687,19 +692,6 @@ const ProductForm = () => {
             </button>
           </div>
         </form>
-
-        {/* Help Section */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-blue-800 mb-2">📝 Tips for good product listings:</h3>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li>Use clear, descriptive product names</li>
-            <li>Write detailed descriptions highlighting features and benefits</li>
-            <li>Upload high-quality images showing the product from different angles</li>
-            <li>Include accurate dimensions and weight for furniture items</li>
-            <li>Select colors that are actually available</li>
-            <li>Set accurate prices and stock quantities</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
