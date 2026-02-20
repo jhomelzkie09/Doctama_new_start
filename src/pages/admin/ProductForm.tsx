@@ -183,95 +183,103 @@ const ProductForm = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const validationError = validateForm();
-    if (validationError) {
-      alert(validationError);
-      return;
-    }
+  e.preventDefault();
+  
+  const validationError = validateForm();
+  if (validationError) {
+    alert(validationError);
+    return;
+  }
 
-    setSaving(true);
-    setError('');
-    setUploadingImages(true);
-    
-    try {
-      let finalMainImage = mainImage;
-      let finalImages: ProductImage[] = [...uploadedImages];
+  setSaving(true);
+  setError('');
+  setUploadingImages(true);
+  
+  try {
+    let finalMainImage = mainImage;
+    let finalImages: ProductImage[] = [...uploadedImages];
 
-      // Upload new images if any
-      const filesToUpload: File[] = [];
-      if (mainImageFile) filesToUpload.push(mainImageFile);
-      filesToUpload.push(...additionalImageFiles);
+    // Upload new images if any
+    const filesToUpload: File[] = [];
+    if (mainImageFile) filesToUpload.push(mainImageFile);
+    filesToUpload.push(...additionalImageFiles);
 
-      if (filesToUpload.length > 0) {
-        console.log('📤 Uploading images...', filesToUpload.length);
-        
-        // Upload all images at once
-        const uploadedUrls = await uploadService.uploadImages(filesToUpload);
-        
-        // Map uploaded URLs to their positions
+    if (filesToUpload.length > 0) {
+      console.log('📤 Uploading images...', filesToUpload.length);
+      
+      // Upload all images at once
+      const uploadedUrls = await uploadService.uploadImages(filesToUpload);
+      console.log('✅ Upload response:', uploadedUrls);
+      
+      // Check if uploadedUrls is an array
+      if (Array.isArray(uploadedUrls) && uploadedUrls.length > 0) {
         let urlIndex = 0;
         const newImages: ProductImage[] = [];
         
+        // Handle main image
         if (mainImageFile) {
           finalMainImage = uploadedUrls[urlIndex++];
         }
         
-        // Create ProductImage objects for new uploads
+        // Handle additional images
         for (let i = 0; i < additionalImageFiles.length; i++) {
-          newImages.push({ 
-            imageUrl: uploadedUrls[urlIndex++],
-            productId: id ? parseInt(id) : undefined
-          });
+          if (urlIndex < uploadedUrls.length) {
+            newImages.push({ 
+              imageUrl: uploadedUrls[urlIndex++],
+              productId: id ? parseInt(id) : undefined
+            });
+          }
         }
         
         // Combine existing images with new ones
         finalImages = [...uploadedImages, ...newImages];
-      }
-
-      // Convert colors string to array
-      const colorsArray = formData.colors
-        .split(',')
-        .map(color => color.trim())
-        .filter(color => color !== '');
-
-      // Prepare product data
-      const productData: any = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        stockQuantity: parseInt(formData.stockQuantity),
-        categoryId: parseInt(formData.categoryId),
-        imageUrl: finalMainImage,
-        images: finalImages.map(img => ({ imageUrl: img.imageUrl })), // Send as array of objects
-        height: formData.height ? parseFloat(formData.height) : 0,
-        width: formData.width ? parseFloat(formData.width) : 0,
-        length: formData.length ? parseFloat(formData.length) : 0,
-        colorsVariant: colorsArray,
-        isActive: formData.isActive
-      };
-
-      console.log('📤 Sending product data:', productData);
-
-      if (isEditMode) {
-        await productService.updateProduct(Number(id), productData);
-        alert('Product updated successfully!');
       } else {
-        await productService.createProduct(productData);
-        alert('Product created successfully!');
+        console.warn('⚠️ Upload response is not an array:', uploadedUrls);
       }
-      
-      navigate('/admin/products');
-      
-    } catch (err: any) {
-      console.error('Save error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to save product');
-    } finally {
-      setSaving(false);
-      setUploadingImages(false);
     }
-  };
+
+    // Convert colors string to array
+    const colorsArray = formData.colors
+      .split(',')
+      .map(color => color.trim())
+      .filter(color => color !== '');
+
+    // Prepare product data
+    const productData: any = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      stockQuantity: parseInt(formData.stockQuantity),
+      categoryId: parseInt(formData.categoryId),
+      imageUrl: finalMainImage,
+      images: finalImages.map(img => ({ imageUrl: img.imageUrl })), // Safe mapping
+      height: formData.height ? parseFloat(formData.height) : 0,
+      width: formData.width ? parseFloat(formData.width) : 0,
+      length: formData.length ? parseFloat(formData.length) : 0,
+      colorsVariant: colorsArray,
+      isActive: formData.isActive
+    };
+
+    console.log('📤 Sending product data:', productData);
+
+    if (isEditMode) {
+      await productService.updateProduct(Number(id), productData);
+      alert('Product updated successfully!');
+    } else {
+      await productService.createProduct(productData);
+      alert('Product created successfully!');
+    }
+    
+    navigate('/admin/products');
+    
+  } catch (err: any) {
+    console.error('Save error:', err);
+    setError(err.response?.data?.message || err.message || 'Failed to save product');
+  } finally {
+    setSaving(false);
+    setUploadingImages(false);
+  }
+};
 
   if (loading) {
     return (
