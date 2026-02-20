@@ -12,7 +12,7 @@ import Products from './pages/Products';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminProducts from './pages/admin/AdminProducts';
+import ProductsManagement from './pages/admin/ProductsManagement'; // 👈 CHANGE THIS
 import ProductForm from './pages/admin/ProductForm';
 import CategoriesManagement from './pages/admin/CategoryManagement';
 
@@ -38,7 +38,7 @@ function App() {
             <Route path="/admin" element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
-                <Route path="products" element={<AdminProducts />} />
+                <Route path="products" element={<ProductsManagement />} /> {/* 👈 USE THE NEW COMPONENT */}
                 <Route path="products/new" element={<ProductForm />} />
                 <Route path="products/edit/:id" element={<ProductForm />} />
                 <Route path="categories" element={<CategoriesManagement />} />
