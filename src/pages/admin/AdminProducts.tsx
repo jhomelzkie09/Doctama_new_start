@@ -13,7 +13,8 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Images
 } from 'lucide-react';
 import { Product, Category } from '../../types';
 
@@ -77,6 +78,28 @@ const AdminProducts = () => {
       alert('Failed to update product status');
       await fetchData(); // Refresh to ensure consistency
     }
+  };
+
+  // Helper function to get the main image URL
+  const getMainImageUrl = (product: Product): string => {
+    // If imageUrl exists, use it
+    if (product.imageUrl) {
+      return product.imageUrl;
+    }
+    // Otherwise try to get the first image from images array
+    if (product.images && product.images.length > 0) {
+      return product.images[0].imageUrl;
+    }
+    return '';
+  };
+
+  // Helper function to get additional images count
+  const getAdditionalImagesCount = (product: Product): number => {
+    if (product.images) {
+      // If product has imageUrl, don't count the first image as additional
+      return product.imageUrl ? product.images.length : product.images.length;
+    }
+    return 0;
   };
 
   // Filter products
@@ -164,96 +187,141 @@ const AdminProducts = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Images</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden mr-3">
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-5 h-5 text-gray-400" />
-                          </div>
-                        )}
+              {paginatedProducts.map((product) => {
+                const mainImageUrl = getMainImageUrl(product);
+                const additionalCount = getAdditionalImagesCount(product);
+                
+                return (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden mr-3 flex-shrink-0">
+                          {mainImageUrl ? (
+                            <img 
+                              src={mainImageUrl} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/48?text=Error';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <ImageIcon className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-xs">{product.description}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-xs">{product.description}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {categories.find(c => c.id === product.categoryId)?.name || 'Unknown'}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    ${product.price.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      product.stockQuantity > 10 
-                        ? 'bg-green-100 text-green-800'
-                        : product.stockQuantity > 0
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {product.stockQuantity}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleStatus(product.id, product.isActive)}
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        product.isActive
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {categories.find(c => c.id === product.categoryId)?.name || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      ${product.price.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        product.stockQuantity > 10 
                           ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {product.isActive ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
+                          : product.stockQuantity > 0
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {product.stockQuantity}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       <button
-                        onClick={() => navigate(`/admin/products/${product.id}`)}
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="View"
+                        onClick={() => handleToggleStatus(product.id, product.isActive)}
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          product.isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
                       >
-                        <Eye className="w-4 h-4" />
+                        {product.isActive ? 'Active' : 'Inactive'}
                       </button>
-                      <button
-                        onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                        className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg"
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      {additionalCount > 0 ? (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Images className="w-4 h-4 mr-1 text-blue-500" />
+                          <span>{additionalCount}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">None</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => navigate(`/admin/products/${product.id}`)}
+                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                          className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Edit Product"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Product"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
+        {/* Empty State */}
+        {paginatedProducts.length === 0 && (
+          <div className="text-center py-12">
+            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-500 mb-6">
+              {searchQuery || selectedCategory !== 'all' 
+                ? 'Try adjusting your search or filter criteria'
+                : 'Get started by adding your first product'}
+            </p>
+            {!searchQuery && selectedCategory === 'all' && (
+              <button
+                onClick={() => navigate('/admin/products/new')}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Your First Product
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t flex items-center justify-between">
+          <div className="px-6 py-4 border-t flex items-center justify-between bg-gray-50">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="flex items-center px-3 py-1 border rounded-lg disabled:opacity-50"
+              className="flex items-center px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               Previous
@@ -264,7 +332,7 @@ const AdminProducts = () => {
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center px-3 py-1 border rounded-lg disabled:opacity-50"
+              className="flex items-center px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
               <ChevronRight className="w-4 h-4 ml-1" />
