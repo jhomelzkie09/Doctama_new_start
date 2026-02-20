@@ -22,17 +22,12 @@ function App() {
       <AuthProvider>
         <div className="min-h-screen bg-gray-50">
           <Routes>
-            {/* Public Routes */}
+            {/* Public Routes - Make login the default */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
             {/* Protected User Routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Products />
-              </ProtectedRoute>
-            } />
-            
             <Route path="/products" element={
               <ProtectedRoute>
                 <Products />
@@ -57,8 +52,8 @@ function App() {
               </Route>
             </Route>
             
-            {/* Redirect unknown routes */}
-            <Route path="*" element={<Navigate to="/" />} />
+            {/* Redirect unknown routes to login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>
       </AuthProvider>
