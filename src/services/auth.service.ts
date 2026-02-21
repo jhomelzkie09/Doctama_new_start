@@ -56,32 +56,55 @@ const authService = {
     }
   },
 
-  // Register method
+  // Register method - FIXED to use axios consistently
   register: async (userData: RegisterData): Promise<any> => {
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, userData);
+      console.log('📤 Registering user with data:', userData);
+      
+      // Use axios with full URL like login does
+      const response = await axios.post(`${API_URL}/auth/register`, {
+        email: userData.email,
+        password: userData.password,
+        fullName: userData.fullName
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('✅ Registration response:', response.data);
       const data = response.data;
       
       if (data.token) {
-        const userToStore = {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify({
           id: data.userId,
           email: data.email,
-          fullName: data.fullName || userData.fullName || data.email?.split('@')[0] || 'User',
+          fullName: data.fullName || userData.fullName,
           roles: data.roles || []
-        };
-        
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(userToStore));
+        }));
       }
       
       return data;
     } catch (error: any) {
-      console.error('Registration error:', error);
-      throw error.response?.data || error.message;
+      console.error('❌ Registration error:', error.response?.data || error.message);
+      
+      // Extract and format error message
+      if (error.response?.data?.errors) {
+        // Handle validation errors
+        const errorMessages = Object.values(error.response.data.errors).flat();
+        throw new Error(errorMessages.join(', '));
+      } else if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.response?.data) {
+        throw new Error(JSON.stringify(error.response.data));
+      } else {
+        throw new Error('Registration failed. Please try again.');
+      }
     }
   },
 
-  // Get current user from localStorage - UPDATED to match User interface
+  // Get current user from localStorage
   getCurrentUser: (): User | null => {
     try {
       const userStr = localStorage.getItem('user');
@@ -97,9 +120,9 @@ const authService = {
         firstName: storedUser.fullName?.split(' ')[0] || '',
         lastName: storedUser.fullName?.split(' ').slice(1).join(' ') || '',
         roles: storedUser.roles || [],
-        isActive: true, // Default value
-        emailConfirmed: true, // Default value
-        createdAt: new Date().toISOString(), // Default value
+        isActive: true,
+        emailConfirmed: true,
+        createdAt: new Date().toISOString(),
         phoneNumber: '',
         address: '',
         city: '',
@@ -118,7 +141,7 @@ const authService = {
     }
   },
 
-  // Get minimal user data (useful for contexts that don't need full User)
+  // Get minimal user data
   getStoredUser: (): StoredUser | null => {
     try {
       const userStr = localStorage.getItem('user');
