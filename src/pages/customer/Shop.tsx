@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Filter, Grid, List, Star, ChevronDown, Package } from 'lucide-react';
+import { Search, Grid, List, Package } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import { Product, Category } from '../../types';
 
-const Shop = () => {
+interface ShopProps {
+  onAuthRequired?: (mode: 'login' | 'register') => void;
+}
+
+const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const { addItem } = useCart();
+  
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,12 +32,11 @@ const Shop = () => {
   }, []);
 
   useEffect(() => {
-    // Update URL when filters change
     const params = new URLSearchParams();
     if (selectedCategory) params.set('category', selectedCategory.toString());
     if (searchQuery) params.set('q', searchQuery);
     setSearchParams(params);
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, setSearchParams]);
 
   const loadData = async () => {
     try {
@@ -45,6 +53,22 @@ const Shop = () => {
     }
   };
 
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) {
+      // Trigger auth sidebar from parent
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      }
+      return;
+    }
+    
+    // Add to cart logic here
+    addItem(product);
+  };
+
   const filteredProducts = products
     .filter(p => {
       if (selectedCategory && p.categoryId !== selectedCategory) return false;
@@ -58,7 +82,7 @@ const Shop = () => {
         case 'price-high': return b.price - a.price;
         case 'name-asc': return a.name.localeCompare(b.name);
         case 'name-desc': return b.name.localeCompare(a.name);
-        default: return b.id - a.id; // newest
+        default: return b.id - a.id;
       }
     });
 
@@ -185,61 +209,75 @@ const Shop = () => {
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProducts.map((product) => (
-                  <Link
+                  <div
                     key={product.id}
-                    to={`/products/${product.id}`}
                     className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition group"
                   >
-                    <div className="h-48 overflow-hidden">
-                      <img
-                        src={product.imageUrl || 'https://via.placeholder.com/400x300'}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition"
-                      />
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">{product.name}</h3>
-                      <p className="text-sm text-gray-500 mb-4 line-clamp-2">{product.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xl font-bold text-blue-600">
-                          ${product.price.toFixed(2)}
-                        </span>
-                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                          Add to Cart
-                        </button>
+                    <Link to={`/products/${product.id}`} className="block">
+                      <div className="h-48 overflow-hidden">
+                        <img
+                          src={product.imageUrl || 'https://via.placeholder.com/400x300'}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition"
+                        />
                       </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-gray-900 mb-2">{product.name}</h3>
+                        <p className="text-sm text-gray-500 mb-4 line-clamp-2">{product.description}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl font-bold text-blue-600">
+                            ${product.price.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                    <div className="px-4 pb-4">
+                      <button
+                        onClick={(e) => handleAddToCart(e, product)}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                      >
+                        Add to Cart
+                      </button>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             ) : (
               <div className="space-y-4">
                 {filteredProducts.map((product) => (
-                  <Link
+                  <div
                     key={product.id}
-                    to={`/products/${product.id}`}
-                    className="bg-white rounded-lg shadow-sm p-4 hover:shadow-lg transition flex gap-4"
+                    className="bg-white rounded-lg shadow-sm p-4 hover:shadow-lg transition"
                   >
-                    <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      <img
-                        src={product.imageUrl || 'https://via.placeholder.com/400x300'}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
-                      <p className="text-sm text-gray-500 mb-2">{product.description}</p>
-                      <div className="flex items-center gap-4">
-                        <span className="text-lg font-bold text-blue-600">
-                          ${product.price.toFixed(2)}
-                        </span>
-                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                          Add to Cart
-                        </button>
+                    <div className="flex gap-4">
+                      <Link to={`/products/${product.id}`} className="flex-shrink-0">
+                        <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                          <img
+                            src={product.imageUrl || 'https://via.placeholder.com/400x300'}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </Link>
+                      <div className="flex-1">
+                        <Link to={`/products/${product.id}`}>
+                          <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
+                          <p className="text-sm text-gray-500 mb-2">{product.description}</p>
+                        </Link>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-lg font-bold text-blue-600">
+                            ${product.price.toFixed(2)}
+                          </span>
+                          <button
+                            onClick={(e) => handleAddToCart(e, product)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                          >
+                            Add to Cart
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}
