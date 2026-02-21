@@ -15,15 +15,16 @@ const AccountDashboard = () => {
   }, []);
 
   const loadRecentOrders = async () => {
-    try {
-      const response = await orderService.getMyOrders();
-      setRecentOrders(response.slice(0, 3));
-    } catch (error) {
-      console.error('Failed to load orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const response = await orderService.getMyOrders();
+    // ✅ Access the orders array from the response
+    setRecentOrders(response.orders?.slice(0, 3) || []);
+  } catch (error) {
+    console.error('Failed to load orders:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const stats = [
     { label: 'Total Orders', value: recentOrders.length, icon: Package, color: 'blue' },

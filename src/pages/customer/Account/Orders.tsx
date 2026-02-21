@@ -22,7 +22,7 @@ const AccountOrders = () => {
   const loadOrders = async () => {
     try {
       const data = await orderService.getMyOrders();
-      setOrders(data);
+      setOrders(data.orders);
     } catch (error) {
       console.error('Failed to load orders:', error);
     } finally {
