@@ -1,18 +1,31 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import AdminLayout from './components/admin/AdminLayout';
 
-// Pages
+// Public Pages
+import Home from './pages/customer/Home';
+import Shop from './pages/customer/Shop';
+import ProductDetail from './pages/customer/ProductDetail';
+import Cart from './pages/customer/Cart';
+import Checkout from './pages/customer/Checkout';
+
+// Auth Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Products from './pages/Products';
+
+// Customer Account Pages
+import AccountDashboard from './pages/customer/Account/Dashboard';
+import AccountOrders from './pages/customer/Account/Orders';
+//import AccountProfile from './pages/customer/Account/Profile';
+//import OrderDetail from './pages/customer/Account/OrderDetail';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
-import ProductsManagement from './pages/admin/ProductManagement'; // 👈 CHANGE THIS
+import ProductsManagement from './pages/admin/ProductManagement';
 import ProductForm from './pages/admin/ProductForm';
 import CategoriesManagement from './pages/admin/CategoryManagement';
 
@@ -20,42 +33,64 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Routes>
-            {/* Public Routes - Make login the default */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            
-            {/* Protected User Routes */}
-            <Route path="/products" element={
-              <ProtectedRoute>
-                <Products />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Routes with Layout */}
-            <Route path="/admin" element={<AdminRoute />}>
-              <Route element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="products" element={<ProductsManagement />} /> {/* 👈 USE THE NEW COMPONENT */}
-                <Route path="products/new" element={<ProductForm />} />
-                <Route path="products/edit/:id" element={<ProductForm />} />
-                <Route path="categories" element={<CategoriesManagement />} />
-                <Route path="orders" element={<div>Orders Page (Coming Soon)</div>} />
-                <Route path="users" element={<div>Users Page (Coming Soon)</div>} />
-                <Route path="analytics" element={<div>Analytics Page (Coming Soon)</div>} />
-                <Route path="promotions" element={<div>Promotions Page (Coming Soon)</div>} />
-                <Route path="shipping" element={<div>Shipping Page (Coming Soon)</div>} />
-                <Route path="payments" element={<div>Payments Page (Coming Soon)</div>} />
-                <Route path="settings" element={<div>Settings Page (Coming Soon)</div>} />
+        <CartProvider>
+          <div className="min-h-screen bg-gray-50">
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/shop" element={<Shop />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              
+              {/* Auth Routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              
+              {/* Protected Customer Routes */}
+              <Route path="/checkout" element={
+                <ProtectedRoute>
+                  <Checkout />
+                </ProtectedRoute>
+              } />
+              <Route path="/account" element={
+                <ProtectedRoute>
+                  <AccountDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/orders" element={
+                <ProtectedRoute>
+                  <AccountOrders />
+                </ProtectedRoute>
+              } />
+
+              {/* 
+              <Route path="/account/orders/:id" element={
+                <ProtectedRoute>
+                  <OrderDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/profile" element={
+                <ProtectedRoute>
+                  <AccountProfile />
+                </ProtectedRoute>
+              } />*/}
+              
+              {/* Admin Routes */}
+              <Route path="/admin" element={<AdminRoute />}>
+                <Route element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="products" element={<ProductsManagement />} />
+                  <Route path="products/new" element={<ProductForm />} />
+                  <Route path="products/edit/:id" element={<ProductForm />} />
+                  <Route path="categories" element={<CategoriesManagement />} />
+                </Route>
               </Route>
-            </Route>
-            
-            {/* Redirect unknown routes to login */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </div>
+              
+              {/* 404 */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </CartProvider>
       </AuthProvider>
     </Router>
   );
