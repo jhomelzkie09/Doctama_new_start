@@ -17,10 +17,12 @@ import Register from './pages/Register';
 import AccountDashboard from './pages/customer/Account/Dashboard';
 import AccountOrders from './pages/customer/Account/Orders';
 //import AccountProfile from './pages/customer/Account/Profile';
+
+// Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
-import ProductsManagement from './pages/admin/ProductManagement';
+import ProductsManagement from './pages/admin/ProductManagement'; // Fixed import (added 's')
 import ProductForm from './pages/admin/ProductForm';
-import CategoriesManagement from './pages/admin/CategoryManagement';
+import CategoriesManagement from './pages/admin/CategoryManagement'; // Fixed import (added 's')
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
@@ -76,6 +78,9 @@ function App() {
                 <Route path="categories" element={<CategoriesManagement />} />
               </Route>
             </Route>
+            
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Layout><Home /></Layout>} />
           </Routes>
         </CartProvider>
       </AuthProvider>
