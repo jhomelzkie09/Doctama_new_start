@@ -26,6 +26,7 @@ import CategoriesManagement from './pages/admin/CategoryManagement'; // Fixed im
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
+import DebugAdmin from './pages/admin/DebugAdmin';
 
 function App() {
   return (
@@ -72,6 +73,7 @@ function App() {
             <Route path="/admin" element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
+                <Route path="debug" element={<DebugAdmin />} />
                 <Route path="products" element={<ProductsManagement />} />
                 <Route path="products/new" element={<ProductForm />} />
                 <Route path="products/edit/:id" element={<ProductForm />} />
