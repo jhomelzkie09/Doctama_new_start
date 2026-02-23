@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/auth.service'; // Import this to check stored user
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,30 +12,52 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  try {
-    console.log("🔐 Attempting login with:", email);
-    
-    // Call login function
-    await login(email, password);
-    
-    // Give auth context time to update
-    setTimeout(() => {
-      // Always redirect to admin first - AdminRoute will handle the check
-      console.log("🔄 Redirecting to /admin");
-      navigate('/admin');
-    }, 100);
-    
-  } catch (err: any) {
-    console.error("❌ Login error:", err);
-    setError(err.message || 'Login failed.');
-    setLoading(false);
-  }
-};
+    try {
+      console.log("🔐 Attempting login with:", email);
+      
+      // Call login function
+      await login(email, password);
+      
+      // Get the user from localStorage directly to check roles
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log("👤 User from storage after login:", user);
+        console.log("👑 User roles:", user.roles);
+        
+        // Check if user has admin role
+        const isAdmin = user.roles?.some((role: string) => 
+          role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
+        );
+        
+        console.log("🔍 Is admin?", isAdmin);
+        
+        // Redirect based on role
+        if (isAdmin) {
+          console.log("🔄 Admin user detected, redirecting to /admin");
+          navigate('/admin', { replace: true });
+        } else {
+          console.log("🔄 Regular user detected, redirecting to /");
+          navigate('/', { replace: true });
+        }
+      } else {
+        // Fallback - just go to admin and let AdminRoute handle it
+        console.log("🔄 No user data found, redirecting to /admin");
+        navigate('/admin', { replace: true });
+      }
+      
+    } catch (err: any) {
+      console.error("❌ Login error:", err);
+      setError(err.message || 'Login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 px-4">

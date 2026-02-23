@@ -31,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Get user from storage on mount
     const currentUser = authService.getCurrentUser();
+    console.log('🏁 Initial user from storage:', currentUser);
     setUser(currentUser);
     setLoading(false);
   }, []);
@@ -44,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Get the updated user from storage
       const currentUser = authService.getCurrentUser();
+      console.log('🔑 User after login:', currentUser);
       setUser(currentUser);
       
     } catch (err: any) {
