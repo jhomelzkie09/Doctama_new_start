@@ -2,6 +2,17 @@ import api from '../api/config';
 import { Order } from '../types';
 
 class OrderService {
+  async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
+  try {
+    console.log(`📤 Updating order ${id} payment status to ${status}...`);
+    const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, { status, details });
+    console.log('✅ Order payment updated:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error updating payment:', error.response?.data || error.message);
+    throw error;
+  }
+}
   private readonly baseUrl = '/orders';
 
   async createOrder(orderData: any): Promise<Order> {

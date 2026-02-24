@@ -128,20 +128,31 @@ export interface OrderItem {
   size?: string;
 }
 
+export type PaymentMethod = 'cod' | 'gcash' | 'paymaya';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'awaiting_payment';
+
 export interface Order {
   id: string;
   orderNumber: string;
   userId: string;
   orderDate: string;
   totalAmount: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   items: OrderItem[];
   shippingAddress?: string;
-  paymentMethod?: string;
-  customerEmail?: string;     // Make these optional with proper typing
-  customerName?: string;      // Make these optional with proper typing
-  customerPhone?: string;     // Add this if you have it
-  paymentStatus?: string;     // Add this if you have it
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  paymentDetails?: {
+    referenceNumber?: string;
+    paidAt?: string;
+    gcashNumber?: string;
+    paymayaNumber?: string;
+  };
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
 }
