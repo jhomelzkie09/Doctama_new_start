@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -28,29 +28,7 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     confirmPassword: ''
   });
 
-  const { login, register, user } = useAuth();
-
-  // Effect to handle successful login and redirect
-  useEffect(() => {
-  if (user && !loading) {
-    console.log('✅ User authenticated, checking roles:', user.roles);
-    
-    // Close the sidebar
-    onClose();
-    
-    // Use setTimeout to ensure state updates complete
-    setTimeout(() => {
-      // Check if user is admin
-      if (user.roles?.includes('Admin')) {
-        console.log('👑 Admin detected, redirecting to /admin');
-        // Use navigate instead of window.location for smoother transition
-        navigate('/admin', { replace: true });
-      } else {
-        console.log('👤 Regular user, staying on current page');
-      }
-    }, 100);
-  }
-}, [user, loading, onClose, navigate]);
+  const { login, register } = useAuth();
 
   const handleModeChange = (newMode: 'login' | 'register') => {
     setMode(newMode);
@@ -66,9 +44,34 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     try {
       if (mode === 'login') {
         console.log('🔐 Attempting login with:', formData.email);
+        
+        // Call login function
         await login(formData.email, formData.password);
-        // Don't close or redirect here - let the useEffect handle it
+        
+        console.log('✅ Login successful, checking localStorage directly');
+        
+        // Read from localStorage immediately
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          console.log('👤 User from storage:', user);
+          console.log('👑 User roles:', user.roles);
+          
+          // Close sidebar
+          onClose();
+          
+          // Check if admin and redirect IMMEDIATELY
+          if (user.roles?.includes('Admin')) {
+            console.log('👑 Admin detected, REDIRECTING NOW');
+            // Force a hard reload to /admin
+            window.location.href = '/admin';
+          } else {
+            console.log('👤 Regular user, staying on current page');
+            window.location.href = '/';
+          }
+        }
       } else {
+        // Register logic
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
           setLoading(false);
@@ -80,11 +83,23 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
           password: formData.password,
           fullName: formData.fullName
         });
-        // Don't close or redirect here - let the useEffect handle it
+        
+        // After registration, check roles and redirect
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          onClose();
+          if (user.roles?.includes('Admin')) {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/';
+          }
+        }
       }
     } catch (err: any) {
       console.error('❌ Auth error:', err);
       setError(err.message || 'Authentication failed');
+    } finally {
       setLoading(false);
     }
   };
