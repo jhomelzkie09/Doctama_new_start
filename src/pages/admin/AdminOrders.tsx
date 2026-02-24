@@ -24,12 +24,15 @@ import {
   X,
   Wallet,
   Smartphone,
-  Landmark,
   MessageSquare,
   DollarSign,
   ThumbsUp,
   ThumbsDown,
-  Receipt
+  Receipt,
+  Image as ImageIcon,
+  ZoomIn,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import { Order, PaymentMethod, OrderStatus } from '../../types';
 
@@ -48,6 +51,8 @@ const AdminOrders = () => {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [approvalNote, setApprovalNote] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<string>('');
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,7 +92,7 @@ const AdminOrders = () => {
         order.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customerEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.paymentDetails?.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+        order.paymentProof?.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -127,13 +132,59 @@ const AdminOrders = () => {
     }
   };
 
+  const handleApprovePayment = async (orderId: string) => {
+    setUpdatingStatus(true);
+    try {
+      await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
+        approvedBy: 'admin',
+        approvedAt: new Date().toISOString(),
+        notes: approvalNote
+      });
+      await fetchOrders();
+      if (selectedOrder) {
+        setSelectedOrder({ ...selectedOrder, paymentStatus: 'paid' });
+      }
+      setApprovalNote('');
+      alert('Payment approved! Order can now be processed.');
+    } catch (err: any) {
+      alert('Failed to approve payment');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleRejectPayment = async (orderId: string) => {
+    if (!approvalNote) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+    setUpdatingStatus(true);
+    try {
+      await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
+        rejectedBy: 'admin',
+        rejectedAt: new Date().toISOString(),
+        reason: approvalNote
+      });
+      await fetchOrders();
+      if (selectedOrder) {
+        setSelectedOrder({ ...selectedOrder, paymentStatus: 'failed' });
+      }
+      setApprovalNote('');
+      alert('Payment rejected. Customer will be notified.');
+    } catch (err: any) {
+      alert('Failed to reject payment');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const handleMarkAsPaid = async (orderId: string) => {
     setUpdatingStatus(true);
     try {
-      orderService.updateOrderPayment(parseInt(orderId), 'paid', {
-          approvedBy: 'admin',
-          approvedAt: new Date().toISOString(),
-          notes: ''
+      await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
+        approvedBy: 'admin',
+        approvedAt: new Date().toISOString(),
+        notes: 'Manually marked as paid'
       });
       await fetchOrders();
       if (selectedOrder) {
@@ -142,6 +193,22 @@ const AdminOrders = () => {
       alert('Payment confirmed!');
     } catch (err: any) {
       alert('Failed to update payment status');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleStatusUpdate = async (orderId: string, status: string) => {
+    setUpdatingStatus(true);
+    try {
+      await orderService.updateOrderStatus(parseInt(orderId), status);
+      await fetchOrders();
+      if (selectedOrder) {
+        setSelectedOrder({ ...selectedOrder, status: status as OrderStatus });
+      }
+      alert(`Order status updated to ${status}`);
+    } catch (err: any) {
+      alert('Failed to update order status');
     } finally {
       setUpdatingStatus(false);
     }
@@ -258,17 +325,13 @@ const AdminOrders = () => {
     );
   }
 
-    function handleStatusUpdate(id: string, status: string): void {
-        throw new Error('Function not implemented.');
-    }
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Orders Management</h1>
-          <p className="text-gray-600 mt-1">Manage and approve customer orders</p>
+          <p className="text-gray-600 mt-1">Manage, approve payments, and track customer orders</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -521,7 +584,7 @@ const AdminOrders = () => {
       {/* Order Details Modal */}
       {showOrderModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">Order Details</h2>
               <button
@@ -567,25 +630,62 @@ const AdminOrders = () => {
                     <p className="text-xs text-gray-500 mb-1">Payment Status</p>
                     {getPaymentStatusBadge(selectedOrder.paymentStatus)}
                   </div>
-                  {selectedOrder.paymentMethod === 'gcash' && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">GCash Number</p>
-                      <p className="font-medium">{selectedOrder.paymentDetails?.gcashNumber || 'N/A'}</p>
-                    </div>
-                  )}
-                  {selectedOrder.paymentMethod === 'paymaya' && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">PayMaya Number</p>
-                      <p className="font-medium">{selectedOrder.paymentDetails?.paymayaNumber || 'N/A'}</p>
-                    </div>
-                  )}
-                  {selectedOrder.paymentDetails?.referenceNumber && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Reference Number</p>
-                      <p className="font-medium">{selectedOrder.paymentDetails.referenceNumber}</p>
-                    </div>
-                  )}
                 </div>
+
+                {/* Payment Proof Section */}
+                {selectedOrder.paymentProof && (
+                  <div className="mt-4 pt-4 border-t border-blue-200">
+                    <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center">
+                      <Receipt className="w-4 h-4 mr-2" />
+                      Payment Proof
+                    </h4>
+                    
+                    {/* Receipt Image */}
+                    {selectedOrder.paymentProof.receiptImage && (
+                      <div className="mb-4">
+                        <p className="text-xs text-gray-500 mb-2">Receipt Screenshot</p>
+                        <div 
+                          className="relative group cursor-pointer"
+                          onClick={() => {
+                            setSelectedReceipt(selectedOrder.paymentProof!.receiptImage);
+                            setShowReceiptModal(true);
+                          }}
+                        >
+                          <img 
+                            src={selectedOrder.paymentProof.receiptImage} 
+                            alt="Payment receipt" 
+                            className="w-full max-h-64 object-contain bg-gray-100 rounded-lg border border-gray-200"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-lg flex items-center justify-center">
+                            <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Receipt Details */}
+                    <div className="grid grid-cols-2 gap-4 bg-white p-3 rounded-lg">
+                      <div>
+                        <p className="text-xs text-gray-500">Reference Number</p>
+                        <p className="text-sm font-medium">{selectedOrder.paymentProof.referenceNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Sender Name</p>
+                        <p className="text-sm font-medium">{selectedOrder.paymentProof.senderName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Payment Date</p>
+                        <p className="text-sm font-medium">{selectedOrder.paymentProof.paymentDate}</p>
+                      </div>
+                      {selectedOrder.paymentProof.notes && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-500">Notes</p>
+                          <p className="text-sm">{selectedOrder.paymentProof.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Customer Info */}
@@ -664,14 +764,14 @@ const AdminOrders = () => {
               {/* Approval Notes */}
               <div className="border-t pt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Approval Notes (Optional)
+                  Admin Notes
                 </label>
                 <textarea
                   value={approvalNote}
                   onChange={(e) => setApprovalNote(e.target.value)}
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Add notes about this order..."
+                  placeholder="Add notes about this order (reason for rejection, special instructions, etc.)"
                 />
               </div>
 
@@ -698,28 +798,46 @@ const AdminOrders = () => {
                   </div>
                 </div>
 
-                {/* Payment Actions */}
-                {selectedOrder.paymentStatus === 'pending' && (
+                {/* Payment Actions - Show for pending payments with proof */}
+                {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProof && (
                   <div className="bg-yellow-50 p-4 rounded-lg">
-                    <h3 className="font-medium mb-3 text-yellow-800">Payment Approval</h3>
+                    <h3 className="font-medium mb-3 text-yellow-800 flex items-center">
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      Payment Verification Required
+                    </h3>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => handleMarkAsPaid(selectedOrder.id)}
+                        onClick={() => handleApprovePayment(selectedOrder.id)}
                         disabled={updatingStatus}
                         className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                       >
                         <ThumbsUp className="w-4 h-4 mr-2" />
-                        Confirm Payment
+                        Approve Payment
                       </button>
                       <button
-                        onClick={() => {/* Handle payment failure */}}
+                        onClick={() => handleRejectPayment(selectedOrder.id)}
                         disabled={updatingStatus}
                         className="flex-1 flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                       >
                         <ThumbsDown className="w-4 h-4 mr-2" />
-                        Mark as Failed
+                        Reject Payment
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Manual Payment Confirmation - For COD or manual override */}
+                {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentStatus === 'pending' && !selectedOrder.paymentProof && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h3 className="font-medium mb-3 text-blue-800">Manual Payment Confirmation</h3>
+                    <button
+                      onClick={() => handleMarkAsPaid(selectedOrder.id)}
+                      disabled={updatingStatus}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4 mr-2" />
+                      Mark as Paid
+                    </button>
                   </div>
                 )}
 
@@ -740,6 +858,23 @@ const AdminOrders = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Receipt Image Modal */}
+      {showReceiptModal && selectedReceipt && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-[60] flex items-center justify-center p-4">
+          <button
+            onClick={() => setShowReceiptModal(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img 
+            src={selectedReceipt} 
+            alt="Receipt full size" 
+            className="max-w-full max-h-full object-contain"
+          />
         </div>
       )}
     </div>
