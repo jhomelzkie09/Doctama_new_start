@@ -12,7 +12,6 @@ import Shop from './pages/customer/Shop';
 import ProductDetail from './pages/customer/ProductDetail';
 import Cart from './pages/customer/Cart';
 import Checkout from './pages/customer/Checkout';
-import Login from './pages/Login';
 import Register from './pages/Register';
 import AccountDashboard from './pages/customer/Account/Dashboard';
 import AccountOrders from './pages/customer/Account/Orders';
@@ -20,9 +19,9 @@ import AccountOrders from './pages/customer/Account/Orders';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
-import ProductsManagement from './pages/admin/ProductManagement'; // Fixed import (added 's')
+import ProductsManagement from './pages/admin/ProductManagement';
 import ProductForm from './pages/admin/ProductForm';
-import CategoriesManagement from './pages/admin/CategoryManagement'; // Fixed import (added 's')
+import CategoriesManagement from './pages/admin/CategoryManagement';
 import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
@@ -34,18 +33,18 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <Routes>
-            {/* Public routes with Layout */}
+            {/* ========== PUBLIC ROUTES ========== */}
             <Route path="/" element={<Layout><Home /></Layout>} />
             <Route path="/shop" element={<Layout><Shop /></Layout>} />
             {/*<Route path="/about" element={<Layout><About /></Layout>} />*/}
             {/*<Route path="/contact" element={<Layout><Contact /></Layout>} />*/}
             <Route path="/products/:id" element={<Layout><ProductDetail /></Layout>} />
             
-            {/* Auth routes */}
-            <Route path="/login" element={<Login />} />
+            {/* ========== AUTH ROUTES ========== */}
             <Route path="/register" element={<Register />} />
+            {/* Login page removed - using AuthSidebar instead */}
             
-            {/* Protected customer routes */}
+            {/* ========== PROTECTED CUSTOMER ROUTES ========== */}
             <Route path="/cart" element={<Layout><Cart /></Layout>} />
             <Route path="/checkout" element={
               <ProtectedRoute>
@@ -69,7 +68,7 @@ function App() {
               </ProtectedRoute>
             } />*/}
             
-            {/* Admin routes */}
+            {/* ========== ADMIN ROUTES ========== */}
             <Route path="/admin" element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
@@ -81,7 +80,7 @@ function App() {
               </Route>
             </Route>
             
-            {/* Catch all - redirect to home */}
+            {/* ========== CATCH ALL - REDIRECT TO HOME ========== */}
             <Route path="*" element={<Layout><Home /></Layout>} />
           </Routes>
         </CartProvider>

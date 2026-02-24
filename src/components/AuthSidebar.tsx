@@ -30,27 +30,15 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
   const { login, register, user } = useAuth();
 
-  // Effect to handle successful login and redirect
+  // SIMPLIFIED: Just close the sidebar when user is authenticated
+  // Let the main Login component handle the redirect
   useEffect(() => {
     if (user && !loading && isOpen) {
-      console.log('✅ User authenticated, checking roles:', user.roles);
-      
-      // Small delay to ensure state is stable
-      setTimeout(() => {
-        // Close the sidebar
-        onClose();
-        
-        // Check if user is admin and redirect accordingly
-        if (user.roles?.includes('Admin')) {
-          console.log('👑 Admin detected, redirecting to /admin');
-          navigate('/admin', { replace: true });
-        } else {
-          console.log('👤 Regular user, staying on current page');
-          // Stay on same page - no redirect needed
-        }
-      }, 100);
+      console.log('✅ User authenticated, closing sidebar');
+      onClose();
+      // Don't redirect here - let the main Login component handle it
     }
-  }, [user, loading, isOpen, onClose, navigate]);
+  }, [user, loading, isOpen, onClose]);
 
   const handleModeChange = (newMode: 'login' | 'register') => {
     setMode(newMode);
@@ -67,7 +55,8 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
       if (mode === 'login') {
         console.log('🔐 Attempting login with:', formData.email);
         await login(formData.email, formData.password);
-        // Don't close immediately - let the useEffect handle it
+        // Don't redirect - the useEffect will close the sidebar
+        // The main Login component will handle redirect if needed
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
@@ -80,7 +69,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
           password: formData.password,
           fullName: formData.fullName
         });
-        // Don't close immediately - let the useEffect handle it
       }
     } catch (err: any) {
       console.error('❌ Auth error:', err);
