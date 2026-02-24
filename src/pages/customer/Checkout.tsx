@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { CreditCard, Truck, MapPin, Lock, ArrowLeft } from 'lucide-react';
+import { CreditCard, Truck, MapPin, Lock, ArrowLeft, DollarSign, Smartphone, Wallet, AlertCircle } from 'lucide-react';
 import orderService from '../../services/order.service';
+import { PaymentMethod } from '../../types';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -20,20 +21,57 @@ const Checkout = () => {
     zipCode: '',
     phone: ''
   });
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  const [gcashNumber, setGcashNumber] = useState('');
+  const [paymayaNumber, setPaymayaNumber] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState('');
 
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStep(2);
   };
 
+  const validatePaymentDetails = (): boolean => {
+    if (paymentMethod === 'gcash' && !gcashNumber.trim()) {
+      alert('Please enter your GCash number');
+      return false;
+    }
+    if (paymentMethod === 'paymaya' && !paymayaNumber.trim()) {
+      alert('Please enter your PayMaya number');
+      return false;
+    }
+    return true;
+  };
+
   const handlePlaceOrder = async () => {
+    if (!validatePaymentDetails()) return;
+
     setLoading(true);
     try {
+      // Prepare payment details based on method
+      const paymentDetails: any = {
+        method: paymentMethod
+      };
+
+      if (paymentMethod === 'gcash') {
+        paymentDetails.gcashNumber = gcashNumber;
+      } else if (paymentMethod === 'paymaya') {
+        paymentDetails.paymayaNumber = paymayaNumber;
+      }
+
+      if (referenceNumber) {
+        paymentDetails.referenceNumber = referenceNumber;
+      }
+
       const orderData = {
         totalAmount: state.total,
         shippingAddress: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}`,
-        paymentMethod,
+        paymentMethod: paymentMethod,
+        paymentDetails: paymentDetails,
+        customerName: shippingInfo.fullName,
+        customerEmail: user?.email,
+        customerPhone: shippingInfo.phone,
         items: state.items.map(item => ({
           productId: item.id,
           quantity: item.quantity
@@ -66,6 +104,14 @@ const Checkout = () => {
       </div>
     );
   }
+
+  // Format currency to PHP
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP'
+    }).format(amount);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -157,7 +203,7 @@ const Checkout = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      State
+                      Province
                     </label>
                     <input
                       type="text"
@@ -190,6 +236,7 @@ const Checkout = () => {
                       required
                       value={shippingInfo.phone}
                       onChange={(e) => setShippingInfo({...shippingInfo, phone: e.target.value})}
+                      placeholder="0917 123 4567"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -211,36 +258,145 @@ const Checkout = () => {
               <CreditCard className="w-5 h-5 mr-2 text-blue-600" />
               Payment Method
             </h2>
+            
             <div className="space-y-4">
-              <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+              {/* Cash on Delivery */}
+              <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
                 <input
                   type="radio"
                   name="payment"
-                  value="card"
-                  checked={paymentMethod === 'card'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="mr-3"
+                  value="cod"
+                  checked={paymentMethod === 'cod'}
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                  className="mt-1 mr-3"
                 />
-                <div>
-                  <p className="font-medium">Credit / Debit Card</p>
-                  <p className="text-sm text-gray-500">Pay securely with your card</p>
+                <div className="flex-1">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                      <DollarSign className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Cash on Delivery</p>
+                      <p className="text-sm text-gray-500">Pay when you receive your items</p>
+                    </div>
+                  </div>
                 </div>
               </label>
-              <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+
+              {/* GCash */}
+              <div className={`border rounded-lg ${paymentMethod === 'gcash' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <label className="flex items-start p-4 cursor-pointer hover:bg-gray-50 transition">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="gcash"
+                    checked={paymentMethod === 'gcash'}
+                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                    className="mt-1 mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                        <Smartphone className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">GCash</p>
+                        <p className="text-sm text-gray-500">Pay via GCash mobile wallet</p>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+                
+                {/* GCash Number Input */}
+                {paymentMethod === 'gcash' && (
+                  <div className="px-4 pb-4 pl-14">
+                    <div className="bg-blue-100 p-4 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        GCash Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={gcashNumber}
+                        onChange={(e) => setGcashNumber(e.target.value)}
+                        placeholder="0917 123 4567"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      <div className="flex items-center mt-2 text-xs text-gray-500">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        <span>You will receive an SMS with payment instructions</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* PayMaya */}
+              <div className={`border rounded-lg ${paymentMethod === 'paymaya' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}>
+                <label className="flex items-start p-4 cursor-pointer hover:bg-gray-50 transition">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="paymaya"
+                    checked={paymentMethod === 'paymaya'}
+                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                    className="mt-1 mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                        <Wallet className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">PayMaya</p>
+                        <p className="text-sm text-gray-500">Pay via PayMaya wallet</p>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+                
+                {/* PayMaya Number Input */}
+                {paymentMethod === 'paymaya' && (
+                  <div className="px-4 pb-4 pl-14">
+                    <div className="bg-purple-100 p-4 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        PayMaya Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={paymayaNumber}
+                        onChange={(e) => setPaymayaNumber(e.target.value)}
+                        placeholder="0917 123 4567"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                        required
+                      />
+                      <div className="flex items-center mt-2 text-xs text-gray-500">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        <span>You will receive a payment request via SMS</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reference Number (Optional) */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reference Number (Optional)
+                </label>
                 <input
-                  type="radio"
-                  name="payment"
-                  value="paypal"
-                  checked={paymentMethod === 'paypal'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="mr-3"
+                  type="text"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                  placeholder="Enter payment reference number"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
-                <div>
-                  <p className="font-medium">PayPal</p>
-                  <p className="text-sm text-gray-500">Pay with your PayPal account</p>
-                </div>
-              </label>
+                <p className="text-xs text-gray-500 mt-2">
+                  If you already made a payment, enter the reference number here
+                </p>
+              </div>
             </div>
+
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setStep(1)}
@@ -277,7 +433,7 @@ const Checkout = () => {
                       <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                     </div>
                     <p className="font-bold text-blue-600">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatCurrency(item.price * item.quantity)}
                     </p>
                   </div>
                 ))}
@@ -303,14 +459,38 @@ const Checkout = () => {
                   <CreditCard className="w-4 h-4 mr-2 text-blue-600" />
                   Payment Method
                 </h3>
-                <p className="text-sm text-gray-600 capitalize">{paymentMethod}</p>
+                <div className="flex items-center">
+                  {paymentMethod === 'cod' && (
+                    <>
+                      <DollarSign className="w-5 h-5 text-green-600 mr-2" />
+                      <p className="text-sm text-gray-600">Cash on Delivery</p>
+                    </>
+                  )}
+                  {paymentMethod === 'gcash' && (
+                    <>
+                      <Smartphone className="w-5 h-5 text-blue-600 mr-2" />
+                      <p className="text-sm text-gray-600">GCash - {gcashNumber}</p>
+                    </>
+                  )}
+                  {paymentMethod === 'paymaya' && (
+                    <>
+                      <Wallet className="w-5 h-5 text-purple-600 mr-2" />
+                      <p className="text-sm text-gray-600">PayMaya - {paymayaNumber}</p>
+                    </>
+                  )}
+                </div>
+                {referenceNumber && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    Reference: {referenceNumber}
+                  </p>
+                )}
               </div>
 
               {/* Order Total */}
               <div className="border-t pt-4">
                 <div className="flex justify-between mb-2">
                   <span>Subtotal</span>
-                  <span>${state.total.toFixed(2)}</span>
+                  <span>{formatCurrency(state.total)}</span>
                 </div>
                 <div className="flex justify-between mb-2">
                   <span>Shipping</span>
@@ -318,7 +498,7 @@ const Checkout = () => {
                 </div>
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span className="text-blue-600">${state.total.toFixed(2)}</span>
+                  <span className="text-blue-600">{formatCurrency(state.total)}</span>
                 </div>
               </div>
             </div>
