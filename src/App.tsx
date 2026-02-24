@@ -26,6 +26,7 @@ import AdminRoute from './components/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import DebugAdmin from './pages/admin/DebugAdmin';
+import Orders from './pages/admin/AdminOrders';
 
 function App() {
   return (
@@ -77,6 +78,7 @@ function App() {
                 <Route path="products/new" element={<ProductForm />} />
                 <Route path="products/edit/:id" element={<ProductForm />} />
                 <Route path="categories" element={<CategoriesManagement />} />
+                <Route path="orders" element={<Orders />} />
               </Route>
             </Route>
             
