@@ -30,15 +30,24 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
   const { login, register, user } = useAuth();
 
-  // SIMPLIFIED: Just close the sidebar when user is authenticated
-  // Let the main Login component handle the redirect
+  // Effect to handle successful login and redirect
   useEffect(() => {
-    if (user && !loading && isOpen) {
-      console.log('✅ User authenticated, closing sidebar');
+    if (user && !loading) {
+      console.log('✅ User authenticated, checking roles:', user.roles);
+      
+      // Close the sidebar
       onClose();
-      // Don't redirect here - let the main Login component handle it
+      
+      // Check if user is admin and redirect accordingly
+      if (user.roles?.includes('Admin')) {
+        console.log('👑 Admin detected, redirecting to /admin');
+        // Use window.location for a hard redirect to ensure fresh state
+        window.location.href = '/admin';
+      } else {
+        console.log('👤 Regular user, staying on current page');
+      }
     }
-  }, [user, loading, isOpen, onClose]);
+  }, [user, loading, onClose]);
 
   const handleModeChange = (newMode: 'login' | 'register') => {
     setMode(newMode);
@@ -55,8 +64,7 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
       if (mode === 'login') {
         console.log('🔐 Attempting login with:', formData.email);
         await login(formData.email, formData.password);
-        // Don't redirect - the useEffect will close the sidebar
-        // The main Login component will handle redirect if needed
+        // Don't close or redirect here - let the useEffect handle it
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
@@ -69,6 +77,7 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
           password: formData.password,
           fullName: formData.fullName
         });
+        // Don't close or redirect here - let the useEffect handle it
       }
     } catch (err: any) {
       console.error('❌ Auth error:', err);
