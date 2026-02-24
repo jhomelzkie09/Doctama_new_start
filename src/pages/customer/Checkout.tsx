@@ -60,13 +60,11 @@ const Checkout = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('File too large. Maximum size is 5MB.');
       return;
     }
 
-    // Check file type
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file.');
       return;
@@ -74,7 +72,6 @@ const Checkout = () => {
 
     setReceiptFile(file);
     
-    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setReceiptPreview(reader.result as string);
@@ -97,29 +94,21 @@ const Checkout = () => {
     setUploadProgress(0);
 
     try {
-      // Step 1: Upload receipt if exists
+      // Upload receipt if exists
       let receiptImageUrl = '';
       if (receiptFile) {
         console.log('📤 Uploading receipt...');
-        // You'll need to add this method to uploadService
         const uploadedUrls = await uploadService.uploadImages([receiptFile]);
         receiptImageUrl = uploadedUrls[0];
         setUploadProgress(100);
       }
 
-      // Step 2: Create order with payment proof
-      const orderData = {
+      // Create order with payment proof
+      const orderData: any = {
         totalAmount: state.total,
         shippingAddress: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}`,
         paymentMethod: paymentMethod,
-        paymentStatus: 'pending', // Always pending for manual verification
-        paymentProof: {
-          receiptImage: receiptImageUrl,
-          referenceNumber: referenceNumber,
-          senderName: senderName,
-          paymentDate: paymentDate,
-          notes: paymentNotes
-        },
+        paymentStatus: 'pending',
         customerName: shippingInfo.fullName,
         customerEmail: user?.email,
         customerPhone: shippingInfo.phone,
@@ -129,11 +118,21 @@ const Checkout = () => {
         }))
       };
 
+      // Add payment proof for non-COD orders
+      if (paymentMethod !== 'cod' && receiptImageUrl) {
+        orderData.paymentProof = {
+          receiptImage: receiptImageUrl,
+          referenceNumber: referenceNumber,
+          senderName: senderName,
+          paymentDate: paymentDate,
+          notes: paymentNotes
+        };
+      }
+
       const order = await orderService.createOrder(orderData);
       
-      // Step 3: Clear cart and redirect
       clearCart();
-      navigate(`/account/orders/${order.id}?success=true&pending=verification`);
+      navigate(`/account/orders/${order.id}?success=true`);
       
     } catch (error) {
       console.error('Order failed:', error);
@@ -145,10 +144,9 @@ const Checkout = () => {
 
   const validatePaymentDetails = (): boolean => {
     if (paymentMethod === 'cod') {
-      return true; // No validation needed for COD
+      return true;
     }
 
-    // For GCash/PayMaya
     if (!receiptFile) {
       alert('Please upload a screenshot of your payment receipt');
       return false;
@@ -337,74 +335,103 @@ const Checkout = () => {
               Payment Method
             </h2>
             
-            <div className="space-y-6">
-              {/* Payment Method Selection */}
-              <div className="grid grid-cols-1 gap-3">
-                {/* Cash on Delivery */}
-                <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition ${
-                  paymentMethod === 'cod' ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'
-                }`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="cod"
-                    checked={paymentMethod === 'cod'}
-                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="mr-3"
-                  />
-                  <DollarSign className={`w-5 h-5 mr-2 ${
-                    paymentMethod === 'cod' ? 'text-green-600' : 'text-gray-400'
-                  }`} />
+            <div className="space-y-4">
+              {/* Cash on Delivery */}
+              <label className={`flex items-start p-4 border rounded-lg cursor-pointer transition ${
+                paymentMethod === 'cod' ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'
+              }`}>
+                <input
+                  type="radio"
+                  name="payment"
+                  value="cod"
+                  checked={paymentMethod === 'cod'}
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                  className="mt-1 mr-3"
+                />
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                  </div>
                   <div>
                     <p className="font-medium">Cash on Delivery</p>
                     <p className="text-sm text-gray-500">Pay when you receive your items</p>
                   </div>
-                </label>
+                </div>
+              </label>
 
-                {/* GCash */}
-                <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition ${
-                  paymentMethod === 'gcash' ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
-                }`}>
+              {/* GCash */}
+              <div className={`border rounded-lg ${
+                paymentMethod === 'gcash' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+              }`}>
+                <label className="flex items-start p-4 cursor-pointer hover:bg-gray-50 transition">
                   <input
                     type="radio"
                     name="payment"
                     value="gcash"
                     checked={paymentMethod === 'gcash'}
                     onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="mr-3"
+                    className="mt-1 mr-3"
                   />
-                  <Smartphone className={`w-5 h-5 mr-2 ${
-                    paymentMethod === 'gcash' ? 'text-blue-600' : 'text-gray-400'
-                  }`} />
-                  <div>
-                    <p className="font-medium">GCash</p>
-                    <p className="text-sm text-gray-500">Pay via GCash and upload receipt</p>
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                      <Smartphone className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">GCash</p>
+                      <p className="text-sm text-gray-500">Pay via GCash and upload receipt</p>
+                    </div>
                   </div>
                 </label>
+                
+                {/* GCash Number Input */}
+                {paymentMethod === 'gcash' && (
+                  <div className="px-4 pb-4 pl-14">
+                    <input
+                      type="tel"
+                      placeholder="GCash Number (Optional)"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
 
-                {/* PayMaya */}
-                <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition ${
-                  paymentMethod === 'paymaya' ? 'border-purple-500 bg-purple-50' : 'hover:bg-gray-50'
-                }`}>
+              {/* PayMaya */}
+              <div className={`border rounded-lg ${
+                paymentMethod === 'paymaya' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+              }`}>
+                <label className="flex items-start p-4 cursor-pointer hover:bg-gray-50 transition">
                   <input
                     type="radio"
                     name="payment"
                     value="paymaya"
                     checked={paymentMethod === 'paymaya'}
                     onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="mr-3"
+                    className="mt-1 mr-3"
                   />
-                  <Wallet className={`w-5 h-5 mr-2 ${
-                    paymentMethod === 'paymaya' ? 'text-purple-600' : 'text-gray-400'
-                  }`} />
-                  <div>
-                    <p className="font-medium">PayMaya</p>
-                    <p className="text-sm text-gray-500">Pay via PayMaya and upload receipt</p>
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                      <Wallet className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">PayMaya</p>
+                      <p className="text-sm text-gray-500">Pay via PayMaya and upload receipt</p>
+                    </div>
                   </div>
                 </label>
+                
+                {/* PayMaya Number Input */}
+                {paymentMethod === 'paymaya' && (
+                  <div className="px-4 pb-4 pl-14">
+                    <input
+                      type="tel"
+                      placeholder="PayMaya Number (Optional)"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Receipt Upload Section (for GCash/PayMaya) */}
+              {/* Receipt Upload Section - Only for GCash/PayMaya */}
               {paymentMethod !== 'cod' && (
                 <div className="mt-6 border-t pt-6">
                   <h3 className="font-medium text-gray-900 mb-4">Upload Payment Proof</h3>
@@ -492,7 +519,7 @@ const Checkout = () => {
                       />
                     </div>
 
-                    {/* Notes (Optional) */}
+                    {/* Notes */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Additional Notes (Optional)
@@ -504,37 +531,6 @@ const Checkout = () => {
                         placeholder="Any additional information about your payment"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
-                    </div>
-
-                    {/* Upload Progress */}
-                    {uploadProgress > 0 && uploadProgress < 100 && (
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-blue-600">Uploading...</span>
-                          <span className="text-sm font-medium text-blue-600">{uploadProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div 
-                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* COD Info Box */}
-              {paymentMethod === 'cod' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-2 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-green-800">Cash on Delivery Selected</p>
-                      <p className="text-sm text-green-700 mt-1">
-                        Pay when you receive your items. No need to upload any proof of payment.
-                      </p>
                     </div>
                   </div>
                 </div>

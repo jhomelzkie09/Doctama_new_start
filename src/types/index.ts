@@ -45,21 +45,17 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  imageUrl: string; // Main/thumbnail image
-  images?: ProductImage[]; // Array of additional images as objects
+  imageUrl: string;
+  images?: ProductImage[];
   categoryId: number;
   stockQuantity: number;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  
-  // From your backend Product model
   height: number;
   width: number;
   length: number;
-  colorsVariant: string[]; // Array of available colors
-  
-  // Optional fields
+  colorsVariant: string[];
   rating?: number;
   reviewCount?: number;
   isFeatured?: boolean;
@@ -70,17 +66,13 @@ export interface CreateProductData {
   description: string;
   price: number;
   imageUrl: string;
-  images?: string[] | ProductImage[]; // Can accept either URLs or image objects
+  images?: string[] | ProductImage[];
   categoryId: number;
   stockQuantity: number;
-  
-  // From your backend
   height: number;
   width: number;
   length: number;
   colorsVariant: string[];
-  
-  // Status
   isActive?: boolean;
   isFeatured?: boolean;
 }
@@ -141,7 +133,7 @@ export type PaymentMethod = 'cod' | 'gcash' | 'paymaya';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'awaiting_payment';
 
-// MAIN Order interface - used throughout the app
+// MAIN Order interface
 export interface Order {
   id: string;
   orderNumber: string;
@@ -156,36 +148,9 @@ export interface Order {
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
-  paymentProof?: PaymentProof; // Fixed: using the proper PaymentProof type
-  paymentDetails?: {
-    referenceNumber?: string;
-    paidAt?: string;
-    gcashNumber?: string;
-    paymayaNumber?: string;
-  };
+  paymentProof?: PaymentProof;
   notes?: string;
   createdAt?: string;
-  updatedAt?: string;
-}
-
-// SimpleOrder - only if you need a different structure for something specific
-// If not needed, you can remove this entirely
-export interface SimpleOrder {
-  id: number;
-  userId: string;
-  orderNumber: string;
-  orderDate: string;
-  status: OrderStatus;
-  totalAmount: number;
-  shippingAddress: string;
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  paymentProof?: PaymentProof;
-  items: OrderItem[];
-  createdAt: string;
   updatedAt?: string;
 }
 
