@@ -48,7 +48,6 @@ interface OrderWithDetails extends Order {
   customerName?: string;
   customerEmail?: string;
   itemCount?: number;
-  paymentMethod?: string;
 }
 
 interface ProductWithStats extends Product {
