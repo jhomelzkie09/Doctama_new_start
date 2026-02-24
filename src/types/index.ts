@@ -138,6 +138,10 @@ export interface Order {
   items: OrderItem[];
   shippingAddress?: string;
   paymentMethod?: string;
+  customerEmail?: string;     // Make these optional with proper typing
+  customerName?: string;      // Make these optional with proper typing
+  customerPhone?: string;     // Add this if you have it
+  paymentStatus?: string;     // Add this if you have it
   createdAt?: string;
   updatedAt?: string;
 }
