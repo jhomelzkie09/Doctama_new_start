@@ -185,3 +185,31 @@ export interface AuthResponse {
   user: AuthUser;
   token: string;
 }
+
+// types/index.ts - Add these types
+export interface PaymentProof {
+  receiptImage: string; // Base64 or URL
+  referenceNumber: string;
+  senderName: string;
+  paymentDate: string;
+  notes?: string;
+}
+
+export interface SimpleOrder {
+  id: number;
+  userId: string;
+  orderNumber: string;
+  orderDate: string;
+  status: OrderStatus;
+  totalAmount: number;
+  shippingAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentProof?: PaymentProof; // Add this
+  items: Order[];
+  createdAt: string;
+  updatedAt?: string;
+}
