@@ -32,22 +32,25 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
   // Effect to handle successful login and redirect
   useEffect(() => {
-    if (user && !loading) {
-      console.log('✅ User authenticated, checking roles:', user.roles);
-      
-      // Close the sidebar
-      onClose();
-      
-      // Check if user is admin and redirect accordingly
+  if (user && !loading) {
+    console.log('✅ User authenticated, checking roles:', user.roles);
+    
+    // Close the sidebar
+    onClose();
+    
+    // Use setTimeout to ensure state updates complete
+    setTimeout(() => {
+      // Check if user is admin
       if (user.roles?.includes('Admin')) {
         console.log('👑 Admin detected, redirecting to /admin');
-        // Use window.location for a hard redirect to ensure fresh state
-        window.location.href = '/admin';
+        // Use navigate instead of window.location for smoother transition
+        navigate('/admin', { replace: true });
       } else {
         console.log('👤 Regular user, staying on current page');
       }
-    }
-  }, [user, loading, onClose]);
+    }, 100);
+  }
+}, [user, loading, onClose, navigate]);
 
   const handleModeChange = (newMode: 'login' | 'register') => {
     setMode(newMode);
