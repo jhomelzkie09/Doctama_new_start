@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthSidebarProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
   initialMode,
   onModeChange
 }) => {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,29 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     confirmPassword: ''
   });
 
-  const { login, register } = useAuth();
+  const { login, register, user } = useAuth();
+
+  // Effect to handle successful login and redirect
+  useEffect(() => {
+    if (user && !loading && isOpen) {
+      console.log('✅ User authenticated, checking roles:', user.roles);
+      
+      // Small delay to ensure state is stable
+      setTimeout(() => {
+        // Close the sidebar
+        onClose();
+        
+        // Check if user is admin and redirect accordingly
+        if (user.roles?.includes('Admin')) {
+          console.log('👑 Admin detected, redirecting to /admin');
+          navigate('/admin', { replace: true });
+        } else {
+          console.log('👤 Regular user, staying on current page');
+          // Stay on same page - no redirect needed
+        }
+      }, 100);
+    }
+  }, [user, loading, isOpen, onClose, navigate]);
 
   const handleModeChange = (newMode: 'login' | 'register') => {
     setMode(newMode);
@@ -41,24 +65,26 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
     try {
       if (mode === 'login') {
+        console.log('🔐 Attempting login with:', formData.email);
         await login(formData.email, formData.password);
-        onClose();
+        // Don't close immediately - let the useEffect handle it
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
           setLoading(false);
           return;
         }
+        console.log('📝 Attempting registration for:', formData.email);
         await register({
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName
         });
-        onClose();
+        // Don't close immediately - let the useEffect handle it
       }
     } catch (err: any) {
+      console.error('❌ Auth error:', err);
       setError(err.message || 'Authentication failed');
-    } finally {
       setLoading(false);
     }
   };
