@@ -115,7 +115,16 @@ export interface Cart {
   totalPrice: number;
 }
 
-// Order types
+// Payment Proof type
+export interface PaymentProof {
+  receiptImage: string;
+  referenceNumber: string;
+  senderName: string;
+  paymentDate: string;
+  notes?: string;
+}
+
+// Order Item types
 export interface OrderItem {
   id?: string;
   productId: string;
@@ -132,6 +141,7 @@ export type PaymentMethod = 'cod' | 'gcash' | 'paymaya';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'awaiting_payment';
 
+// MAIN Order interface - used throughout the app
 export interface Order {
   id: string;
   orderNumber: string;
@@ -146,6 +156,7 @@ export interface Order {
   customerEmail?: string;
   customerName?: string;
   customerPhone?: string;
+  paymentProof?: PaymentProof; // Fixed: using the proper PaymentProof type
   paymentDetails?: {
     referenceNumber?: string;
     paidAt?: string;
@@ -154,6 +165,27 @@ export interface Order {
   };
   notes?: string;
   createdAt?: string;
+  updatedAt?: string;
+}
+
+// SimpleOrder - only if you need a different structure for something specific
+// If not needed, you can remove this entirely
+export interface SimpleOrder {
+  id: number;
+  userId: string;
+  orderNumber: string;
+  orderDate: string;
+  status: OrderStatus;
+  totalAmount: number;
+  shippingAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentProof?: PaymentProof;
+  items: OrderItem[];
+  createdAt: string;
   updatedAt?: string;
 }
 
@@ -184,32 +216,4 @@ export interface AuthUser {
 export interface AuthResponse {
   user: AuthUser;
   token: string;
-}
-
-// types/index.ts - Add these types
-export interface PaymentProof {
-  receiptImage: string; // Base64 or URL
-  referenceNumber: string;
-  senderName: string;
-  paymentDate: string;
-  notes?: string;
-}
-
-export interface SimpleOrder {
-  id: number;
-  userId: string;
-  orderNumber: string;
-  orderDate: string;
-  status: OrderStatus;
-  totalAmount: number;
-  shippingAddress: string;
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  paymentProof?: PaymentProof; // Add this
-  items: Order[];
-  createdAt: string;
-  updatedAt?: string;
 }
