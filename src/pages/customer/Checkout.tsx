@@ -88,59 +88,69 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = async () => {
-    if (!validatePaymentDetails()) return;
+  if (!validatePaymentDetails()) return;
 
-    setLoading(true);
-    setUploadProgress(0);
+  setLoading(true);
+  setUploadProgress(0);
 
-    try {
-      // Upload receipt if exists
-      let receiptImageUrl = '';
-      if (receiptFile) {
-        console.log('📤 Uploading receipt...');
-        const uploadedUrls = await uploadService.uploadImages([receiptFile]);
-        receiptImageUrl = uploadedUrls[0];
-        setUploadProgress(100);
-      }
-
-      // Create order with payment proof
-      const orderData: any = {
-        totalAmount: state.total,
-        shippingAddress: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}`,
-        paymentMethod: paymentMethod,
-        paymentStatus: 'pending',
-        customerName: shippingInfo.fullName,
-        customerEmail: user?.email,
-        customerPhone: shippingInfo.phone,
-        items: state.items.map(item => ({
-          productId: item.id,
-          quantity: item.quantity
-        }))
-      };
-
-      // Add payment proof for non-COD orders
-      if (paymentMethod !== 'cod' && receiptImageUrl) {
-        orderData.paymentProof = {
-          receiptImage: receiptImageUrl,
-          referenceNumber: referenceNumber,
-          senderName: senderName,
-          paymentDate: paymentDate,
-          notes: paymentNotes
-        };
-      }
-
-      const order = await orderService.createOrder(orderData);
-      
-      clearCart();
-      navigate(`/account/orders/${order.id}?success=true`);
-      
-    } catch (error) {
-      console.error('Order failed:', error);
-      alert('Failed to place order. Please try again.');
-    } finally {
-      setLoading(false);
+  try {
+    // Upload receipt if exists
+    let receiptImageUrl = '';
+    if (receiptFile) {
+      console.log('📤 Uploading receipt...');
+      const uploadedUrls = await uploadService.uploadImages([receiptFile]);
+      receiptImageUrl = uploadedUrls[0];
+      console.log('✅ Receipt uploaded:', receiptImageUrl);
+      setUploadProgress(100);
     }
-  };
+
+    // Create order with payment proof
+    const orderData: any = {
+      totalAmount: state.total,
+      shippingAddress: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}`,
+      paymentMethod: paymentMethod,
+      paymentStatus: 'pending',
+      customerName: shippingInfo.fullName,
+      customerEmail: user?.email,
+      customerPhone: shippingInfo.phone,
+      items: state.items.map(item => ({
+        productId: item.id,
+        quantity: item.quantity
+      }))
+    };
+
+    // Add payment proof for non-COD orders
+    if (paymentMethod !== 'cod' && receiptImageUrl) {
+      orderData.paymentProofImage = receiptImageUrl;
+      orderData.paymentProofReference = referenceNumber;
+      orderData.paymentProofSender = senderName;
+      orderData.paymentProofDate = paymentDate;
+      orderData.paymentProofNotes = paymentNotes;
+      
+      console.log('📦 Sending order with payment proof:', {
+        paymentProofImage: receiptImageUrl,
+        paymentProofReference: referenceNumber,
+        paymentProofSender: senderName,
+        paymentProofDate: paymentDate,
+        paymentProofNotes: paymentNotes
+      });
+    }
+
+    console.log('📤 Sending order data:', orderData);
+    
+    const order = await orderService.createOrder(orderData);
+    console.log('✅ Order created:', order);
+    
+    clearCart();
+    navigate(`/account/orders/${order.id}?success=true`);
+    
+  } catch (error) {
+    console.error('❌ Order failed:', error);
+    alert('Failed to place order. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const validatePaymentDetails = (): boolean => {
     if (paymentMethod === 'cod') {
