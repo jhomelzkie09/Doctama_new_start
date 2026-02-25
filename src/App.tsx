@@ -15,7 +15,9 @@ import Checkout from './pages/customer/Checkout';
 import Register from './pages/Register';
 import AccountDashboard from './pages/customer/Account/Dashboard';
 import AccountOrders from './pages/customer/Account/Orders';
-//import AccountProfile from './pages/customer/Account/Profile';
+import AccountProfile from './pages/customer/Account/Profile';
+import AccountAddresses from './pages/customer/Account/Addresses';
+import AccountOrderDetails from './pages/customer/Account/OrderDetail';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -62,12 +64,24 @@ function App() {
                 <Layout><AccountOrders /></Layout>
               </ProtectedRoute>
             } />
-            {/*
+            
             <Route path="/account/profile" element={
               <ProtectedRoute>
                 <Layout><AccountProfile /></Layout>
               </ProtectedRoute>
-            } />*/}
+            } />
+
+            <Route path="/account/orderdetails" element={
+              <ProtectedRoute>
+                <Layout><AccountOrderDetails /></Layout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/account/addresses" element={
+              <ProtectedRoute>
+                <Layout><AccountAddresses /></Layout>
+              </ProtectedRoute>
+            } />
             
             {/* ========== ADMIN ROUTES ========== */}
             <Route path="/admin" element={<AdminRoute />}>

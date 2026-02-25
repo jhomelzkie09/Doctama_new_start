@@ -1,58 +1,124 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Package, User, MapPin, CreditCard, Clock, ChevronRight } from 'lucide-react';
 import orderService from '../../../services/order.service';
-import { Order } from '../../../types';
+import {
+  Package,
+  User,
+  MapPin,
+  Heart,
+  Settings,
+  ChevronRight,
+  ShoppingBag,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Truck,
+  AlertCircle
+} from 'lucide-react';
 
 const AccountDashboard = () => {
   const { user } = useAuth();
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    deliveredOrders: 0,
+    wishlistCount: 0
+  });
 
   useEffect(() => {
-    loadRecentOrders();
+    loadDashboardData();
   }, []);
 
-  const loadRecentOrders = async () => {
-  try {
-    const response = await orderService.getMyOrders();
-    // ✅ Access the orders array from the response
-    setRecentOrders(response.orders?.slice(0, 3) || []);
-  } catch (error) {
-    console.error('Failed to load orders:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  const loadDashboardData = async () => {
+    try {
+      const orders = await orderService.getMyOrders(1, 5);
+      setRecentOrders(orders.orders || []);
+      
+      // Calculate stats
+      const allOrders = await orderService.getMyOrders(1, 100);
+      const orderList = allOrders.orders || [];
+      setStats({
+        totalOrders: orderList.length,
+        pendingOrders: orderList.filter((o: any) => o.status === 'pending' || o.status === 'awaiting_payment').length,
+        deliveredOrders: orderList.filter((o: any) => o.status === 'delivered').length,
+        wishlistCount: 0 // You'll implement wishlist later
+      });
+    } catch (error) {
+      console.error('Failed to load dashboard:', error);
+    }
+  };
 
-  const stats = [
-    { label: 'Total Orders', value: recentOrders.length, icon: Package, color: 'blue' },
-    { label: 'Account Age', value: '30 days', icon: Clock, color: 'green' },
-    { label: 'Saved Addresses', value: '1', icon: MapPin, color: 'purple' },
-    { label: 'Payment Methods', value: '1', icon: CreditCard, color: 'orange' },
+  const getStatusIcon = (status: string) => {
+    switch(status) {
+      case 'delivered': return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'shipped': return <Truck className="w-4 h-4 text-blue-500" />;
+      case 'processing': return <Clock className="w-4 h-4 text-yellow-500" />;
+      case 'pending': return <Clock className="w-4 h-4 text-gray-500" />;
+      case 'cancelled': return <XCircle className="w-4 h-4 text-red-500" />;
+      default: return <Package className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const quickActions = [
+    { icon: ShoppingBag, label: 'Shop Again', path: '/shop', color: 'blue' },
+    { icon: Package, label: 'Track Orders', path: '/account/orders', color: 'green' },
+    { icon: Heart, label: 'Wishlist', path: '/account/wishlist', color: 'red' },
+    { icon: User, label: 'My Profile', path: '/account/profile', color: 'purple' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 max-w-6xl">
         {/* Welcome Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.fullName}!</h1>
-          <p className="text-gray-600">Manage your account and view your orders</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            Welcome back, {user?.fullName || user?.email}!
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Manage your account, track orders, and view your wishlist
+          </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-white rounded-lg shadow-sm p-6">
-              <div className={`w-12 h-12 bg-${stat.color}-100 rounded-lg flex items-center justify-center mb-4`}>
-                <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</p>
-              <p className="text-sm text-gray-600">{stat.label}</p>
-            </div>
-          ))}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+            <p className="text-sm text-gray-600 mb-1">Total Orders</p>
+            <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
+            <p className="text-sm text-gray-600 mb-1">Pending</p>
+            <p className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+            <p className="text-sm text-gray-600 mb-1">Delivered</p>
+            <p className="text-2xl font-bold text-green-600">{stats.deliveredOrders}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+            <p className="text-sm text-gray-600 mb-1">Wishlist</p>
+            <p className="text-2xl font-bold text-red-600">{stats.wishlistCount}</p>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {quickActions.map((action, index) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={index}
+                to={action.path}
+                className={`bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition group`}
+              >
+                <div className={`w-12 h-12 bg-${action.color}-100 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition`}>
+                  <Icon className={`w-6 h-6 text-${action.color}-600`} />
+                </div>
+                <h3 className="font-semibold text-gray-900">{action.label}</h3>
+                <p className="text-sm text-gray-500 mt-1">Click to continue</p>
+              </Link>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -61,18 +127,13 @@ const AccountDashboard = () => {
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
-                <Link
-                  to="/account/orders"
-                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-                >
-                  View All
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                <Link to="/account/orders" className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
+                  View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Link>
               </div>
-              <div className="divide-y">
-                {loading ? (
-                  <div className="p-8 text-center text-gray-500">Loading...</div>
-                ) : recentOrders.length === 0 ? (
+              
+              <div className="divide-y divide-gray-200">
+                {recentOrders.length === 0 ? (
                   <div className="p-8 text-center">
                     <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 mb-4">No orders yet</p>
@@ -97,17 +158,18 @@ const AccountDashboard = () => {
                             {new Date(order.orderDate).toLocaleDateString()}
                           </p>
                         </div>
-                        <span className={`px-3 py-1 text-xs rounded-full ${
-                          order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                          order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {order.status}
-                        </span>
+                        <div className="flex items-center">
+                          {getStatusIcon(order.status)}
+                          <span className="ml-2 text-sm capitalize">{order.status}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-gray-600">{order.items?.length} items</p>
-                        <p className="font-bold text-blue-600">${order.totalAmount?.toFixed(2)}</p>
+                      <div className="flex justify-between items-center mt-3">
+                        <p className="text-sm text-gray-600">
+                          {order.items?.length || 0} items
+                        </p>
+                        <p className="font-bold text-blue-600">
+                          ₱{order.totalAmount?.toLocaleString()}
+                        </p>
                       </div>
                     </Link>
                   ))
@@ -122,38 +184,50 @@ const AccountDashboard = () => {
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
               </div>
-              <div className="divide-y">
-                <Link
-                  to="/account/profile"
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition"
-                >
+              <div className="divide-y divide-gray-200">
+                <Link to="/account/profile" className="flex items-center justify-between p-4 hover:bg-gray-50">
                   <div className="flex items-center">
                     <User className="w-5 h-5 text-gray-400 mr-3" />
                     <span>Profile Information</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
-                <Link
-                  to="/account/addresses"
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition"
-                >
+                <Link to="/account/addresses" className="flex items-center justify-between p-4 hover:bg-gray-50">
                   <div className="flex items-center">
                     <MapPin className="w-5 h-5 text-gray-400 mr-3" />
-                    <span>Addresses</span>
+                    <span>Saved Addresses</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
-                <Link
-                  to="/account/payment"
-                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition"
-                >
+                <Link to="/account/wishlist" className="flex items-center justify-between p-4 hover:bg-gray-50">
                   <div className="flex items-center">
-                    <CreditCard className="w-5 h-5 text-gray-400 mr-3" />
-                    <span>Payment Methods</span>
+                    <Heart className="w-5 h-5 text-gray-400 mr-3" />
+                    <span>Wishlist</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </Link>
+                <Link to="/account/settings" className="flex items-center justify-between p-4 hover:bg-gray-50">
+                  <div className="flex items-center">
+                    <Settings className="w-5 h-5 text-gray-400 mr-3" />
+                    <span>Account Settings</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
               </div>
+            </div>
+
+            {/* Support Card */}
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 mt-6 text-white">
+              <h3 className="font-semibold text-lg mb-2">Need Help?</h3>
+              <p className="text-sm text-blue-100 mb-4">
+                Contact our support team for assistance with your orders or account.
+              </p>
+              <Link
+                to="/contact"
+                className="inline-flex items-center px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition"
+              >
+                Contact Support
+              </Link>
             </div>
           </div>
         </div>
