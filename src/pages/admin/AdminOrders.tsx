@@ -87,7 +87,7 @@ const AdminOrders = () => {
         order.orderNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customerEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.paymentProof?.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+        (order as any).paymentProofReference?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -341,7 +341,13 @@ const AdminOrders = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg" />
+            <input 
+              type="text" 
+              placeholder="Search by order, customer, or reference..." 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              className="w-full pl-10 pr-4 py-2 border rounded-lg" 
+            />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 border rounded-lg">
             <option value="all">All Statuses</option>
@@ -417,7 +423,19 @@ const AdminOrders = () => {
                   </td>
                   <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
                   <td className="px-6 py-4">
-                    <button onClick={() => { setSelectedOrder(order); setShowOrderModal(true); }} className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                    <button 
+                      onClick={() => { 
+                        console.log('Selected order:', order);
+                        console.log('Payment proof image:', (order as any).paymentProofImage);
+                        console.log('Payment proof reference:', (order as any).paymentProofReference);
+                        console.log('Payment proof sender:', (order as any).paymentProofSender);
+                        console.log('Payment proof date:', (order as any).paymentProofDate);
+                        console.log('Payment proof notes:', (order as any).paymentProofNotes);
+                        setSelectedOrder(order); 
+                        setShowOrderModal(true); 
+                      }} 
+                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                    >
                       <Eye className="w-4 h-4" />
                     </button>
                   </td>
@@ -436,11 +454,19 @@ const AdminOrders = () => {
 
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t flex items-center justify-between">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage===1} className="flex items-center px-3 py-1 border rounded-lg disabled:opacity-50">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p-1))} 
+              disabled={currentPage===1} 
+              className="flex items-center px-3 py-1 border rounded-lg disabled:opacity-50"
+            >
               <ChevronLeft className="w-4 h-4 mr-1" /> Previous
             </button>
             <span className="text-sm">Page {currentPage} of {totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage===totalPages} className="flex items-center px-3 py-1 border rounded-lg disabled:opacity-50">
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} 
+              disabled={currentPage===totalPages} 
+              className="flex items-center px-3 py-1 border rounded-lg disabled:opacity-50"
+            >
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </button>
           </div>
@@ -475,31 +501,62 @@ const AdminOrders = () => {
                   <div><p className="text-xs text-gray-500">Status</p><div className="mt-1">{getPaymentStatusBadge(selectedOrder.paymentStatus)}</div></div>
                 </div>
 
-                {/* Payment Proof */}
-                {selectedOrder.paymentProof && (
+                {/* Payment Proof - Using flat fields from database */}
+                {(selectedOrder as any).paymentProofImage && (
                   <div className="mt-4 pt-4 border-t border-blue-200">
                     <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center">
                       <Receipt className="w-4 h-4 mr-2" /> Payment Proof
                     </h4>
-                    {selectedOrder.paymentProof.receiptImage && (
-                      <div className="mb-4">
-                        <p className="text-xs text-gray-500 mb-2">Receipt Screenshot</p>
-                        <div className="relative group cursor-pointer" onClick={() => { setSelectedReceipt(selectedOrder.paymentProof!.receiptImage); setShowReceiptModal(true); }}>
-                          <img src={selectedOrder.paymentProof.receiptImage} alt="Receipt" className="w-full max-h-64 object-contain bg-gray-100 rounded-lg border" />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-lg flex items-center justify-center">
-                            <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
-                          </div>
+                    
+                    {/* Receipt Image */}
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-500 mb-2">Receipt Screenshot</p>
+                      <div 
+                        className="relative group cursor-pointer" 
+                        onClick={() => { 
+                          setSelectedReceipt((selectedOrder as any).paymentProofImage); 
+                          setShowReceiptModal(true); 
+                        }}
+                      >
+                        <img 
+                          src={(selectedOrder as any).paymentProofImage} 
+                          alt="Payment receipt" 
+                          className="w-full max-h-64 object-contain bg-gray-100 rounded-lg border border-gray-200"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-lg flex items-center justify-center">
+                          <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Receipt Details */}
                     <div className="grid grid-cols-2 gap-4 bg-white p-3 rounded-lg">
-                      <div><p className="text-xs text-gray-500">Reference</p><p className="text-sm font-medium">{selectedOrder.paymentProof.referenceNumber}</p></div>
-                      <div><p className="text-xs text-gray-500">Sender</p><p className="text-sm font-medium">{selectedOrder.paymentProof.senderName}</p></div>
-                      <div><p className="text-xs text-gray-500">Payment Date</p><p className="text-sm font-medium">{selectedOrder.paymentProof.paymentDate}</p></div>
-                      {selectedOrder.paymentProof.notes && (
-                        <div className="col-span-2"><p className="text-xs text-gray-500">Notes</p><p className="text-sm">{selectedOrder.paymentProof.notes}</p></div>
+                      {(selectedOrder as any).paymentProofReference && (
+                        <div>
+                          <p className="text-xs text-gray-500">Reference Number</p>
+                          <p className="text-sm font-medium">{(selectedOrder as any).paymentProofReference}</p>
+                        </div>
+                      )}
+                      {(selectedOrder as any).paymentProofSender && (
+                        <div>
+                          <p className="text-xs text-gray-500">Sender Name</p>
+                          <p className="text-sm font-medium">{(selectedOrder as any).paymentProofSender}</p>
+                        </div>
+                      )}
+                      {(selectedOrder as any).paymentProofDate && (
+                        <div>
+                          <p className="text-xs text-gray-500">Payment Date</p>
+                          <p className="text-sm font-medium">{(selectedOrder as any).paymentProofDate}</p>
+                        </div>
                       )}
                     </div>
+                    
+                    {(selectedOrder as any).paymentProofNotes && (
+                      <div className="mt-2 bg-white p-3 rounded-lg">
+                        <p className="text-xs text-gray-500">Notes</p>
+                        <p className="text-sm">{(selectedOrder as any).paymentProofNotes}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -544,25 +601,52 @@ const AdminOrders = () => {
 
               {/* Admin Notes & Actions */}
               <div className="border-t pt-4">
-                <textarea value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg mb-4" placeholder="Admin notes (reason for rejection, etc.)" />
-                {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProof && (
+                <textarea 
+                  value={approvalNote} 
+                  onChange={(e) => setApprovalNote(e.target.value)} 
+                  rows={2} 
+                  className="w-full px-3 py-2 border rounded-lg mb-4" 
+                  placeholder="Admin notes (reason for rejection, etc.)" 
+                />
+                
+                {/* Payment Verification - Show for pending payments with proof */}
+                {selectedOrder.paymentStatus === 'pending' && (selectedOrder as any).paymentProofImage && (
                   <div className="bg-yellow-50 p-4 rounded-lg mb-4">
                     <h3 className="font-medium mb-3 text-yellow-800">Payment Verification</h3>
                     <div className="flex gap-3">
-                      <button onClick={() => handleApprovePayment(selectedOrder.id)} disabled={updatingStatus} className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                      <button 
+                        onClick={() => handleApprovePayment(selectedOrder.id)} 
+                        disabled={updatingStatus} 
+                        className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
                         <ThumbsUp className="w-4 h-4 mr-2" /> Approve
                       </button>
-                      <button onClick={() => handleRejectPayment(selectedOrder.id)} disabled={updatingStatus} className="flex-1 flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                      <button 
+                        onClick={() => handleRejectPayment(selectedOrder.id)} 
+                        disabled={updatingStatus} 
+                        className="flex-1 flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                      >
                         <ThumbsDown className="w-4 h-4 mr-2" /> Reject
                       </button>
                     </div>
                   </div>
                 )}
+
+                {/* Status Update */}
                 <div>
-                  <h3 className="font-medium mb-3">Update Status</h3>
+                  <h3 className="font-medium mb-3">Update Order Status</h3>
                   <div className="grid grid-cols-3 gap-2">
                     {['pending','awaiting_payment','processing','shipped','delivered','cancelled'].map(s => (
-                      <button key={s} onClick={() => handleStatusUpdate(selectedOrder.id, s)} disabled={updatingStatus || selectedOrder.status === s} className={`px-3 py-2 rounded-lg text-sm font-medium ${selectedOrder.status === s ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                      <button 
+                        key={s} 
+                        onClick={() => handleStatusUpdate(selectedOrder.id, s)} 
+                        disabled={updatingStatus || selectedOrder.status === s} 
+                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                          selectedOrder.status === s 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-100 hover:bg-gray-200'
+                        }`}
+                      >
                         {s.split('_').map(word => word.charAt(0).toUpperCase()+word.slice(1)).join(' ')}
                       </button>
                     ))}
