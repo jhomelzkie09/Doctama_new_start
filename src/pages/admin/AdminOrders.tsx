@@ -67,17 +67,38 @@ const AdminOrders = () => {
   }, [orders, searchQuery, statusFilter, paymentFilter]);
 
   const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const data = await orderService.getAllOrders();
-      setOrders(data);
-    } catch (err: any) {
-      setError('Failed to load orders');
-      console.error(err);
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const data = await orderService.getAllOrders();
+    console.log('📦 ALL ORDERS FROM API:', data);
+    
+    // Log the first order's payment proof fields if available
+    if (data && data.length > 0) {
+      const firstOrder = data[0];
+      console.log('🔍 FIRST ORDER STRUCTURE:', {
+        id: firstOrder.id,
+        orderNumber: firstOrder.orderNumber,
+        // Log all properties to see what's available
+        allProps: Object.keys(firstOrder),
+        // Specifically check for payment proof fields
+        paymentProofImage: (firstOrder as any).paymentProofImage,
+        paymentProofReference: (firstOrder as any).paymentProofReference,
+        paymentProofSender: (firstOrder as any).paymentProofSender,
+        paymentProofDate: (firstOrder as any).paymentProofDate,
+        paymentProofNotes: (firstOrder as any).paymentProofNotes,
+        // Also check if there's a nested paymentProof object
+        paymentProof: (firstOrder as any).paymentProof
+      });
     }
-  };
+    
+    setOrders(data);
+  } catch (err: any) {
+    setError('Failed to load orders');
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filterOrders = () => {
     let filtered = [...orders];
