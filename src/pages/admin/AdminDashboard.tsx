@@ -758,7 +758,7 @@ if (Array.isArray(orders)) {
             { icon: Package, label: 'Add Product', desc: 'Create new listing', path: '/admin/products/new' },
             { icon: Folder, label: 'Manage Categories', desc: 'Organize products', path: '/admin/categories' }, 
             { icon: ShoppingCart, label: 'Process Orders', desc: 'Update status', path: '/admin/orders' },
-            { icon: Users, label: 'Manage Users', desc: 'View customers', path: '/admin/users' },
+            { icon: Users, label: 'Manage Users', desc: 'View customers', path: '/admin/customers' },
             { icon: BarChart3, label: 'View Reports', desc: 'Sales analytics', path: '/admin/analytics' },
             { icon: DollarSign, label: 'Discount Codes', desc: 'Create promotions', path: '/admin/promotions' },
             { icon: Truck, label: 'Shipping Setup', desc: 'Configure rates', path: '/admin/shipping' },
