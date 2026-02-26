@@ -1,11 +1,14 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, RegisterData } from '../types';
 import authService from '../services/auth.service';
+import { isAdmin as checkIsAdmin, isCustomer, isManager, hasRole, hasAnyRole } from '../utils/roleUtils';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isCustomer: boolean;
+  isManager: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (data: RegisterData) => Promise<void>;
@@ -27,6 +30,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Compute role-based values using imported utilities
+  const isAdmin = checkIsAdmin(user);
+  const isCustomerValue = isCustomer(user);
+  const isManagerValue = isManager(user);
 
   useEffect(() => {
     // Get user from storage on mount
@@ -79,16 +87,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAdmin = user?.roles?.some(role => 
-    role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
-  ) || false;
-
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         isAdmin,
+        isCustomer: isCustomerValue,
+        isManager: isManagerValue,
         login,
         logout,
         register,
