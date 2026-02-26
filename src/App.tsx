@@ -29,6 +29,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import DebugAdmin from './pages/admin/DebugAdmin';
 import Orders from './pages/admin/AdminOrders';
+import CustomerManagement from './pages/admin/CustomerManagement'; // Import the new component
 
 function App() {
   return (
@@ -93,6 +94,11 @@ function App() {
                 <Route path="products/edit/:id" element={<ProductForm />} />
                 <Route path="categories" element={<CategoriesManagement />} />
                 <Route path="orders" element={<Orders />} />
+                {/* New Customer Management Routes */}
+                <Route path="customers" element={<CustomerManagement />} />
+                <Route path="customers/new" element={<CustomerManagement />} /> {/* You can create a separate CreateCustomer component later */}
+                <Route path="customers/:id" element={<CustomerManagement />} /> {/* You can create a separate CustomerDetails component later */}
+                <Route path="customers/edit/:id" element={<CustomerManagement />} /> {/* You can create a separate EditCustomer component later */}
               </Route>
             </Route>
             
