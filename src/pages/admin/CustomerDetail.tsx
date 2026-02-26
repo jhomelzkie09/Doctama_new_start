@@ -104,7 +104,7 @@ const CustomerDetail = () => {
     }
   }, [isAdmin, navigate]);
 
-  // Fetch customer details
+  
   // Fetch customer details
 const fetchCustomerDetails = useCallback(async () => {
   if (!id) return;
@@ -117,7 +117,14 @@ const fetchCustomerDetails = useCallback(async () => {
     // Fetch user data
     const userData = await userService.getUserById(id) as User;
     
-    // Fetch user orders
+    // Check if this user has the 'user' role
+    if (!userData.roles || !userData.roles.includes('user')) {
+      setError('This user is not a customer');
+      setLoading(false);
+      return;
+    }
+    
+    // Fetch all orders and filter for this customer
     let orders: Order[] = [];
     try {
       const allOrders = await orderService.getAllOrders();

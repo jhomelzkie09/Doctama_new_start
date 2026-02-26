@@ -147,80 +147,95 @@ const CustomerManagement = () => {
 
   // Fetch customers with stats
   const fetchCustomers = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  setLoading(true);
+  setError('');
+  try {
+    console.log('📊 Fetching customers...');
+    
+    // Fetch all users
+    const users = await userService.getAllUsers() as User[];
+    
+    // Filter only users with 'user' role (customers)
+    const customersOnly = users.filter(user => 
+      user.roles && user.roles.includes('user')
+    );
+    
+    console.log(`✅ Found ${customersOnly.length} customers out of ${users.length} total users`);
+    
+    // Fetch all orders
+    let allOrders: Order[] = [];
     try {
-      console.log('📊 Fetching customers...');
-      
-      // Fetch all users
-      const users = await userService.getAllUsers() as User[];
-      
-      // Process and enhance customer data with stats
-      const customersWithStats = await Promise.all(
-        users.map(async (customer) => {
-          try {
-            // Fetch customer orders to calculate stats
-            const orders = await orderService.getUserOrders(customer.id) as Order[];
-            
-            // Calculate stats
-            const totalOrders = orders.length;
-            const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-            const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
-            
-            // Count cancellations and returns
-            const cancelledOrders = orders.filter(order => 
-                order.status === 'cancelled'
-            ).length;
-            
-            // Get recent orders (last 5)
-            const recentOrders = orders
-              .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-              .slice(0, 5);
-            
-            // Create address summary
-            const addressParts = [
-              customer.address,
-              customer.city,
-              customer.state,
-              customer.zipCode,
-              customer.country
-            ].filter(Boolean);
-            const addressSummary = addressParts.length > 0 
-              ? addressParts.slice(0, 2).join(', ') + (addressParts.length > 2 ? '...' : '')
-              : undefined;
-            
-            return {
-              ...customer,
-              stats: {
-                totalOrders,
-                totalSpent,
-                averageOrderValue,
-                lastOrderDate: recentOrders[0]?.orderDate,
-                favoriteCategory: 'Living Room', // This would come from order analysis
-                reviewCount: Math.floor(Math.random() * 20), // Placeholder - would come from reviews service
-                returnCount: 0, // This would need a returns service
-                cancellationCount: cancelledOrders
-              },
-              recentOrders,
-              addressSummary
-            };
-          } catch (err) {
-            console.warn(`⚠️ Error fetching orders for customer ${customer.id}:`, err);
-            return {
-              ...customer,
-              stats: {
-                totalOrders: 0,
-                totalSpent: 0,
-                averageOrderValue: 0,
-                reviewCount: 0,
-                returnCount: 0,
-                cancellationCount: 0
-              },
-              recentOrders: []
-            };
-          }
-        })
-      );
+      allOrders = await orderService.getAllOrders();
+    } catch (err) {
+      console.warn('⚠️ Could not fetch orders:', err);
+    }
+    
+    // Process and enhance customer data with stats
+    const customersWithStats = await Promise.all(
+      customersOnly.map(async (customer) => {
+        try {
+          // Filter orders for this customer
+          const customerOrders = allOrders.filter(order => order.userId === customer.id);
+          
+          // Calculate stats
+          const totalOrders = customerOrders.length;
+          const totalSpent = customerOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+          const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
+          
+          // Count cancellations
+          const cancelledOrders = customerOrders.filter(order => 
+            order.status === 'cancelled'
+          ).length;
+          
+          // Get recent orders (last 5)
+          const recentOrders = customerOrders
+            .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+            .slice(0, 5);
+          
+          // Create address summary
+          const addressParts = [
+            customer.address,
+            customer.city,
+            customer.state,
+            customer.zipCode,
+            customer.country
+          ].filter(Boolean);
+          const addressSummary = addressParts.length > 0 
+            ? addressParts.slice(0, 2).join(', ') + (addressParts.length > 2 ? '...' : '')
+            : undefined;
+          
+          return {
+            ...customer,
+            stats: {
+              totalOrders,
+              totalSpent,
+              averageOrderValue,
+              lastOrderDate: recentOrders[0]?.orderDate,
+              favoriteCategory: 'Living Room',
+              reviewCount: 0,
+              returnCount: 0,
+              cancellationCount: cancelledOrders
+            },
+            recentOrders,
+            addressSummary
+          };
+        } catch (err) {
+          console.warn(`⚠️ Error processing customer ${customer.id}:`, err);
+          return {
+            ...customer,
+            stats: {
+              totalOrders: 0,
+              totalSpent: 0,
+              averageOrderValue: 0,
+              reviewCount: 0,
+              returnCount: 0,
+              cancellationCount: 0
+            },
+            recentOrders: []
+          };
+        }
+      })
+    );
 
       // Apply filters and sorting
       let filteredCustomers = customersWithStats;

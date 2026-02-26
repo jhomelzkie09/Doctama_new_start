@@ -12,7 +12,7 @@ export interface User {
   zipCode?: string;
   country?: string;
   profileImage?: string;
-  roles: string[];
+  roles: string[] | string;
   isActive: boolean;
   emailConfirmed: boolean;
   createdAt: string;
