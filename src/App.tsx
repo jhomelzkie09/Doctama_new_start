@@ -29,7 +29,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import DebugAdmin from './pages/admin/DebugAdmin';
 import Orders from './pages/admin/AdminOrders';
-import CustomerManagement from './pages/admin/CustomerManagement'; // Import the new component
+import CustomerManagement from './pages/admin/CustomerManagement'; 
+import CustomerDetail from './pages/admin/CustomerDetail';
 
 function App() {
   return (
@@ -97,7 +98,7 @@ function App() {
                 {/* New Customer Management Routes */}
                 <Route path="customers" element={<CustomerManagement />} />
                 <Route path="customers/new" element={<CustomerManagement />} /> {/* You can create a separate CreateCustomer component later */}
-                <Route path="customers/:id" element={<CustomerManagement />} /> {/* You can create a separate CustomerDetails component later */}
+                <Route path="customers/:id" element={<CustomerDetail />} /> {/* You can create a separate CustomerDetails component later */}
                 <Route path="customers/edit/:id" element={<CustomerManagement />} /> {/* You can create a separate EditCustomer component later */}
               </Route>
             </Route>
