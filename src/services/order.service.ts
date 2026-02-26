@@ -2,17 +2,41 @@ import api from '../api/config';
 import { Order } from '../types';
 
 class OrderService {
-  async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
-  try {
-    console.log(`📤 Updating order ${id} payment status to ${status}...`);
-    const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, { status, details });
-    console.log('✅ Order payment updated:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Error updating payment:', error.response?.data || error.message);
-    throw error;
+  // Fix the getUserOrders method to actually work
+  async getUserOrders(userId: string): Promise<Order[]> {
+    try {
+      console.log(`📤 Fetching orders for user ${userId}...`);
+      // You can either use getAllOrders and filter, or create a specific endpoint
+      const response = await api.get(`${this.baseUrl}/user/${userId}`);
+      console.log('✅ User orders fetched:', response.data);
+      
+      // Handle different response formats
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data.orders && Array.isArray(response.data.orders)) {
+        return response.data.orders;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      return [];
+    } catch (error: any) {
+      console.error('❌ Error fetching user orders:', error.response?.data || error.message);
+      return []; // Return empty array on error
+    }
   }
-}
+
+  async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
+    try {
+      console.log(`📤 Updating order ${id} payment status to ${status}...`);
+      const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, { status, details });
+      console.log('✅ Order payment updated:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error updating payment:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+  
   private readonly baseUrl = '/orders';
 
   async createOrder(orderData: any): Promise<Order> {
@@ -28,27 +52,36 @@ class OrderService {
   }
 
   async getMyOrders(page: number = 1, limit: number = 10): Promise<{
-  orders: Order[];
-  total: number;
-  page: number;
-  pages: number;
-}> {
-  try {
-    console.log('📤 Fetching my orders...');
-    const response = await api.get(`${this.baseUrl}/my-orders?page=${page}&limit=${limit}`);
-    console.log('✅ Orders fetched:', response.data);
-    
-    // Handle different response formats
-    if (response.data.orders && Array.isArray(response.data.orders)) {
-      return response.data;
-    } else if (Array.isArray(response.data)) {
-      return {
-        orders: response.data,
-        total: response.data.length,
-        page: 1,
-        pages: 1
-      };
-    } else {
+    orders: Order[];
+    total: number;
+    page: number;
+    pages: number;
+  }> {
+    try {
+      console.log('📤 Fetching my orders...');
+      const response = await api.get(`${this.baseUrl}/my-orders?page=${page}&limit=${limit}`);
+      console.log('✅ Orders fetched:', response.data);
+      
+      // Handle different response formats
+      if (response.data.orders && Array.isArray(response.data.orders)) {
+        return response.data;
+      } else if (Array.isArray(response.data)) {
+        return {
+          orders: response.data,
+          total: response.data.length,
+          page: 1,
+          pages: 1
+        };
+      } else {
+        return {
+          orders: [],
+          total: 0,
+          page: 1,
+          pages: 1
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching orders:', error.response?.data || error.message);
       return {
         orders: [],
         total: 0,
@@ -56,16 +89,7 @@ class OrderService {
         pages: 1
       };
     }
-  } catch (error: any) {
-    console.error('❌ Error fetching orders:', error.response?.data || error.message);
-    return {
-      orders: [],
-      total: 0,
-      page: 1,
-      pages: 1
-    };
   }
-}
 
   async getOrderById(id: number): Promise<Order | null> {
     try {
@@ -84,7 +108,16 @@ class OrderService {
       console.log('📤 Fetching all orders (admin)...');
       const response = await api.get(`${this.baseUrl}/admin/all`);
       console.log('✅ Orders fetched:', response.data);
-      return response.data || [];
+      
+      // Handle different response formats
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data.orders && Array.isArray(response.data.orders)) {
+        return response.data.orders;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      return [];
     } catch (error: any) {
       console.error('❌ Error fetching orders:', error.response?.data || error.message);
       return [];
