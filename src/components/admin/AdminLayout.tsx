@@ -65,11 +65,11 @@ const AdminLayout = () => {
     },
     {
       title: 'Customers',
-      path: '/admin/users',
+      path: '/admin/customers',
       icon: <Users className="w-5 h-5" />,
       submenu: [
-        { title: 'All Customers', path: '/admin/users' },
-        { title: 'New Customers', path: '/admin/users/new' }
+        { title: 'All Customers', path: '/admin/customers' },
+        { title: 'New Customers', path: '/admin/customers/new' }
       ]
     },
     {
