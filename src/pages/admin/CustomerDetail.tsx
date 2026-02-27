@@ -190,13 +190,23 @@ const CustomerDetail = () => {
       
       // Fetch user data
       const userData = await userService.getUserById(id) as User;
+
+      console.log('📋 User roles:', userData.roles);
       
       // Check if this user has the 'user' role
-      if (!userData.roles || !userData.roles.includes('user')) {
-        setError('This user is not a customer');
+      //if (!userData.roles || !userData.roles.includes('user')) {
+      //  setError('This user is not a customer');
+      //  setLoading(false);
+      //  return;
+      //}
+
+      if (!userData.roles || (Array.isArray(userData.roles) && userData.roles.length === 0)) {
+        setError('User has no roles assigned');
         setLoading(false);
         return;
       }
+
+      console.log('👤 User roles:', userData.roles);
       
       // Fetch all orders and filter for this customer
       let orders: Order[] = [];
