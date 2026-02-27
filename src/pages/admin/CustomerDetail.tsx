@@ -209,22 +209,31 @@ const CustomerDetail = () => {
       console.log('👤 User roles:', userData.roles);
       
       // Fetch ALL orders and filter for this customer
-    let orders: Order[] = [];
-    try {
-      console.log('📦 Fetching all orders...');
-      const allOrders = await orderService.getAllOrders();
-      console.log('📦 All orders:', allOrders);
-      
-      // Filter orders for this customer
-      orders = allOrders.filter(order => {
-        console.log(`Comparing order.userId: ${order.userId} with customer.id: ${id}`);
-        return order.userId === id;
-      });
+      let orders: Order[] = [];
+        try {
+              console.log('📦 Fetching all orders...');
+              const allOrders = await orderService.getAllOrders();
+              console.log('📦 All orders:', allOrders);
+              
+              orders = allOrders.filter(order => {
+          // Check if order.userId matches either the customer ID or email
+          const matches = order.userId === id || order.userId === userData.email;
+          
+          if (matches) {
+            console.log(`✅ Order ${order.orderNumber} matches customer`);
+          }
+          
+          return matches;
+        });
+
+        
       
       console.log(`✅ Found ${orders.length} orders for this customer`);
     } catch (err) {
       console.error('❌ Could not fetch orders:', err);
     }
+
+    
 
     // Calculate stats based on actual orders
     const totalOrders = orders.length;
@@ -260,6 +269,7 @@ const CustomerDetail = () => {
       cancelledOrders,
       deliveredOrders
     });
+    
 
       // Determine loyalty tier
       let loyaltyTier: 'bronze' | 'silver' | 'gold' | 'platinum' = 'bronze';
