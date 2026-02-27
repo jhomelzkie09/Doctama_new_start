@@ -208,34 +208,58 @@ const CustomerDetail = () => {
 
       console.log('👤 User roles:', userData.roles);
       
-      // Fetch all orders and filter for this customer
-      let orders: Order[] = [];
-      try {
-        const allOrders = await orderService.getAllOrders();
-        orders = allOrders.filter(order => order.userId === id);
-      } catch (err) {
-        console.warn('⚠️ Could not fetch orders:', err);
-      }
-
-      // Calculate stats
-      const totalOrders = orders.length;
-      const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-      const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
+      // Fetch ALL orders and filter for this customer
+    let orders: Order[] = [];
+    try {
+      console.log('📦 Fetching all orders...');
+      const allOrders = await orderService.getAllOrders();
+      console.log('📦 All orders:', allOrders);
       
-      const firstOrderDate = orders.length > 0 
-        ? orders.reduce((earliest, order) => 
-            new Date(order.orderDate) < new Date(earliest.orderDate) ? order : earliest
-          ).orderDate
-        : undefined;
+      // Filter orders for this customer
+      orders = allOrders.filter(order => {
+        console.log(`Comparing order.userId: ${order.userId} with customer.id: ${id}`);
+        return order.userId === id;
+      });
       
-      const lastOrderDate = orders.length > 0
-        ? orders.reduce((latest, order) => 
-            new Date(order.orderDate) > new Date(latest.orderDate) ? order : latest
-          ).orderDate
-        : undefined;
+      console.log(`✅ Found ${orders.length} orders for this customer`);
+    } catch (err) {
+      console.error('❌ Could not fetch orders:', err);
+    }
 
-      const cancelledOrders = orders.filter(order => order.status === 'cancelled').length;
-      const deliveredOrders = orders.filter(order => order.status === 'delivered').length;
+    // Calculate stats based on actual orders
+    const totalOrders = orders.length;
+    const totalSpent = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
+    
+    const firstOrderDate = orders.length > 0 
+      ? orders.reduce((earliest, order) => 
+          new Date(order.orderDate) < new Date(earliest.orderDate) ? order : earliest
+        ).orderDate
+      : undefined;
+    
+    const lastOrderDate = orders.length > 0
+      ? orders.reduce((latest, order) => 
+          new Date(order.orderDate) > new Date(latest.orderDate) ? order : latest
+        ).orderDate
+      : undefined;
+
+    const cancelledOrders = orders.filter(order => order.status === 'cancelled').length;
+    const deliveredOrders = orders.filter(order => order.status === 'delivered').length;
+
+    // Sort orders by date (newest first)
+    const sortedOrders = [...orders].sort((a, b) => 
+      new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
+    );
+
+    console.log('📊 Customer stats:', {
+      totalOrders,
+      totalSpent,
+      averageOrderValue,
+      firstOrderDate,
+      lastOrderDate,
+      cancelledOrders,
+      deliveredOrders
+    });
 
       // Determine loyalty tier
       let loyaltyTier: 'bronze' | 'silver' | 'gold' | 'platinum' = 'bronze';
