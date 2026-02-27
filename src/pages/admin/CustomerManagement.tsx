@@ -153,14 +153,55 @@ const CustomerManagement = () => {
     console.log('📊 Fetching customers...');
     
     // Fetch all users
-    const users = await userService.getAllUsers() as User[];
-    
-    // Filter only users with 'user' role (customers)
-    const customersOnly = users.filter(user => 
-      user.roles && user.roles.includes('user')
+    // Fetch all users
+const users = await userService.getAllUsers() as User[];
+console.log('📋 All users from API:', users.map(u => ({ 
+  email: u.email, 
+  roles: u.roles,
+  fullName: u.fullName 
+})));
+
+// Filter only users with 'user' role (customers)
+const customersOnly = users.filter(user => {
+  // Handle if roles is an array
+  if (Array.isArray(user.roles)) {
+    // Check for any customer-like role
+    return user.roles.some(role => 
+      role.toLowerCase() === 'user' || 
+      role.toLowerCase() === 'customer' ||
+      role.toLowerCase() === 'customer' // Sometimes it might be capitalized differently
     );
-    
-    console.log(`✅ Found ${customersOnly.length} customers out of ${users.length} total users`);
+  }
+  // Handle if roles is a string
+  if (typeof user.roles === 'string') {
+    const roleStr = user.roles.toLowerCase();
+    return roleStr === 'user' || roleStr === 'customer';
+  }
+  return false;
+});
+
+console.log(`📊 Found ${customersOnly.length} customers out of ${users.length} total users`);
+
+// If no customers found with role filtering, show all non-admin users as a fallback
+if (customersOnly.length === 0) {
+  console.log('⚠️ No users with customer role found, showing all non-admin users');
+  const nonAdminUsers = users.filter(user => {
+    if (Array.isArray(user.roles)) {
+      return !user.roles.some(role => 
+        role.toLowerCase() === 'admin' || 
+        role.toLowerCase() === 'administrator'
+      );
+    }
+    if (typeof user.roles === 'string') {
+      const roleStr = user.roles.toLowerCase();
+      return roleStr !== 'admin' && roleStr !== 'administrator';
+    }
+    return true;
+  });
+  
+  console.log(`📊 Showing ${nonAdminUsers.length} non-admin users as customers`);
+  customersOnly.push(...nonAdminUsers);
+}
     
     // Fetch all orders
     let allOrders: Order[] = [];
