@@ -1269,6 +1269,7 @@ const CustomerDetail = () => {
                 </div>
               </div>
 
+              {/* Orders Table */}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1284,47 +1285,80 @@ const CustomerDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">#{order.orderNumber}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(order.orderDate)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{order.items?.length || 0}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(order.totalAmount)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                            {order.status.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
-                            {order.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 capitalize">{order.paymentMethod}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => navigate(`/admin/orders/${order.id}`)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => navigate(`/admin/orders/edit/${order.id}`)}
-                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                          >
-                            Edit
-                          </button>
+                    {filteredOrders.length > 0 ? (
+                      filteredOrders.map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">#{order.orderNumber}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDate(order.orderDate)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{order.items?.length || 0}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(order.totalAmount)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                              {order.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
+                              {order.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 capitalize">{order.paymentMethod}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => navigate(`/admin/orders/${order.id}`)}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => navigate(`/admin/orders/edit/${order.id}`)}
+                              className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                          <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                          <p>No orders found for this customer</p>
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
 
-              {filteredOrders.length === 0 && (
-                <div className="text-center py-12">
-                  <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No orders found matching your filters</p>
+              {/* Order Summary */}
+              {filteredOrders.length > 0 && (
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Order Summary</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-blue-700">Total Orders</p>
+                      <p className="text-xl font-bold text-blue-900">{filteredOrders.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-700">Total Spent</p>
+                      <p className="text-xl font-bold text-blue-900">
+                        {formatCurrency(filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-700">Delivered</p>
+                      <p className="text-xl font-bold text-blue-900">
+                        {filteredOrders.filter(o => o.status === 'delivered').length}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-700">Pending</p>
+                      <p className="text-xl font-bold text-blue-900">
+                        {filteredOrders.filter(o => o.status === 'pending' || o.status === 'processing').length}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
