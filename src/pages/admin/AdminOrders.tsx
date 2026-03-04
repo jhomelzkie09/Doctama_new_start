@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import orderService from '../../services/order.service';
 import userService from '../../services/user.service';
 import {
@@ -17,7 +17,7 @@ import {
   ChevronRight,
   Download,
   RefreshCw,
-  User,
+  User as UserIcon,
   MapPin,
   CreditCard,
   AlertCircle,
@@ -32,30 +32,35 @@ import {
   ZoomIn,
   FileText,
   Printer,
-  Mail,
   MessageSquare,
   Edit,
-  Copy,
   Calendar,
   TrendingUp,
   ArrowUpDown,
-  Users,
   DownloadCloud,
   FilterX,
-  Bell,
-  Tag,
   Phone,
   Home,
   BarChart3,
-  PieChart,
-  Activity
+  RotateCcw,
+  Ban,
+  CheckSquare,
+  Send,
+  Archive,
+  AlertTriangle,
+  Info,
+  Shield,
+  PackageCheck,
+  PackageOpen,
+  PackageX,
+  History,
+  ClipboardList
 } from 'lucide-react';
-import { Order, PaymentMethod, OrderStatus } from '../../types';
-import { User as UserType } from '../../types';
+import { Order, PaymentMethod, OrderStatus, PaymentStatus, User } from '../../types';
 
-// Extended Order interface with customer details
+// Extended Order interface with customer details and workflow fields
 interface ExtendedOrder extends Order {
-  customer?: UserType;
+  customer?: User;
   itemsCount?: number;
   paymentProofImage?: string;
   paymentProofReference?: string;
@@ -63,6 +68,17 @@ interface ExtendedOrder extends Order {
   paymentProofDate?: string;
   paymentProofNotes?: string;
   adminNotes?: AdminNote[];
+  cancellationReason?: string;
+  cancellationRequested?: boolean;
+  cancellationRequestedAt?: string;
+  refundStatus?: 'none' | 'requested' | 'processed' | 'completed';
+  refundAmount?: number;
+  refundDate?: string;
+  trackingNumber?: string;
+  shippingCarrier?: string;
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  orderHistory?: OrderHistoryEntry[];
 }
 
 interface AdminNote {
@@ -70,6 +86,16 @@ interface AdminNote {
   content: string;
   createdAt: string;
   createdBy: string;
+  type: 'info' | 'warning' | 'success' | 'note';
+}
+
+interface OrderHistoryEntry {
+  id: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  timestamp: string;
+  updatedBy: string;
+  notes?: string;
 }
 
 interface OrderStats {
@@ -83,6 +109,10 @@ interface OrderStats {
   codCount: number;
   gcashCount: number;
   paymayaCount: number;
+  cancellationRequests: number;
+  refundRequests: number;
+  shippedOrders: number;
+  deliveredToday: number;
 }
 
 const AdminOrders = () => {
@@ -93,26 +123,47 @@ const AdminOrders = () => {
   const [filteredOrders, setFilteredOrders] = useState<ExtendedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  
+  // Selected order modal
   const [selectedOrder, setSelectedOrder] = useState<ExtendedOrder | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [approvalNote, setApprovalNote] = useState('');
+  
+  // Action modals
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [selectedReceipt, setSelectedReceipt] = useState<string>('');
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  
+  // Form states
+  const [approvalNote, setApprovalNote] = useState('');
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState<number>(0);
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [shippingCarrier, setShippingCarrier] = useState('');
+  const [estimatedDelivery, setEstimatedDelivery] = useState('');
+  const [adminNote, setAdminNote] = useState('');
+  const [noteType, setNoteType] = useState<'info' | 'warning' | 'success' | 'note'>('note');
+  const [selectedReceipt, setSelectedReceipt] = useState<string>('');
+  
+  // Bulk actions
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [bulkAction, setBulkAction] = useState('');
+  
+  // Stats
   const [showStats, setShowStats] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Order;
-    direction: 'asc' | 'desc';
-  }>({ key: 'orderDate', direction: 'desc' });
-  const [adminNote, setAdminNote] = useState('');
   const [orderStats, setOrderStats] = useState<OrderStats>({
     totalRevenue: 0,
     averageOrderValue: 0,
@@ -123,9 +174,19 @@ const AdminOrders = () => {
     monthOrders: 0,
     codCount: 0,
     gcashCount: 0,
-    paymayaCount: 0
+    paymayaCount: 0,
+    cancellationRequests: 0,
+    refundRequests: 0,
+    shippedOrders: 0,
+    deliveredToday: 0
   });
-
+  
+  // Sorting
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof Order;
+    direction: 'asc' | 'desc';
+  }>({ key: 'orderDate', direction: 'desc' });
+  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -153,29 +214,68 @@ const AdminOrders = () => {
 
   const fetchOrders = async () => {
     setLoading(true);
+    setError('');
     try {
       const data = await orderService.getAllOrders();
       console.log('📦 ALL ORDERS FROM API:', data);
       
-      // Fetch customer data for each order
-      const ordersWithCustomers = await Promise.all(
+      // Fetch customer data for each order and enhance with workflow fields
+      const ordersWithDetails = await Promise.all(
         data.map(async (order: Order) => {
           try {
-            // Try to fetch customer details if userId exists
+            let customer;
             if (order.userId) {
-              const customer = await userService.getUserById(order.userId);
-              return { ...order, customer, itemsCount: order.items?.length || 0 } as ExtendedOrder;
+              customer = await userService.getUserById(order.userId);
             }
+            
+            // Generate order history from available data
+            const orderHistory: OrderHistoryEntry[] = [
+              {
+                id: `history-${order.id}-1`,
+                status: order.status,
+                paymentStatus: order.paymentStatus,
+                timestamp: order.orderDate,
+                updatedBy: 'system',
+                notes: 'Order created'
+              }
+            ];
+            
+            // Add payment approval history if available
+            if (order.paymentStatus === 'paid') {
+              orderHistory.push({
+                id: `history-${order.id}-2`,
+                status: order.status,
+                paymentStatus: 'paid',
+                timestamp: new Date().toISOString(),
+                updatedBy: 'admin',
+                notes: 'Payment approved'
+              });
+            }
+            
+            return { 
+              ...order, 
+              customer, 
+              itemsCount: order.items?.length || 0,
+              orderHistory,
+              cancellationRequested: false,
+              refundStatus: 'none'
+            } as ExtendedOrder;
           } catch (err) {
             console.warn(`Could not fetch customer for order ${order.id}`);
+            return { 
+              ...order, 
+              itemsCount: order.items?.length || 0,
+              orderHistory: [],
+              cancellationRequested: false,
+              refundStatus: 'none'
+            } as ExtendedOrder;
           }
-          return { ...order, itemsCount: order.items?.length || 0 } as ExtendedOrder;
         })
       );
       
-      setOrders(ordersWithCustomers);
+      setOrders(ordersWithDetails);
     } catch (err: any) {
-      setError('Failed to load orders');
+      setError('Failed to load orders: ' + (err.message || 'Unknown error'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -206,7 +306,14 @@ const AdminOrders = () => {
       }).length,
       codCount: orders.filter(o => o.paymentMethod === 'cod').length,
       gcashCount: orders.filter(o => o.paymentMethod === 'gcash').length,
-      paymayaCount: orders.filter(o => o.paymentMethod === 'paymaya').length
+      paymayaCount: orders.filter(o => o.paymentMethod === 'paymaya').length,
+      cancellationRequests: orders.filter(o => o.cancellationRequested).length,
+      refundRequests: orders.filter(o => o.refundStatus === 'requested').length,
+      shippedOrders: orders.filter(o => o.status === 'shipped').length,
+      deliveredToday: orders.filter(o => {
+        const today = new Date().toDateString();
+        return o.status === 'delivered' && new Date(o.orderDate).toDateString() === today;
+      }).length
     };
     setOrderStats(stats);
   };
@@ -222,7 +329,8 @@ const AdminOrders = () => {
         order.customerName?.toLowerCase().includes(query) ||
         order.customerEmail?.toLowerCase().includes(query) ||
         order.customerPhone?.toLowerCase().includes(query) ||
-        order.paymentProofReference?.toLowerCase().includes(query)
+        order.paymentProofReference?.toLowerCase().includes(query) ||
+        order.trackingNumber?.toLowerCase().includes(query)
       );
     }
 
@@ -292,27 +400,32 @@ const AdminOrders = () => {
     });
   };
 
-  const handleBulkStatusUpdate = async (status: string) => {
-    if (selectedOrders.length === 0) return;
-    
+  // Order approval function
+  const handleApproveOrder = async (orderId: string) => {
     setUpdatingStatus(true);
     try {
-      await Promise.all(
-        selectedOrders.map(orderId => 
-          orderService.updateOrderStatus(parseInt(orderId), status)
-        )
-      );
+      await orderService.updateOrderStatus(parseInt(orderId), 'processing');
+      await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
+        approvedBy: currentUser?.fullName || 'admin',
+        approvedAt: new Date().toISOString(),
+        notes: approvalNote || 'Payment approved'
+      });
+      
       await fetchOrders();
-      setSelectedOrders([]);
-      setSelectAll(false);
-      alert(`Updated ${selectedOrders.length} orders to ${status}`);
-    } catch (err) {
-      alert('Failed to update some orders');
+      if (selectedOrder) {
+        setSelectedOrder({ ...selectedOrder, status: 'processing', paymentStatus: 'paid' });
+      }
+      setSuccess('Order approved successfully');
+      setShowOrderModal(false);
+    } catch (err: any) {
+      setError('Failed to approve order: ' + (err.message || 'Unknown error'));
     } finally {
       setUpdatingStatus(false);
+      setApprovalNote('');
     }
   };
 
+  // Payment approval function
   const handleApprovePayment = async (orderId: string) => {
     setUpdatingStatus(true);
     try {
@@ -325,18 +438,19 @@ const AdminOrders = () => {
       if (selectedOrder) {
         setSelectedOrder({ ...selectedOrder, paymentStatus: 'paid' });
       }
+      setSuccess('Payment approved successfully');
       setApprovalNote('');
-      alert('Payment approved successfully!');
     } catch (err: any) {
-      alert('Failed to approve payment: ' + (err.message || 'Unknown error'));
+      setError('Failed to approve payment: ' + (err.message || 'Unknown error'));
     } finally {
       setUpdatingStatus(false);
     }
   };
 
+  // Payment rejection function
   const handleRejectPayment = async (orderId: string) => {
     if (!approvalNote) {
-      alert('Please provide a reason for rejection');
+      setError('Please provide a reason for rejection');
       return;
     }
     setUpdatingStatus(true);
@@ -350,67 +464,176 @@ const AdminOrders = () => {
       if (selectedOrder) {
         setSelectedOrder({ ...selectedOrder, paymentStatus: 'failed' });
       }
+      setSuccess('Payment rejected');
       setApprovalNote('');
-      alert('Payment rejected.');
     } catch (err: any) {
-      alert('Failed to reject payment: ' + (err.message || 'Unknown error'));
+      setError('Failed to reject payment: ' + (err.message || 'Unknown error'));
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  const handleStatusUpdate = async (orderId: string, status: string) => {
+  // Order cancellation function
+  const handleCancelOrder = async (orderId: string) => {
+    if (!cancellationReason) {
+      setError('Please provide a reason for cancellation');
+      return;
+    }
     setUpdatingStatus(true);
     try {
-      await orderService.updateOrderStatus(parseInt(orderId), status);
-      await fetchOrders();
-      if (selectedOrder) {
-        setSelectedOrder({ ...selectedOrder, status: status as OrderStatus });
+      await orderService.updateOrderStatus(parseInt(orderId), 'cancelled');
+      
+      // If payment was already made, process refund
+      if (selectedOrder?.paymentStatus === 'paid') {
+        await orderService.updateOrderPayment(parseInt(orderId), 'refunded', {
+          refundedBy: currentUser?.fullName || 'admin',
+          refundedAt: new Date().toISOString(),
+          reason: cancellationReason,
+          amount: selectedOrder.totalAmount
+        });
       }
-      alert(`Order status updated to ${status}`);
+      
+      await fetchOrders();
+      setSuccess('Order cancelled successfully');
+      setShowCancelModal(false);
+      setShowOrderModal(false);
     } catch (err: any) {
-      alert('Failed to update order status: ' + (err.message || 'Unknown error'));
+      setError('Failed to cancel order: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUpdatingStatus(false);
+      setCancellationReason('');
+    }
+  };
+
+  // Refund processing function
+  const handleProcessRefund = async (orderId: string) => {
+    if (!refundAmount || refundAmount <= 0) {
+      setError('Please enter a valid refund amount');
+      return;
+    }
+    setUpdatingStatus(true);
+    try {
+      await orderService.updateOrderPayment(parseInt(orderId), 'refunded', {
+        refundedBy: currentUser?.fullName || 'admin',
+        refundedAt: new Date().toISOString(),
+        amount: refundAmount,
+        notes: approvalNote
+      });
+      
+      await fetchOrders();
+      setSuccess('Refund processed successfully');
+      setShowRefundModal(false);
+    } catch (err: any) {
+      setError('Failed to process refund: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUpdatingStatus(false);
+      setRefundAmount(0);
+      setApprovalNote('');
+    }
+  };
+
+  // Shipping tracking update
+  const handleUpdateTracking = async (orderId: string) => {
+    if (!trackingNumber) {
+      setError('Please enter a tracking number');
+      return;
+    }
+    setUpdatingStatus(true);
+    try {
+      // Update order with tracking info
+      await orderService.updateOrderStatus(parseInt(orderId), 'shipped');
+      
+      // Here you would also update tracking info in your backend
+      // await orderService.updateTracking(orderId, { trackingNumber, shippingCarrier, estimatedDelivery });
+      
+      await fetchOrders();
+      setSuccess('Shipping information updated');
+      setShowTrackingModal(false);
+    } catch (err: any) {
+      setError('Failed to update tracking: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUpdatingStatus(false);
+      setTrackingNumber('');
+      setShippingCarrier('');
+      setEstimatedDelivery('');
+    }
+  };
+
+  // Mark as delivered
+  const handleMarkDelivered = async (orderId: string) => {
+    setUpdatingStatus(true);
+    try {
+      await orderService.updateOrderStatus(parseInt(orderId), 'delivered');
+      
+      await fetchOrders();
+      setSuccess('Order marked as delivered');
+      setShowOrderModal(false);
+    } catch (err: any) {
+      setError('Failed to update order: ' + (err.message || 'Unknown error'));
     } finally {
       setUpdatingStatus(false);
     }
   };
 
+  // Bulk status update
+  const handleBulkStatusUpdate = async (status: string) => {
+    if (selectedOrders.length === 0) return;
+    
+    setUpdatingStatus(true);
+    try {
+      await Promise.all(
+        selectedOrders.map(orderId => 
+          orderService.updateOrderStatus(parseInt(orderId), status)
+        )
+      );
+      await fetchOrders();
+      setSelectedOrders([]);
+      setSelectAll(false);
+      setSuccess(`Updated ${selectedOrders.length} orders to ${status}`);
+    } catch (err) {
+      setError('Failed to update some orders');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Add admin note
   const handleAddAdminNote = async (orderId: string) => {
     if (!adminNote.trim()) return;
     
     try {
-      // This would need an API endpoint - for now just log and show success
-      console.log('Adding note to order:', orderId, adminNote);
+      const newNote: AdminNote = {
+        id: `note-${Date.now()}`,
+        content: adminNote,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser?.fullName || 'Admin',
+        type: noteType
+      };
       
       // Update local state
       if (selectedOrder) {
-        const newNote: AdminNote = {
-          id: `note-${Date.now()}`,
-          content: adminNote,
-          createdAt: new Date().toISOString(),
-          createdBy: currentUser?.fullName || 'Admin'
-        };
-        
         setSelectedOrder({
           ...selectedOrder,
           adminNotes: [...(selectedOrder.adminNotes || []), newNote]
         });
       }
       
+      // Here you would also save to backend
+      // await orderService.addNote(orderId, newNote);
+      
       setAdminNote('');
-      alert('Note added successfully');
+      setNoteType('note');
+      setShowNoteModal(false);
+      setSuccess('Note added successfully');
     } catch (err) {
-      alert('Failed to add note');
+      setError('Failed to add note');
     }
   };
 
+  // Export orders
   const handleExportOrders = (format: 'csv' | 'pdf' | 'excel') => {
-    // Implementation for export
-    console.log('Exporting orders as:', format);
-    
-    // Create CSV data
     if (format === 'csv') {
-      const headers = ['Order #', 'Date', 'Customer', 'Email', 'Total', 'Status', 'Payment Method', 'Payment Status'];
+      const headers = ['Order #', 'Date', 'Customer', 'Email', 'Total', 'Status', 'Payment Method', 'Payment Status', 'Tracking #'];
       const csvData = filteredOrders.map(order => [
         order.orderNumber,
         new Date(order.orderDate).toLocaleDateString(),
@@ -419,7 +642,8 @@ const AdminOrders = () => {
         order.totalAmount.toString(),
         order.status,
         order.paymentMethod,
-        order.paymentStatus
+        order.paymentStatus,
+        order.trackingNumber || ''
       ]);
       
       const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
@@ -429,13 +653,22 @@ const AdminOrders = () => {
       a.href = url;
       a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
+      
+      setSuccess(`Exported ${filteredOrders.length} orders to CSV`);
     }
     
     setShowExportModal(false);
   };
 
+  // View customer
+  const handleViewCustomer = (customerId?: string) => {
+    if (customerId) {
+      navigate(`/admin/customers/${customerId}`);
+    }
+  };
+
+  // Print invoice
   const handlePrintInvoice = (order: ExtendedOrder) => {
-    // Create a printable invoice
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
@@ -449,6 +682,18 @@ const AdminOrders = () => {
               table { width: 100%; border-collapse: collapse; }
               th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
               .total { font-weight: bold; font-size: 18px; }
+              .status-badge { 
+                display: inline-block; 
+                padding: 4px 8px; 
+                border-radius: 4px; 
+                font-size: 12px;
+                background-color: ${order.status === 'delivered' ? '#d1fae5' : 
+                                 order.status === 'cancelled' ? '#fee2e2' : 
+                                 '#dbeafe'};
+                color: ${order.status === 'delivered' ? '#065f46' : 
+                        order.status === 'cancelled' ? '#991b1b' : 
+                        '#1e40af'};
+              }
               @media print { body { padding: 0; } }
             </style>
           </head>
@@ -457,19 +702,21 @@ const AdminOrders = () => {
               <h1>INVOICE</h1>
               <h2>Order #${order.orderNumber}</h2>
               <p>Date: ${new Date(order.orderDate).toLocaleDateString()}</p>
+              <p class="status-badge">${order.status.replace('_', ' ').toUpperCase()}</p>
             </div>
             <div class="order-info">
               <p><strong>Customer:</strong> ${order.customerName || 'Guest'}</p>
               <p><strong>Email:</strong> ${order.customerEmail || 'N/A'}</p>
               <p><strong>Phone:</strong> ${order.customerPhone || 'N/A'}</p>
               <p><strong>Shipping Address:</strong> ${order.shippingAddress || 'N/A'}</p>
+              ${order.trackingNumber ? `<p><strong>Tracking #:</strong> ${order.trackingNumber}</p>` : ''}
             </div>
             <table>
               <thead>
                 <tr>
                   <th>Product</th>
                   <th>Quantity</th>
-                  <th>Price</th>
+                  <th>Unit Price</th>
                   <th>Total</th>
                 </tr>
               </thead>
@@ -486,8 +733,8 @@ const AdminOrders = () => {
             </table>
             <div style="text-align: right; margin-top: 20px;">
               <p class="total">Total: ₱${order.totalAmount.toFixed(2)}</p>
-              <p>Payment Method: ${order.paymentMethod}</p>
-              <p>Payment Status: ${order.paymentStatus}</p>
+              <p>Payment Method: ${order.paymentMethod.toUpperCase()}</p>
+              <p>Payment Status: ${order.paymentStatus.toUpperCase()}</p>
             </div>
           </body>
         </html>
@@ -497,12 +744,7 @@ const AdminOrders = () => {
     }
   };
 
-  const handleViewCustomer = (customerId?: string) => {
-    if (customerId) {
-      navigate(`/admin/customers/${customerId}`);
-    }
-  };
-
+  // Helper functions for UI
   const getPaymentMethodIcon = (method: PaymentMethod) => {
     switch (method) {
       case 'cod': return <DollarSign className="w-4 h-4" />;
@@ -540,8 +782,8 @@ const AdminOrders = () => {
     );
   };
 
-  const getPaymentStatusBadge = (status: string) => {
-    const colors: Record<string, string> = {
+  const getPaymentStatusBadge = (status: PaymentStatus) => {
+    const colors: Record<PaymentStatus, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       paid: 'bg-green-100 text-green-800',
       failed: 'bg-red-100 text-red-800',
@@ -618,11 +860,32 @@ const AdminOrders = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
+          <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+          <span className="text-green-700">{success}</span>
+          <button onClick={() => setSuccess('')} className="ml-auto">
+            <X className="w-4 h-4 text-green-500" />
+          </button>
+        </div>
+      )}
+      
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
+          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+          <span className="text-red-700">{error}</span>
+          <button onClick={() => setError('')} className="ml-auto">
+            <X className="w-4 h-4 text-red-500" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Orders Management</h1>
-          <p className="text-gray-600 mt-1">Manage, approve payments, and track customer orders</p>
+          <p className="text-gray-600 mt-1">Manage, approve payments, process cancellations, and track orders</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -671,22 +934,20 @@ const AdminOrders = () => {
               <p className="text-xl font-bold text-orange-700">{orderStats.completedOrders}</p>
             </div>
             <div className="bg-yellow-50 rounded-lg p-3">
-              <p className="text-sm text-yellow-600">Today</p>
+              <p className="text-sm text-yellow-600">Today's Orders</p>
               <p className="text-xl font-bold text-yellow-700">{orderStats.todayOrders}</p>
             </div>
             <div className="bg-indigo-50 rounded-lg p-3">
-              <p className="text-sm text-indigo-600">This Week</p>
-              <p className="text-xl font-bold text-indigo-700">{orderStats.weekOrders}</p>
+              <p className="text-sm text-indigo-600">Shipped</p>
+              <p className="text-xl font-bold text-indigo-700">{orderStats.shippedOrders}</p>
             </div>
             <div className="bg-pink-50 rounded-lg p-3">
-              <p className="text-sm text-pink-600">This Month</p>
-              <p className="text-xl font-bold text-pink-700">{orderStats.monthOrders}</p>
+              <p className="text-sm text-pink-600">Cancellation Requests</p>
+              <p className="text-xl font-bold text-pink-700">{orderStats.cancellationRequests}</p>
             </div>
             <div className="bg-teal-50 rounded-lg p-3">
-              <p className="text-sm text-teal-600">COD/GCash/PayMaya</p>
-              <p className="text-xl font-bold text-teal-700">
-                {orderStats.codCount}/{orderStats.gcashCount}/{orderStats.paymayaCount}
-              </p>
+              <p className="text-sm text-teal-600">Refund Requests</p>
+              <p className="text-xl font-bold text-teal-700">{orderStats.refundRequests}</p>
             </div>
           </div>
         </div>
@@ -700,14 +961,18 @@ const AdminOrders = () => {
           </span>
           <div className="flex gap-2">
             <select
-              onChange={(e) => handleBulkStatusUpdate(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkStatusUpdate(e.target.value);
+                }
+              }}
               className="px-3 py-1 border border-blue-300 rounded-lg text-sm bg-white"
             >
-              <option value="">Update Status</option>
-              <option value="processing">Processing</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="">Bulk Actions</option>
+              <option value="processing">Mark as Processing</option>
+              <option value="shipped">Mark as Shipped</option>
+              <option value="delivered">Mark as Delivered</option>
+              <option value="cancelled">Cancel Orders</option>
             </select>
             <button
               onClick={() => setSelectedOrders([])}
@@ -719,7 +984,7 @@ const AdminOrders = () => {
         </div>
       )}
 
-      {/* Stats Cards */}
+      {/* Status Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
         <div 
           className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-gray-500 cursor-pointer hover:shadow-md"
@@ -873,13 +1138,6 @@ const AdminOrders = () => {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <span className="text-red-700">{error}</span>
-        </div>
-      )}
-
       {/* Orders Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -960,6 +1218,9 @@ const AdminOrders = () => {
                       <div>
                         <div className="text-sm font-medium">{order.orderNumber}</div>
                         <div className="text-xs text-gray-500">{order.itemsCount} items</div>
+                        {order.trackingNumber && (
+                          <div className="text-xs text-blue-500 mt-1">📦 {order.trackingNumber}</div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -981,7 +1242,7 @@ const AdminOrders = () => {
                           className="ml-2 p-1 text-blue-600 hover:bg-blue-50 rounded"
                           title="View Customer"
                         >
-                          <User className="w-4 h-4" />
+                          <UserIcon className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -1000,11 +1261,6 @@ const AdminOrders = () => {
                         <span className="ml-1">{getPaymentMethodName(order.paymentMethod)}</span>
                       </div>
                       {getPaymentStatusBadge(order.paymentStatus)}
-                      {(order as any).paymentProofReference && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          Ref: {(order as any).paymentProofReference}
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
@@ -1030,13 +1286,16 @@ const AdminOrders = () => {
                       <button 
                         onClick={() => {
                           setSelectedOrder(order);
-                          setAdminNote('');
+                          setShowTrackingModal(true);
                         }} 
                         className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg"
-                        title="Add Note"
+                        title="Update Tracking"
                       >
-                        <MessageSquare className="w-4 h-4" />
+                        <Truck className="w-4 h-4" />
                       </button>
+                      {order.cancellationRequested && (
+                        <span className="w-2 h-2 bg-red-500 rounded-full absolute -top-1 -right-1"></span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1053,6 +1312,7 @@ const AdminOrders = () => {
           </div>
         )}
 
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t flex items-center justify-between">
             <div className="text-sm text-gray-500">
@@ -1119,6 +1379,44 @@ const AdminOrders = () => {
               </button>
             </div>
             <div className="p-6 space-y-6">
+              {/* Quick Actions */}
+              <div className="flex gap-2 pb-4 border-b">
+                <button
+                  onClick={() => handleApproveOrder(selectedOrder.id)}
+                  disabled={updatingStatus || selectedOrder.status !== 'pending'}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" /> Approve Order
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCancelModal(true);
+                    setShowOrderModal(false);
+                  }}
+                  disabled={updatingStatus || selectedOrder.status === 'cancelled' || selectedOrder.status === 'delivered'}
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4 mr-2" /> Cancel Order
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTrackingModal(true);
+                    setShowOrderModal(false);
+                  }}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Truck className="w-4 h-4 mr-2" /> Update Tracking
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNoteModal(true);
+                  }}
+                  className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" /> Add Note
+                </button>
+              </div>
+
               {/* Order Info */}
               <div className="grid grid-cols-4 gap-4">
                 <div className="bg-gray-50 p-3 rounded-lg">
@@ -1165,9 +1463,7 @@ const AdminOrders = () => {
                       <Receipt className="w-4 h-4 mr-2" /> Payment Proof
                     </h4>
                     
-                    {/* Receipt Image */}
                     <div className="mb-4">
-                      <p className="text-xs text-gray-500 mb-2">Receipt Screenshot</p>
                       <div 
                         className="relative group cursor-pointer" 
                         onClick={() => { 
@@ -1186,7 +1482,6 @@ const AdminOrders = () => {
                       </div>
                     </div>
 
-                    {/* Receipt Details */}
                     <div className="grid grid-cols-2 gap-4 bg-white p-3 rounded-lg">
                       {(selectedOrder as any).paymentProofReference && (
                         <div>
@@ -1207,13 +1502,6 @@ const AdminOrders = () => {
                         </div>
                       )}
                     </div>
-                    
-                    {(selectedOrder as any).paymentProofNotes && (
-                      <div className="mt-2 bg-white p-3 rounded-lg">
-                        <p className="text-xs text-gray-500">Notes</p>
-                        <p className="text-sm">{(selectedOrder as any).paymentProofNotes}</p>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -1221,7 +1509,7 @@ const AdminOrders = () => {
               {/* Customer & Shipping */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="font-medium mb-3 flex items-center">
-                  <User className="w-4 h-4 mr-2 text-blue-600" /> Customer
+                  <UserIcon className="w-4 h-4 mr-2 text-blue-600" /> Customer
                 </h3>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
@@ -1243,7 +1531,7 @@ const AdminOrders = () => {
                     onClick={() => handleViewCustomer(selectedOrder.userId)}
                     className="flex items-center text-sm text-blue-600 hover:text-blue-800"
                   >
-                    <User className="w-4 h-4 mr-1" />
+                    <UserIcon className="w-4 h-4 mr-1" />
                     View Customer Profile
                   </button>
                 )}
@@ -1255,6 +1543,18 @@ const AdminOrders = () => {
                   <MapPin className="w-4 h-4 mr-2 text-blue-600" /> Shipping
                 </h3>
                 <p className="text-sm">{selectedOrder.shippingAddress || 'No address provided'}</p>
+                {selectedOrder.trackingNumber && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm font-medium text-blue-800">Tracking Information</p>
+                    <p className="text-sm">Tracking #: {selectedOrder.trackingNumber}</p>
+                    {selectedOrder.shippingCarrier && (
+                      <p className="text-sm">Carrier: {selectedOrder.shippingCarrier}</p>
+                    )}
+                    {selectedOrder.estimatedDelivery && (
+                      <p className="text-sm">Estimated Delivery: {formatDate(selectedOrder.estimatedDelivery)}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Items */}
@@ -1306,25 +1606,29 @@ const AdminOrders = () => {
               </div>
 
               {/* Admin Notes */}
-              <div className="border-t pt-4">
-                <h3 className="font-medium mb-3">Admin Notes</h3>
-                <textarea 
-                  value={adminNote} 
-                  onChange={(e) => setAdminNote(e.target.value)} 
-                  rows={2} 
-                  className="w-full px-3 py-2 border rounded-lg mb-2" 
-                  placeholder="Add admin note..."
-                />
-                <button
-                  onClick={() => handleAddAdminNote(selectedOrder.id)}
-                  disabled={!adminNote.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Add Note
-                </button>
-              </div>
+              {selectedOrder.adminNotes && selectedOrder.adminNotes.length > 0 && (
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-3">Admin Notes</h3>
+                  <div className="space-y-2">
+                    {selectedOrder.adminNotes.map((note) => (
+                      <div key={note.id} className={`p-3 rounded-lg ${
+                        note.type === 'warning' ? 'bg-yellow-50' :
+                        note.type === 'success' ? 'bg-green-50' :
+                        note.type === 'info' ? 'bg-blue-50' :
+                        'bg-gray-50'
+                      }`}>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">{note.createdBy}</span>
+                          <span className="text-xs text-gray-500">{formatRelativeTime(note.createdAt)}</span>
+                        </div>
+                        <p className="text-sm">{note.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {/* Payment Verification - Show for pending payments with proof */}
+              {/* Payment Verification */}
               {selectedOrder.paymentStatus === 'pending' && (selectedOrder as any).paymentProofImage && (
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                   <h3 className="font-medium mb-3 text-yellow-800">Payment Verification</h3>
@@ -1353,26 +1657,165 @@ const AdminOrders = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Status Update */}
-              <div className="border-t pt-4">
-                <h3 className="font-medium mb-3">Update Order Status</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {['pending','awaiting_payment','processing','shipped','delivered','cancelled'].map(s => (
-                    <button 
-                      key={s} 
-                      onClick={() => handleStatusUpdate(selectedOrder.id, s)} 
-                      disabled={updatingStatus || selectedOrder.status === s} 
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        selectedOrder.status === s 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {s.split('_').map(word => word.charAt(0).toUpperCase()+word.slice(1)).join(' ')}
-                    </button>
-                  ))}
-                </div>
+      {/* Cancel Order Modal */}
+      {showCancelModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold mb-4">Cancel Order #{selectedOrder.orderNumber}</h3>
+            <p className="text-gray-600 mb-4">Please provide a reason for cancellation:</p>
+            <textarea
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border rounded-lg mb-4"
+              placeholder="Reason for cancellation..."
+            />
+            {selectedOrder.paymentStatus === 'paid' && (
+              <div className="bg-yellow-50 p-3 rounded-lg mb-4">
+                <p className="text-sm text-yellow-800">
+                  This order has already been paid. Cancelling will process a refund of {formatCurrency(selectedOrder.totalAmount)}.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  handleCancelOrder(selectedOrder.id);
+                }}
+                disabled={!cancellationReason.trim() || updatingStatus}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {updatingStatus ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Cancel Order'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setShowOrderModal(true);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tracking Modal */}
+      {showTrackingModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold mb-4">Update Tracking Information</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number *</label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="Enter tracking number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Carrier</label>
+                <select
+                  value={shippingCarrier}
+                  onChange={(e) => setShippingCarrier(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">Select carrier</option>
+                  <option value="J&T">J&T Express</option>
+                  <option value="LBC">LBC</option>
+                  <option value="2GO">2GO</option>
+                  <option value="DHL">DHL</option>
+                  <option value="FedEx">FedEx</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Delivery Date</label>
+                <input
+                  type="date"
+                  value={estimatedDelivery}
+                  onChange={(e) => setEstimatedDelivery(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => handleUpdateTracking(selectedOrder.id)}
+                  disabled={!trackingNumber.trim() || updatingStatus}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {updatingStatus ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Update Tracking'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTrackingModal(false);
+                    setShowOrderModal(true);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Note Modal */}
+      {showNoteModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold mb-4">Add Admin Note</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Note Type</label>
+                <select
+                  value={noteType}
+                  onChange={(e) => setNoteType(e.target.value as any)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="note">General Note</option>
+                  <option value="info">Info</option>
+                  <option value="warning">Warning</option>
+                  <option value="success">Success</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                <textarea
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="Enter your note..."
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleAddAdminNote(selectedOrder.id)}
+                  disabled={!adminNote.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Add Note
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNoteModal(false);
+                    setShowOrderModal(true);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
@@ -1397,24 +1840,15 @@ const AdminOrders = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold mb-4">Export Orders</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Export {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''} as:
+            </p>
             <div className="space-y-3">
               <button
                 onClick={() => handleExportOrders('csv')}
                 className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
               >
                 <Download className="w-4 h-4 mr-2" /> Export as CSV
-              </button>
-              <button
-                onClick={() => handleExportOrders('excel')}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center"
-              >
-                <Download className="w-4 h-4 mr-2" /> Export as Excel
-              </button>
-              <button
-                onClick={() => handleExportOrders('pdf')}
-                className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center"
-              >
-                <Download className="w-4 h-4 mr-2" /> Export as PDF
               </button>
               <button
                 onClick={() => setShowExportModal(false)}
