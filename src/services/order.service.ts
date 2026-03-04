@@ -127,16 +127,17 @@ class OrderService {
   async updateOrderStatus(id: number, status: string): Promise<Order> {
   try {
     console.log(`📤 Updating order ${id} status to ${status}...`);
-    // Send just the string, not an object
-    const response = await api.put(`${this.baseUrl}/admin/${id}/status`, status, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    // Make sure we're sending an object with the exact property name the server expects
+    const response = await api.put(`${this.baseUrl}/admin/${id}/status`, { 
+      status: status  // This matches the DTO property name
     });
     console.log('✅ Order updated:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('❌ Error updating order:', error.response?.data || error.message);
+    if (error.response?.data) {
+      console.error('Validation errors:', error.response.data.errors);
+    }
     throw error;
   }
 }
