@@ -125,16 +125,21 @@ class OrderService {
   }
 
   async updateOrderStatus(id: number, status: string): Promise<Order> {
-    try {
-      console.log(`📤 Updating order ${id} status to ${status}...`);
-      const response = await api.put(`${this.baseUrl}/admin/${id}/status`, { status });
-      console.log('✅ Order updated:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Error updating order:', error.response?.data || error.message);
-      throw error;
-    }
+  try {
+    console.log(`📤 Updating order ${id} status to ${status}...`);
+    // Send just the string, not an object
+    const response = await api.put(`${this.baseUrl}/admin/${id}/status`, status, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('✅ Order updated:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error updating order:', error.response?.data || error.message);
+    throw error;
   }
+}
 }
 
 const orderService = new OrderService();
