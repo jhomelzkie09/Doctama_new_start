@@ -73,9 +73,13 @@ const AdminLayout = () => {
       ]
     },
     {
-      title: 'Categories',
-      path: '/admin/categories',
-      icon: <FolderTree className="w-5 h-5" />
+      title: 'Admin Management',
+      path: '/admin/admins',
+      icon: <Users className="w-5 h-5" />,
+      submenu: [
+        { title: 'All Admins', path: '/admin/admins' },
+        { title: 'Add Admin', path: '/admin/admins/new' }
+      ]
     }
   ];
 

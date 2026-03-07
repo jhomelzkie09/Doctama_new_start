@@ -30,6 +30,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import Orders from './pages/admin/AdminOrders';
 import CustomerManagement from './pages/admin/CustomerManagement'; 
 import CustomerDetail from './pages/admin/CustomerDetail';
+import AdminManagement from './pages/admin/AdminManagement';
 
 function App() {
   return (
@@ -93,6 +94,8 @@ function App() {
                 <Route path="products/edit/:id" element={<ProductForm />} />
                 <Route path="categories" element={<CategoriesManagement />} />
                 <Route path="orders" element={<Orders />} />
+                <Route path="admins" element={<AdminManagement />} />
+
                 {/* New Customer Management Routes */}
                 <Route path="customers" element={<CustomerManagement />} />
                 <Route path="customers/new" element={<CustomerManagement />} /> {/* You can create a separate CreateCustomer component later */}
