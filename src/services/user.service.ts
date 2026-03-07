@@ -45,17 +45,19 @@ class UserService {
   /**
    * Update user (Admin only)
    */
-  async updateUser(id: string, userData: Partial<User>): Promise<User> {
-    try {
-      console.log(`📤 Updating user ${id}...`);
-      const response = await api.put(`/adminusers/${id}`, userData);
-      console.log('✅ User updated:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error(`❌ Error updating user ${id}:`, error.response?.data || error.message);
-      throw error;
-    }
+  // Update the updateUser method to use PATCH
+async updateUser(id: string, userData: Partial<User>): Promise<User> {
+  try {
+    console.log(`📤 Updating user ${id}...`);
+    // Change from api.put to api.patch
+    const response = await api.patch(`/adminusers/${id}`, userData);
+    console.log('✅ User updated:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error(`❌ Error updating user ${id}:`, error.response?.data || error.message);
+    throw error;
   }
+}
 
   /**
    * Delete user (Admin only)
@@ -199,6 +201,8 @@ class UserService {
       };
     }
   }
+
+
 }
 
 const userService = new UserService();
