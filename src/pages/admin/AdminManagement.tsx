@@ -94,53 +94,35 @@ const AdminManagement = () => {
   };
 
   const handleToggleAdmin = async (user: UserWithRole, makeAdmin: boolean) => {
-    setActionLoading(true);
-    try {
-      // Get current roles
-      let currentRoles: string[] = [];
-      if (Array.isArray(user.roles)) {
-        currentRoles = [...user.roles];
-      } else if (typeof user.roles === 'string') {
-        currentRoles = [user.roles];
+  setActionLoading(true);
+  try {
+    // Use the dedicated toggle endpoint
+    await userService.toggleAdminRole(user.id, makeAdmin);
+    
+    // Update local state
+    setUsers(users.map(u => {
+      if (u.id === user.id) {
+        return {
+          ...u,
+          isAdmin: makeAdmin,
+          roleAssignment: makeAdmin ? {
+            assignedBy: currentUser?.fullName || 'Admin',
+            assignedAt: new Date().toISOString()
+          } : undefined
+        };
       }
-      
-      // Add or remove admin role
-      if (makeAdmin) {
-        if (!currentRoles.includes('admin')) {
-          currentRoles.push('admin');
-        }
-      } else {
-        currentRoles = currentRoles.filter(r => r.toLowerCase() !== 'admin');
-      }
-      
-      // Update user roles
-      await userService.updateUser(user.id, { roles: currentRoles });
-      
-      // Update local state
-      setUsers(users.map(u => {
-        if (u.id === user.id) {
-          return {
-            ...u,
-            roles: currentRoles,
-            isAdmin: makeAdmin,
-            roleAssignment: makeAdmin ? {
-              assignedBy: currentUser?.fullName || 'Admin',
-              assignedAt: new Date().toISOString()
-            } : undefined
-          };
-        }
-        return u;
-      }));
-      
-      setSuccess(`Successfully ${makeAdmin ? 'made' : 'removed'} ${user.fullName || user.email} ${makeAdmin ? 'an admin' : 'from admin'}`);
-      setShowRoleModal(false);
-      setSelectedUser(null);
-    } catch (err: any) {
-      setError('Failed to update user role');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+      return u;
+    }));
+    
+    setSuccess(`Successfully ${makeAdmin ? 'made' : 'removed'} ${user.fullName || user.email} ${makeAdmin ? 'an admin' : 'from admin'}`);
+    setShowRoleModal(false);
+    setSelectedUser(null);
+  } catch (err: any) {
+    setError('Failed to update user role: ' + (err.message || 'Unknown error'));
+  } finally {
+    setActionLoading(false);
+  }
+};
 
   const filteredUsers = users.filter(user => {
     // Search filter

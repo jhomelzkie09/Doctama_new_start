@@ -42,15 +42,25 @@ class UserService {
     }
   }
 
-  /**
-   * Update user (Admin only)
-   */
-  // Update the updateUser method to use PATCH
+  // Add this new method to user.service.ts
+async toggleAdminRole(id: string, makeAdmin: boolean): Promise<any> {
+  try {
+    console.log(`📤 Toggling admin role for user ${id} to ${makeAdmin}...`);
+    const response = await api.post(`/adminusers/${id}/toggle-admin`, { makeAdmin });
+    console.log('✅ Admin role toggled:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error toggling admin role:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+// Keep updateUser but use PUT instead of PATCH
 async updateUser(id: string, userData: Partial<User>): Promise<User> {
   try {
     console.log(`📤 Updating user ${id}...`);
-    // Change from api.put to api.patch
-    const response = await api.patch(`/adminusers/${id}`, userData);
+    // Use PUT for full updates
+    const response = await api.put(`/adminusers/${id}`, userData);
     console.log('✅ User updated:', response.data);
     return response.data;
   } catch (error: any) {
