@@ -7,8 +7,8 @@ import Layout from './components/Layout';
 // Pages
 import Home from './pages/customer/Home';
 import Shop from './pages/customer/Shop';
-//import About from './pages/customer/About';
-//import Contact from './pages/customer/Contact';
+import About from './pages/customer/About';
+import Contact from './pages/customer/Contact';
 import ProductDetail from './pages/customer/ProductDetail';
 import Cart from './pages/customer/Cart';
 import Checkout from './pages/customer/Checkout';
@@ -40,8 +40,8 @@ function App() {
             {/* ========== PUBLIC ROUTES ========== */}
             <Route path="/" element={<Layout><Home /></Layout>} />
             <Route path="/shop" element={<Layout><Shop /></Layout>} />
-            {/*<Route path="/about" element={<Layout><About /></Layout>} />*/}
-            {/*<Route path="/contact" element={<Layout><Contact /></Layout>} />*/}
+            <Route path="/about" element={<Layout><About /></Layout>} />
+            <Route path="/contact" element={<Layout><Contact /></Layout>} />
             <Route path="/products/:id" element={<Layout><ProductDetail /></Layout>} />
             
             {/* ========== AUTH ROUTES ========== */}
