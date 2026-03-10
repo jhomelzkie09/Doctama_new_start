@@ -102,9 +102,9 @@ const Layout = ({ children }: LayoutProps) => {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="tel:+639171234567" className="hover:text-red-200 transition flex items-center gap-1">
+            <a href="tel:+639985868888" className="hover:text-red-200 transition flex items-center gap-1">
               <PhoneIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">(63) 917 123 4567</span>
+              <span className="hidden sm:inline">(63) 998 586 8888</span>
             </a>
             <a href="mailto:support@doctama.com" className="hover:text-red-200 transition flex items-center gap-1">
               <Mail className="w-4 h-4" />

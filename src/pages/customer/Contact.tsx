@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Facebook,
   Instagram,
-  Twitter,
   MessageSquare,
   Headphones,
   Package,
@@ -48,13 +47,13 @@ const Contact = () => {
     {
       icon: MapPin,
       title: 'Visit Us',
-      details: ['123 Rizal Avenue', 'Makati City, Metro Manila', 'Philippines 1200'],
+      details: ['Sitio Gabao, San Roque, Bacon', 'Sorsogon City, Sorsogon', 'Philippines 4701'],
       color: 'text-red-600'
     },
     {
       icon: Phone,
       title: 'Call Us',
-      details: ['(02) 8123 4567', '+63 917 123 4567', 'Mon-Sat, 9AM-6PM'],
+      details: ['+63 998 586 8888', 'Always Open'],
       color: 'text-blue-600'
     },
     {
@@ -236,7 +235,7 @@ const Contact = () => {
                 </h3>
                 <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
                   <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.123456789012!2d121.01234567890123!3d14.012345678901234!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTTCsDAwJzUwLjAiTiAxMjHCsDAwJzUwLjAiRQ!5e0!3m2!1sen!2sph!4v1234567890123"
+                    src="https://www.google.com/maps/place/Doctama+Marketing/@13.0074788,124.0210329,17z/data=!4m14!1m7!3m6!1s0x33a0ef653a20122b:0x3c7bbaaadbfb17db!2sDoctama+Marketing!8m2!3d13.0074736!4d124.0236078!16s%2Fg%2F1pzw9v0hm!3m5!1s0x33a0ef653a20122b:0x3c7bbaaadbfb17db!8m2!3d13.0074736!4d124.0236078!16s%2Fg%2F1pzw9v0hm?entry=ttu&g_ep=EgoyMDI2MDMwNS4wIKXMDSoASAFQAw%3D%3D"
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
@@ -321,14 +320,11 @@ const Contact = () => {
           <div className="flex flex-col items-center">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Follow Us</h3>
             <div className="flex space-x-4">
-              <a href="#" className="w-10 h-10 bg-red-600 text-white rounded-lg flex items-center justify-center hover:bg-red-700 transition">
+              <a href="https://www.facebook.com/doctamamarketing" className="w-10 h-10 bg-red-600 text-white rounded-lg flex items-center justify-center hover:bg-red-700 transition">
                 <Facebook className="w-5 h-5" />
               </a>
-              <a href="#" className="w-10 h-10 bg-red-600 text-white rounded-lg flex items-center justify-center hover:bg-red-700 transition">
+              <a href="https://www.instagram.com/doctamamarketing?fbclid=IwY2xjawQcZrdleHRuA2FlbQIxMABicmlkETFJbXFYaWlmWHhqTnZmZVRXc3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHhtnKcsahyo-1BPyhF7IYcZLjRTaW0wJM0K-OVKyJNIt0gb5S52kCXM21yhf_aem_xtkeJ_6isGefxhnjFC2Mtw" className="w-10 h-10 bg-red-600 text-white rounded-lg flex items-center justify-center hover:bg-red-700 transition">
                 <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 bg-red-600 text-white rounded-lg flex items-center justify-center hover:bg-red-700 transition">
-                <Twitter className="w-5 h-5" />
               </a>
             </div>
           </div>
