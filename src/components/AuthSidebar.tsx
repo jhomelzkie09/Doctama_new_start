@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
+import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,8 +19,10 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -30,71 +32,117 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
   const { login, register } = useAuth();
 
+  // Password strength checker
+  const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
+    if (!password) return { score: 0, label: '', color: 'bg-gray-200' };
+    
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    
+    const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+    const colors = ['bg-red-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'];
+    
+    return {
+      score,
+      label: labels[score] || '',
+      color: colors[score] || 'bg-gray-200'
+    };
+  };
+
   const handleModeChange = (newMode: 'login' | 'register') => {
     setMode(newMode);
     onModeChange(newMode);
     setError('');
+    setSuccess('');
+  };
+
+  const validateForm = (): boolean => {
+    if (mode === 'register') {
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        return false;
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters');
+        return false;
+      }
+      if (!formData.fullName.trim()) {
+        setError('Full name is required');
+        return false;
+      }
+    }
+    
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return false;
+    }
+    
+    if (!formData.password.trim()) {
+      setError('Password is required');
+      return false;
+    }
+    
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    
+    if (!validateForm()) return;
+    
     setLoading(true);
 
     try {
       if (mode === 'login') {
         console.log('🔐 Attempting login with:', formData.email);
         
-        // Call login function
         await login(formData.email, formData.password);
         
-        console.log('✅ Login successful, checking localStorage directly');
+        console.log('✅ Login successful');
         
-        // Read from localStorage immediately
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);
           console.log('👤 User from storage:', user);
-          console.log('👑 User roles:', user.roles);
           
-          // Close sidebar
           onClose();
           
-          // Check if admin and redirect IMMEDIATELY
           if (user.roles?.includes('Admin')) {
-            console.log('👑 Admin detected, REDIRECTING NOW');
-            // Force a hard reload to /admin
+            console.log('👑 Admin detected, redirecting...');
             window.location.href = '/admin';
           } else {
-            console.log('👤 Regular user, staying on current page');
+            console.log('👤 Regular user, redirecting to home');
             window.location.href = '/';
           }
         }
       } else {
-        // Register logic
-        if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
         console.log('📝 Attempting registration for:', formData.email);
+        
         await register({
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName
         });
         
-        // After registration, check roles and redirect
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          onClose();
-          if (user.roles?.includes('Admin')) {
-            window.location.href = '/admin';
-          } else {
-            window.location.href = '/';
-          }
-        }
+        setSuccess('Account created successfully! Please check your email to verify your account.');
+        
+        // Clear form
+        setFormData({
+          email: '',
+          password: '',
+          fullName: '',
+          confirmPassword: ''
+        });
+        
+        // Switch to login after 3 seconds
+        setTimeout(() => {
+          handleModeChange('login');
+        }, 3000);
       }
     } catch (err: any) {
       console.error('❌ Auth error:', err);
@@ -104,67 +152,77 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     }
   };
 
+  const passwordStrength = getPasswordStrength(formData.password);
+
   return (
     <>
       {/* Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity"
+          className="fixed inset-0 bg-black/50 z-50 transition-opacity"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Header */}
-        <div className="h-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+        {/* Simple Header */}
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
             {mode === 'login' ? (
-              <LogIn className="w-6 h-6" />
+              <LogIn className="w-5 h-5 text-red-600" />
             ) : (
-              <UserPlus className="w-6 h-6" />
+              <UserPlus className="w-5 h-5 text-red-600" />
             )}
-            <h2 className="text-xl font-semibold">
-              {mode === 'login' ? 'Welcome Back!' : 'Create Account'}
+            <h2 className="text-lg font-semibold text-gray-900">
+              {mode === 'login' ? 'Sign In' : 'Create Account'}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition"
+            className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-500"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <div className="p-6 h-[calc(100%-5rem)] overflow-y-auto">
-          {/* Mode Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+        {/* Content */}
+        <div className="p-6 h-[calc(100%-4rem)] overflow-y-auto">
+          {/* Mode Toggle - Clean Tabs */}
+          <div className="flex space-x-1 mb-6">
             <button
               onClick={() => handleModeChange('login')}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
+              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${
                 mode === 'login'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
               }`}
             >
               Sign In
             </button>
             <button
               onClick={() => handleModeChange('register')}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
+              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${
                 mode === 'register'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
               }`}
             >
               Register
             </button>
           </div>
+
+          {/* Success Message */}
+          {success && (
+            <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-green-700">{success}</p>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -176,17 +234,17 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     type="text"
                     required
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
                     placeholder="John Doe"
                   />
                 </div>
@@ -194,34 +252,34 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
                   placeholder="••••••••"
                 />
                 <button
@@ -229,27 +287,62 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              
+              {/* Password strength indicator - only in register mode */}
+              {mode === 'register' && formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center space-x-1 mb-1">
+                    {[0, 1, 2, 3].map((index) => (
+                      <div
+                        key={index}
+                        className={`h-1 flex-1 rounded-full ${
+                          index < passwordStrength.score
+                            ? passwordStrength.color
+                            : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className={`text-xs ${passwordStrength.color.replace('bg-', 'text-')}`}>
+                    {passwordStrength.label} password
+                  </p>
+                </div>
+              )}
             </div>
 
             {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     required
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full pl-9 pr-10 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${
+                      formData.confirmPassword && formData.password !== formData.confirmPassword
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                    }`}
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+                )}
               </div>
             )}
 
@@ -257,9 +350,9 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="text-sm text-blue-600 hover:text-blue-700"
+                  className="text-xs text-red-600 hover:text-red-700 font-medium"
                 >
-                  Forgot Password?
+                  Forgot password?
                 </button>
               </div>
             )}
@@ -267,12 +360,12 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Processing...
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {mode === 'login' ? 'Signing in...' : 'Creating account...'}
                 </div>
               ) : mode === 'login' ? (
                 'Sign In'
@@ -282,28 +375,26 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
             </button>
           </form>
 
-          {/* Benefits */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Why join us?</h3>
-            <ul className="space-y-3">
-              <li className="flex items-center text-sm text-gray-600">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-2" />
-                Track your orders
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-2" />
-                Faster checkout
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-2" />
-                Save your favorites
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-2" />
-                Exclusive offers
-              </li>
-            </ul>
-          </div>
+          {/* Simple Benefits */}
+          {mode === 'register' && (
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <p className="text-xs font-medium text-gray-700 mb-3">By joining, you'll get:</p>
+              <ul className="space-y-2">
+                <li className="flex items-center text-xs text-gray-600">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mr-2" />
+                  Track your orders
+                </li>
+                <li className="flex items-center text-xs text-gray-600">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mr-2" />
+                  Faster checkout
+                </li>
+                <li className="flex items-center text-xs text-gray-600">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mr-2" />
+                  Save your favorites
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </>
