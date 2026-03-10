@@ -12,7 +12,6 @@ import Shop from './pages/customer/Shop';
 import ProductDetail from './pages/customer/ProductDetail';
 import Cart from './pages/customer/Cart';
 import Checkout from './pages/customer/Checkout';
-import Register from './pages/Register';
 import AccountDashboard from './pages/customer/Account/Dashboard';
 import AccountOrders from './pages/customer/Account/Orders';
 import AccountProfile from './pages/customer/Account/Profile';
@@ -46,7 +45,6 @@ function App() {
             <Route path="/products/:id" element={<Layout><ProductDetail /></Layout>} />
             
             {/* ========== AUTH ROUTES ========== */}
-            <Route path="/register" element={<Register />} />
             {/* Login page removed - using AuthSidebar instead */}
             
             {/* ========== PROTECTED CUSTOMER ROUTES ========== */}
