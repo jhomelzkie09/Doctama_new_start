@@ -14,8 +14,11 @@ interface ProductDetailProps {
   isModal?: boolean;
   onClose?: () => void;
 }
+interface ShopProps {
+  onAuthRequired?: (mode: 'login' | 'register') => void;
+}
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose }) => {
+const ProductDetail: React.FC<ProductDetailProps & ShopProps> = ({ isModal = false, onClose, onAuthRequired }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem } = useCart();
@@ -90,16 +93,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
 
   // ✅ FIXED: Handle Add to Cart with Auth Check
   const handleAddToCart = () => {
-    if (!user) {
-      // Save the current product URL to redirect back after login
-      navigate('/login', { 
-        state: { 
-          from: `/products/${id}`,
-          message: 'Please log in to add items to your cart'
-        } 
-      });
-      return;
-    }
+    //if the user is not logged in, prompt them to log in before adding to cart
+    if (!user) return onAuthRequired?.('login');
 
     if (!product) return;
     for (let i = 0; i < quantity; i++) {
@@ -111,15 +106,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
 
   // ✅ FIXED: Handle Wishlist with Auth Check
   const handleToggleWishlist = () => {
-    if (!user) {
-      navigate('/login', { 
-        state: { 
-          from: `/products/${id}`,
-          message: 'Please log in to save items to your wishlist'
-        } 
-      });
-      return;
-    }
+    //if the user is not logged in, prompt them to log in before adding to wishlist
+    if (!user) return onAuthRequired?.('login');
+
     if (!product) return;
     setWishlist(prev => 
       prev.includes(product.id) 
