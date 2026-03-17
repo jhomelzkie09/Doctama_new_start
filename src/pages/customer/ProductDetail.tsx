@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 import { 
   ShoppingCart, Heart, Share2, Check, Truck, Shield, RotateCcw,
   Star, Minus, Plus, ArrowLeft, X, ChevronLeft, ChevronRight,
@@ -14,15 +14,20 @@ interface ProductDetailProps {
   isModal?: boolean;
   onClose?: () => void;
 }
-interface ShopProps {
+
+interface OutletContextType {
   onAuthRequired?: (mode: 'login' | 'register') => void;
 }
 
-const ProductDetail: React.FC<ProductDetailProps & ShopProps> = ({ isModal = false, onClose, onAuthRequired }) => {
+const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { user } = useAuth();
+  
+  // Get onAuthRequired from outlet context
+  const outletContext = useOutletContext<OutletContextType>();
+  const onAuthRequired = outletContext?.onAuthRequired;
   
   // States
   const [product, setProduct] = useState<Product | null>(null);
@@ -91,10 +96,18 @@ const ProductDetail: React.FC<ProductDetailProps & ShopProps> = ({ isModal = fal
     return images.filter(Boolean);
   };
 
-  // ✅ FIXED: Handle Add to Cart with Auth Check
+  // Handle Add to Cart with Auth Check
   const handleAddToCart = () => {
-    //if the user is not logged in, prompt them to log in before adding to cart
-    if (!user) return onAuthRequired?.('login');
+    // If user is not logged in, open the auth sidebar
+    if (!user) {
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      } else {
+        console.warn('onAuthRequired not available, falling back to navigation');
+        navigate('/login', { state: { from: `/products/${id}` } });
+      }
+      return;
+    }
 
     if (!product) return;
     for (let i = 0; i < quantity; i++) {
@@ -104,10 +117,18 @@ const ProductDetail: React.FC<ProductDetailProps & ShopProps> = ({ isModal = fal
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-  // ✅ FIXED: Handle Wishlist with Auth Check
+  // Handle Wishlist with Auth Check
   const handleToggleWishlist = () => {
-    //if the user is not logged in, prompt them to log in before adding to wishlist
-    if (!user) return onAuthRequired?.('login');
+    // If user is not logged in, open the auth sidebar
+    if (!user) {
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      } else {
+        console.warn('onAuthRequired not available, falling back to navigation');
+        navigate('/login', { state: { from: `/products/${id}` } });
+      }
+      return;
+    }
 
     if (!product) return;
     setWishlist(prev => 

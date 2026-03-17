@@ -37,51 +37,47 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <Routes>
-            {/* ========== PUBLIC ROUTES ========== */}
-            <Route path="/" element={<Layout><Home /></Layout>} />
-            <Route path="/shop" element={<Layout><Shop /></Layout>} />
-            <Route path="/about" element={<Layout><About /></Layout>} />
-            <Route path="/contact" element={<Layout><Contact /></Layout>} />
-            <Route path="/products/:id" element={<Layout><ProductDetail /></Layout>} />
-            
-            {/* ========== AUTH ROUTES ========== */}
-            {/* Login page removed - using AuthSidebar instead */}
-            
-            {/* ========== PROTECTED CUSTOMER ROUTES ========== */}
-            <Route path="/cart" element={<Layout><Cart /></Layout>} />
-            <Route path="/checkout" element={
-              <ProtectedRoute>
-                <Layout><Checkout /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/account" element={
-              <ProtectedRoute>
-                <Layout><AccountDashboard /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/account/orders" element={
-              <ProtectedRoute>
-                <Layout><AccountOrders /></Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/account/profile" element={
-              <ProtectedRoute>
-                <Layout><AccountProfile /></Layout>
-              </ProtectedRoute>
-            } />
-
-            <Route path="/account/orderdetails" element={
-              <ProtectedRoute>
-                <Layout><AccountOrderDetails /></Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/account/addresses" element={
-              <ProtectedRoute>
-                <Layout><AccountAddresses /></Layout>
-              </ProtectedRoute>
-            } />
+            {/* ========== PUBLIC ROUTES with Layout ========== */}
+            <Route element={<Layout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/shop" element={<Shop />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              
+              {/* ========== PROTECTED CUSTOMER ROUTES ========== */}
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={
+                <ProtectedRoute>
+                  <Checkout />
+                </ProtectedRoute>
+              } />
+              <Route path="/account" element={
+                <ProtectedRoute>
+                  <AccountDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/orders" element={
+                <ProtectedRoute>
+                  <AccountOrders />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/profile" element={
+                <ProtectedRoute>
+                  <AccountProfile />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/orderdetails" element={
+                <ProtectedRoute>
+                  <AccountOrderDetails />
+                </ProtectedRoute>
+              } />
+              <Route path="/account/addresses" element={
+                <ProtectedRoute>
+                  <AccountAddresses />
+                </ProtectedRoute>
+              } />
+            </Route>
             
             {/* ========== ADMIN ROUTES ========== */}
             <Route path="/admin" element={<AdminRoute />}>
@@ -93,17 +89,15 @@ function App() {
                 <Route path="categories" element={<CategoriesManagement />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="admins" element={<AdminManagement />} />
-
-                {/* New Customer Management Routes */}
                 <Route path="customers" element={<CustomerManagement />} />
-                <Route path="customers/new" element={<CustomerManagement />} /> {/* You can create a separate CreateCustomer component later */}
-                <Route path="customers/:id" element={<CustomerDetail />} /> {/* You can create a separate CustomerDetails component later */}
-                <Route path="customers/edit/:id" element={<CustomerManagement />} /> {/* You can create a separate EditCustomer component later */}
+                <Route path="customers/new" element={<CustomerManagement />} />
+                <Route path="customers/:id" element={<CustomerDetail />} />
+                <Route path="customers/edit/:id" element={<CustomerManagement />} />
               </Route>
             </Route>
             
             {/* ========== CATCH ALL - REDIRECT TO HOME ========== */}
-            <Route path="*" element={<Layout><Home /></Layout>} />
+            <Route path="*" element={<Home />} />
           </Routes>
         </CartProvider>
       </AuthProvider>

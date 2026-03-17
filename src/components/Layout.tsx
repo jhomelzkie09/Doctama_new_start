@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { 
@@ -27,11 +27,7 @@ import {
 } from 'lucide-react';
 import AuthSidebar from './AuthSidebar';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout = ({ children }: LayoutProps) => {
+const Layout = () => {
   const { user, logout } = useAuth();
   const { state } = useCart();
   const navigate = useNavigate();
@@ -68,16 +64,6 @@ const Layout = ({ children }: LayoutProps) => {
   const isActive = (path: string) => {
     return location.pathname === path;
   };
-
-  // Pass the handleAuthRequired function to children via props
-  const childrenWithProps = React.Children.map(children, child => {
-    if (React.isValidElement(child)) {
-      return React.cloneElement(child, { 
-        onAuthRequired: handleAuthRequired 
-      } as Partial<unknown>);
-    }
-    return child;
-  });
 
   const navLinks = [
     { path: '/', label: 'Home', icon: Home },
@@ -304,9 +290,9 @@ const Layout = ({ children }: LayoutProps) => {
         onModeChange={setAuthMode}
       />
 
-      {/* Main Content */}
+      {/* Main Content - with Outlet and context */}
       <main className="min-h-screen bg-gray-50">
-        {childrenWithProps}
+        <Outlet context={{ onAuthRequired: handleAuthRequired }} />
       </main>
 
       {/* Footer */}
