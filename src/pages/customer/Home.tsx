@@ -1,31 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ArrowRight, 
-  Star, 
-  Truck, 
-  Shield, 
-  Clock, 
-  TrendingUp,
-  Heart,
-  Eye,
-  ChevronRight,
-  Sparkles,
-  Award,
-  Leaf,
-  Sofa,
-  Armchair,
-  Lamp,
-  Table,
-  Bed,
-  Package,
-  ShoppingBag,
-  Percent,
-  Gift,
-  CreditCard,
-  Zap,
-  Users,
-  ThumbsUp
+  ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Heart, Eye, 
+  ChevronRight, Sparkles, Sofa, Armchair, Lamp, Table, Bed, 
+  Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import { Product } from '../../types';
@@ -37,433 +15,250 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  useEffect(() => { loadProducts(); }, []);
 
   const loadProducts = async () => {
     setLoading(true);
     const products = await productService.getProducts();
-    
-    // Mock data - in reality, you'd have proper flags for featured, new, etc.
     setFeaturedProducts(products.slice(0, 4));
     setNewArrivals(products.slice(2, 6));
     setBestSellers(products.slice(1, 5));
     setLoading(false);
   };
 
-  // Category icons mapping
   const categories = [
-    { name: 'Living Room', icon: Sofa, color: 'bg-red-50', count: 45 },
-    { name: 'Bedroom', icon: Bed, color: 'bg-red-50', count: 32 },
-    { name: 'Dining', icon: Table, color: 'bg-red-50', count: 28 },
-    { name: 'Office', icon: Armchair, color: 'bg-red-50', count: 23 },
-    { name: 'Lighting', icon: Lamp, color: 'bg-red-50', count: 56 },
-    { name: 'Storage', icon: Package, color: 'bg-red-50', count: 19 },
+    { name: 'Living Room', icon: Sofa, color: 'bg-stone-100', count: 45 },
+    { name: 'Bedroom', icon: Bed, color: 'bg-stone-100', count: 32 },
+    { name: 'Dining', icon: Table, color: 'bg-stone-100', count: 28 },
+    { name: 'Office', icon: Armchair, color: 'bg-stone-100', count: 23 },
+    { name: 'Lighting', icon: Lamp, color: 'bg-stone-100', count: 56 },
+    { name: 'Storage', icon: Package, color: 'bg-stone-100', count: 19 },
   ];
 
-  // Benefits
   const benefits = [
-    { icon: Truck, title: 'Free Shipping', desc: 'On orders over ₱5,000', color: 'text-red-600' },
-    { icon: Shield, title: '2-Year Warranty', desc: 'On all furniture', color: 'text-red-600' },
-    { icon: Clock, title: 'Fast Delivery', desc: 'Metro Manila - 3 days', color: 'text-red-600' },
-    { icon: TrendingUp, title: 'Best Prices', desc: 'Price match guarantee', color: 'text-red-600' },
-    { icon: CreditCard, title: 'Easy Payment', desc: 'GCash, PayMaya, COD', color: 'text-red-600' },
-    { icon: Users, title: '5k+ Happy', desc: 'Customers nationwide', color: 'text-red-600' },
+    { icon: Truck, title: 'Free Shipping', desc: 'Over ₱5,000' },
+    { icon: Shield, title: '2-Year Warranty', desc: 'Full coverage' },
+    { icon: Clock, title: 'Fast Delivery', desc: '3-day window' },
+    { icon: CreditCard, title: 'Flexi-Payment', desc: 'Installments' },
   ];
 
-  // Promo banners
-  const promos = [
-    {
-      title: 'Summer Sale',
-      discount: 'Up to 40% Off',
-      description: 'On selected living room sets',
-      bg: 'bg-gradient-to-r from-red-600 to-red-700',
-      textColor: 'text-white',
-      cta: 'Shop Now'
-    },
-    {
-      title: 'New Arrivals',
-      discount: 'Fresh from the workshop',
-      description: 'Modern designs for 2024',
-      bg: 'bg-gradient-to-r from-gray-800 to-gray-900',
-      textColor: 'text-white',
-      cta: 'Explore'
-    }
-  ];
-
-  // Testimonials
-  const testimonials = [
-    {
-      name: 'Maria Santos',
-      location: 'Makati City',
-      comment: 'The quality of the furniture exceeded my expectations! Fast delivery and great customer service.',
-      rating: 5,
-      image: 'https://i.pravatar.cc/100?img=1'
-    },
-    {
-      name: 'Juan Dela Cruz',
-      location: 'Quezon City',
-      comment: 'Best furniture store in the Philippines. Highly recommended! Will definitely buy again.',
-      rating: 5,
-      image: 'https://i.pravatar.cc/100?img=2'
-    },
-    {
-      name: 'Anna Reyes',
-      location: 'Cebu City',
-      comment: 'Beautiful designs and excellent quality. The delivery was quick and hassle-free.',
-      rating: 5,
-      image: 'https://i.pravatar.cc/100?img=3'
-    }
-  ];
-
-  // Render stars for ratings
-  const renderStars = (rating: number) => {
-    return [...Array(5)].map((_, i) => (
-      <Star 
-        key={i} 
-        className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
-      />
-    ));
-  };
+  const renderStars = (rating: number) => (
+    <div className="flex gap-0.5">
+      {[...Array(5)].map((_, i) => (
+        <Star key={i} className={`w-3.5 h-3.5 ${i < rating ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
+      ))}
+    </div>
+  );
 
   return (
-    <div className="bg-white">
-      {/* Hero Section - Red & White Theme */}
-      <section className="relative bg-gradient-to-r from-red-600 to-red-700 text-white overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute -right-20 -top-20 w-96 h-96 bg-white rounded-full"></div>
-          <div className="absolute -left-20 -bottom-20 w-96 h-96 bg-white rounded-full"></div>
-        </div>
+    <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
+      {/* Hero Section - Luxury Minimalist */}
+      <section className="relative min-h-[90vh] flex items-center bg-[#F9F8F6] overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-950/5 hidden lg:block" />
         
-        <div className="container mx-auto px-4 py-20 relative">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div className="inline-flex items-center bg-white/20 rounded-full px-4 py-2 text-sm">
-                <Sparkles className="w-4 h-4 mr-2" />
-                <span>New Collection 2024</span>
-              </div>
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
-                Modern Furniture for Your <span className="text-yellow-300">Dream Home</span>
-              </h1>
-              <p className="text-xl text-red-100 max-w-lg">
-                Discover our collection of high-quality furniture designed for comfort and style. Free delivery within Metro Manila.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link
-                  to="/shop"
-                  className="group px-8 py-4 bg-white text-red-600 rounded-lg font-semibold hover:bg-gray-100 transition flex items-center shadow-lg hover:shadow-xl"
-                >
-                  Shop Now 
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
-                </Link>
-                <Link
-                  to="/about"
-                  className="px-8 py-4 border-2 border-white rounded-lg font-semibold hover:bg-white hover:text-red-600 transition flex items-center"
-                >
-                  Learn More
-                </Link>
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="grid lg:grid-cols-12 gap-12 items-center">
+            <div className="lg:col-span-6 space-y-8">
+              <div className="inline-flex items-center space-x-2 bg-rose-50 border border-rose-100 px-3 py-1 rounded-full text-rose-700 text-sm font-medium">
+                <Sparkles className="w-4 h-4" />
+                <span>The 2026 Spring Collection is here</span>
               </div>
               
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-8 pt-8">
+              <h1 className="text-6xl lg:text-8xl font-serif text-slate-900 leading-[1.1] tracking-tight">
+                Design for <br />
+                <span className="italic text-rose-800">Better Living.</span>
+              </h1>
+              
+              <p className="text-lg text-slate-600 max-w-md leading-relaxed">
+                Experience the harmony of Filipino craftsmanship and modern Scandinavian aesthetics. Elevate your space with pieces that tell a story.
+              </p>
+              
+              <div className="flex flex-wrap gap-5 pt-4">
+                <Link to="/shop" className="px-8 py-4 bg-rose-950 text-white rounded-full font-medium hover:bg-rose-900 transition-all transform hover:-translate-y-1 flex items-center shadow-xl shadow-rose-950/20">
+                  Shop Collection <MoveRight className="w-5 h-5 ml-2" />
+                </Link>
+                <button className="flex items-center space-x-3 text-slate-900 font-semibold group">
+                  <div className="p-3 rounded-full border border-slate-200 group-hover:bg-white group-hover:shadow-md transition-all">
+                    <PlayCircle className="w-6 h-6 text-rose-800" />
+                  </div>
+                  <span>Watch Lookbook</span>
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-12 pt-10 border-t border-slate-200">
                 <div>
-                  <div className="text-3xl font-bold">5k+</div>
-                  <div className="text-red-200">Happy Customers</div>
+                  <div className="text-2xl font-bold text-slate-900">12k+</div>
+                  <div className="text-sm text-slate-500 uppercase tracking-widest font-medium">Installs</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-bold">500+</div>
-                  <div className="text-red-200">Products</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold">15+</div>
-                  <div className="text-red-200">Showrooms</div>
+                  <div className="text-2xl font-bold text-slate-900">4.9/5</div>
+                  <div className="text-sm text-slate-500 uppercase tracking-widest font-medium">Rating</div>
                 </div>
               </div>
             </div>
             
-            {/* Hero Image */}
-            <div className="relative hidden lg:block">
-              <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="lg:col-span-6 relative">
+              <div className="relative z-10 rounded-[2rem] overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-700">
                 <img 
-                  src="https://images.unsplash.com/photo-1618221195710-dd0b2e9bd5f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
-                  alt="Modern Living Room"
-                  className="w-full h-auto"
+                  src="https://images.unsplash.com/photo-1618221195710-dd0b2e9bd5f4?auto=format&fit=crop&w=1000&q=90" 
+                  alt="Modern Interior"
+                  className="w-full h-[600px] object-cover"
                 />
               </div>
-              {/* Floating badge */}
-              <div className="absolute -left-10 top-20 bg-white text-red-600 rounded-lg p-4 shadow-xl z-20">
-                <div className="text-2xl font-bold">40% OFF</div>
-                <div className="text-sm">Summer Sale</div>
-              </div>
+              {/* Decorative Blur */}
+              <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-rose-200 rounded-full blur-[100px] opacity-50 -z-10" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Benefits Bar */}
-      <section className="bg-gray-50 py-8 border-b border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {benefits.map((benefit, index) => (
-              <div key={index} className="flex items-center justify-center gap-2 text-gray-700">
-                <benefit.icon className={`w-5 h-5 ${benefit.color}`} />
-                <span className="text-sm font-medium">{benefit.title}</span>
+      {/* Trust Bar */}
+      <div className="py-12 bg-white border-b border-stone-100">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            {benefits.map((b, i) => (
+              <div key={i} className="flex items-center space-x-4">
+                <div className="p-3 bg-stone-50 rounded-xl">
+                  <b.icon className="w-6 h-6 text-rose-900" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">{b.title}</h4>
+                  <p className="text-xs text-slate-500 uppercase tracking-tighter">{b.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Categories */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">Shop by Category</h2>
-              <p className="text-gray-600 mt-2">Find what you're looking for</p>
+      {/* Categories - Grid Style */}
+      <section className="py-24">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
+            <div className="max-w-xl">
+              <h2 className="text-4xl font-serif text-slate-900 mb-4">Curated Categories</h2>
+              <p className="text-slate-500">Explore our vast collection of furniture, each piece selected for its quality and timeless design language.</p>
             </div>
-            <Link to="/shop" className="text-red-600 hover:text-red-700 flex items-center font-medium">
-              View All <ChevronRight className="w-5 h-5 ml-1" />
+            <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 flex items-center group">
+              View All Categories <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
             </Link>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category, index) => (
-              <Link
-                key={index}
-                to={`/shop?category=${category.name.toLowerCase()}`}
-                className="group bg-white rounded-xl p-6 text-center hover:shadow-lg transition border border-gray-100"
-              >
-                <div className="w-16 h-16 mx-auto mb-4 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition">
-                  <category.icon className="w-8 h-8 text-red-600" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            {categories.map((cat, i) => (
+              <Link key={i} to={`/shop?category=${cat.name.toLowerCase()}`} className="group">
+                <div className="aspect-square bg-stone-50 rounded-3xl flex flex-col items-center justify-center p-6 border border-transparent group-hover:border-rose-200 group-hover:bg-white group-hover:shadow-xl transition-all duration-300">
+                  <cat.icon className="w-10 h-10 text-slate-400 group-hover:text-rose-800 transition-colors mb-4" />
+                  <h3 className="font-bold text-slate-900 text-sm">{cat.name}</h3>
+                  <span className="text-xs text-slate-400 mt-1">{cat.count} Pieces</span>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1">{category.name}</h3>
-                <p className="text-sm text-gray-500">{category.count} items</p>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Promo Banners */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            {promos.map((promo, index) => (
-              <div key={index} className={`${promo.bg} rounded-2xl p-8 relative overflow-hidden group cursor-pointer`}>
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-white rounded-full"></div>
-                  <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-white rounded-full"></div>
-                </div>
-                <div className="relative z-10">
-                  <h3 className={`text-2xl font-bold mb-2 ${promo.textColor}`}>{promo.title}</h3>
-                  <p className={`text-4xl font-bold mb-2 ${promo.textColor}`}>{promo.discount}</p>
-                  <p className={`mb-4 ${promo.textColor} opacity-90`}>{promo.description}</p>
-                  <button className="bg-white text-red-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition group-hover:shadow-lg">
-                    {promo.cta}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Products Section with Tabs */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          {/* Section Header */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Products</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Discover our latest collections and best-selling items
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex justify-center mb-8">
-            <div className="bg-gray-100 p-1 rounded-lg inline-flex">
-              <button
-                onClick={() => setActiveTab('featured')}
-                className={`px-6 py-2 rounded-lg font-medium transition ${
-                  activeTab === 'featured' 
-                    ? 'bg-red-600 text-white' 
-                    : 'text-gray-600 hover:text-red-600'
-                }`}
-              >
-                Featured
-              </button>
-              <button
-                onClick={() => setActiveTab('new')}
-                className={`px-6 py-2 rounded-lg font-medium transition ${
-                  activeTab === 'new' 
-                    ? 'bg-red-600 text-white' 
-                    : 'text-gray-600 hover:text-red-600'
-                }`}
-              >
-                New Arrivals
-              </button>
-              <button
-                onClick={() => setActiveTab('bestsellers')}
-                className={`px-6 py-2 rounded-lg font-medium transition ${
-                  activeTab === 'bestsellers' 
-                    ? 'bg-red-600 text-white' 
-                    : 'text-gray-600 hover:text-red-600'
-                }`}
-              >
-                Best Sellers
-              </button>
-            </div>
-          </div>
-
-          {/* Products Grid */}
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {(activeTab === 'featured' ? featuredProducts : 
-                activeTab === 'new' ? newArrivals : bestSellers).map((product) => (
-                <div
-                  key={product.id}
-                  className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-xl transition border border-gray-100"
+      {/* Product Section - Refined Cards */}
+      <section className="py-24 bg-[#FBFBFA]">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <span className="text-rose-800 font-bold tracking-widest text-xs uppercase">Our Catalog</span>
+            <h2 className="text-5xl font-serif text-slate-900 mt-4 mb-10">Trending Now</h2>
+            
+            <div className="inline-flex p-1 bg-stone-200/50 backdrop-blur rounded-2xl">
+              {['featured', 'new', 'bestsellers'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={`px-8 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
+                    activeTab === tab ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'
+                  }`}
                 >
-                  {/* Product Image */}
-                  <div className="relative h-64 overflow-hidden bg-gray-100">
-                    <img
-                      src={product.imageUrl || 'https://via.placeholder.com/400x300'}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+            {loading ? (
+              <div className="col-span-full py-20 text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-rose-900 mx-auto" />
+              </div>
+            ) : (
+              (activeTab === 'featured' ? featuredProducts : activeTab === 'new' ? newArrivals : bestSellers).map((product) => (
+                <div key={product.id} className="group">
+                  <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden bg-stone-100 mb-6 shadow-sm">
+                    <img 
+                      src={product.imageUrl} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                      alt={product.name} 
                     />
-                    
-                    {/* Overlay actions */}
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                      <button className="p-2 bg-white rounded-full hover:bg-red-600 hover:text-white transition">
+                    <div className="absolute top-4 right-4 flex flex-col gap-2">
+                      <button className="p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0">
                         <Heart className="w-5 h-5" />
                       </button>
-                      <button className="p-2 bg-white rounded-full hover:bg-red-600 hover:text-white transition">
-                        <Eye className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* Badges */}
-                    <div className="absolute top-4 left-4 flex gap-2">
-                      {product.stockQuantity < 10 && (
-                        <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full">
-                          Low Stock
-                        </span>
-                      )}
-                      {activeTab === 'new' && (
-                        <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                          New
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-2 hover:text-red-600 transition">
-                      <Link to={`/products/${product.id}`}>{product.name}</Link>
-                    </h3>
-                    
-                    <div className="flex items-center mb-2">
-                      <div className="flex items-center">
-                        {renderStars(4)}
-                      </div>
-                      <span className="text-xs text-gray-500 ml-2">(24 reviews)</span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xl font-bold text-red-600">
-                          ₱{product.price.toLocaleString()}
-                        </span>
-                        {product.price > 10000 && (
-                          <span className="text-xs text-gray-400 line-through ml-2">
-                            ₱{(product.price * 1.2).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                      <button className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition">
+                      <button className="p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0 delay-75">
                         <ShoppingBag className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* View All Link */}
-          <div className="text-center mt-12">
-            <Link
-              to="/shop"
-              className="inline-flex items-center text-red-600 hover:text-red-700 font-semibold group"
-            >
-              View All Products 
-              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Join thousands of satisfied customers who love our furniture
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                <div className="flex items-center gap-4 mb-4">
-                  <img 
-                    src={testimonial.image} 
-                    alt={testimonial.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{testimonial.name}</h4>
-                    <p className="text-sm text-gray-500">{testimonial.location}</p>
+                  <div className="px-2">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-bold text-slate-900 text-lg hover:text-rose-800 transition">
+                        <Link to={`/products/${product.id}`}>{product.name}</Link>
+                      </h3>
+                      <span className="font-serif text-rose-900 font-bold">₱{product.price.toLocaleString()}</span>
+                    </div>
+                    {renderStars(4)}
                   </div>
                 </div>
-                <div className="flex mb-3">
-                  {renderStars(testimonial.rating)}
-                </div>
-                <p className="text-gray-600">"{testimonial.comment}"</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
 
-      {/* Newsletter */}
-      <section className="py-16 bg-red-600">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Stay Updated</h2>
-          <p className="text-red-100 mb-8 max-w-lg mx-auto">
-            Subscribe to our newsletter for exclusive offers, new arrivals, and design inspiration
-          </p>
-          <div className="max-w-md mx-auto">
-            <div className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
-              />
-              <button className="px-6 py-3 bg-white text-red-600 rounded-lg font-semibold hover:bg-gray-100 transition">
-                Subscribe
-              </button>
+      {/* Bento Promo Section */}
+      <section className="py-24">
+        <div className="container mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-6 h-[500px]">
+            <div className="md:col-span-2 bg-rose-950 rounded-[3rem] p-12 relative overflow-hidden group">
+              <div className="relative z-10 h-full flex flex-col justify-end">
+                <span className="text-rose-300 font-bold mb-4 tracking-widest">LIMITED OFFER</span>
+                <h3 className="text-5xl font-serif text-white mb-6">Summer Refresh <br /> Up to 40% Off</h3>
+                <Link to="/shop" className="w-fit px-8 py-4 bg-white text-rose-950 rounded-full font-bold hover:bg-rose-50 transition-colors">
+                  Claim Discount
+                </Link>
+              </div>
+              <div className="absolute top-0 right-0 w-1/2 h-full opacity-40 group-hover:opacity-60 transition-opacity">
+                <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80" className="w-full h-full object-cover" alt="Promo" />
+              </div>
+            </div>
+            <div className="bg-stone-900 rounded-[3rem] p-12 relative overflow-hidden flex flex-col justify-end">
+              <h3 className="text-3xl font-serif text-white mb-4">Eco-Friendly Series</h3>
+              <p className="text-stone-400 mb-6">Sustainable teak wood collections.</p>
+              <Link to="/shop" className="text-white border-b border-white w-fit pb-1 font-bold">Explore</Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Newsletter - High Contrast */}
+      <section className="py-20 bg-stone-50 border-t border-stone-200">
+        <div className="container mx-auto px-6 max-w-4xl text-center">
+          <h2 className="text-4xl font-serif text-slate-900 mb-6">Join the Inner Circle</h2>
+          <p className="text-slate-500 mb-10 text-lg">Subscribe for early access to sales, interior design tips, and ₱500 off your first order.</p>
+          <form className="flex flex-col sm:flex-row gap-4 p-2 bg-white rounded-3xl shadow-xl shadow-stone-200/50 border border-stone-100">
+            <input 
+              type="email" 
+              placeholder="Your email address" 
+              className="flex-1 px-6 py-4 rounded-2xl focus:outline-none text-slate-900" 
+            />
+            <button className="px-10 py-4 bg-rose-950 text-white rounded-2xl font-bold hover:bg-rose-900 transition-colors">
+              Subscribe
+            </button>
+          </form>
         </div>
       </section>
     </div>
