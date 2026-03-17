@@ -88,11 +88,16 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
     return images.filter(Boolean);
   };
 
-  // UPDATED: Handle Add to Cart with Auth Check
+  // ✅ FIXED: Handle Add to Cart with Auth Check
   const handleAddToCart = () => {
     if (!user) {
-      // Redirect to login if not authenticated
-      navigate('/login', { state: { from: `/products/${id}` } });
+      // Save the current product URL to redirect back after login
+      navigate('/login', { 
+        state: { 
+          from: `/products/${id}`,
+          message: 'Please log in to add items to your cart'
+        } 
+      });
       return;
     }
 
@@ -104,14 +109,23 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-  // UPDATED: Handle Wishlist with Auth Check
+  // ✅ FIXED: Handle Wishlist with Auth Check
   const handleToggleWishlist = () => {
     if (!user) {
-      navigate('/login', { state: { from: `/products/${id}` } });
+      navigate('/login', { 
+        state: { 
+          from: `/products/${id}`,
+          message: 'Please log in to save items to your wishlist'
+        } 
+      });
       return;
     }
     if (!product) return;
-    setWishlist(prev => prev.includes(product.id) ? prev.filter(pid => pid !== product.id) : [...prev, product.id]);
+    setWishlist(prev => 
+      prev.includes(product.id) 
+        ? prev.filter(pid => pid !== product.id) 
+        : [...prev, product.id]
+    );
   };
 
   const handleShare = (platform: string) => {
@@ -164,11 +178,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
           <div className="aspect-[4/3] flex items-center justify-center p-8">
             <img src={images[selectedImage]} alt={product.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
           </div>
-          <button onClick={() => setShowZoom(true)} className="absolute top-6 right-6 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white transition opacity-0 group-hover:opacity-100"><ZoomIn className="w-5 h-5 text-gray-700" /></button>
+          <button onClick={() => setShowZoom(true)} className="absolute top-6 right-6 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white transition opacity-0 group-hover:opacity-100">
+            <ZoomIn className="w-5 h-5 text-gray-700" />
+          </button>
           {images.length > 1 && (
             <>
-              <button onClick={() => setSelectedImage(prev => Math.max(0, prev - 1))} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white transition opacity-0 group-hover:opacity-100"><ChevronLeft className="w-6 h-6" /></button>
-              <button onClick={() => setSelectedImage(prev => Math.min(images.length - 1, prev + 1))} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white transition opacity-0 group-hover:opacity-100"><ChevronRight className="w-6 h-6" /></button>
+              <button onClick={() => setSelectedImage(prev => Math.max(0, prev - 1))} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white transition opacity-0 group-hover:opacity-100">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button onClick={() => setSelectedImage(prev => Math.min(images.length - 1, prev + 1))} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white transition opacity-0 group-hover:opacity-100">
+                <ChevronRight className="w-6 h-6" />
+              </button>
             </>
           )}
         </div>
@@ -228,12 +248,31 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
           </div>
 
           <div className="flex gap-3">
-            <button onClick={handleAddToCart} disabled={product.stockQuantity === 0} className={`flex-1 py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${addedToCart ? 'bg-green-600 text-white' : 'bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-100 active:scale-95'}`}>
-              {addedToCart ? <><Check className="w-6 h-6" /> Added to Cart</> : <><ShoppingCart className="w-6 h-6" /> Add to Cart</>}
+            <button 
+              onClick={handleAddToCart} 
+              disabled={product.stockQuantity === 0} 
+              className={`flex-1 py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${
+                addedToCart 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-100 active:scale-95'
+              }`}
+            >
+              {addedToCart ? (
+                <><Check className="w-6 h-6" /> Added to Cart</>
+              ) : (
+                <><ShoppingCart className="w-6 h-6" /> Add to Cart</>
+              )}
             </button>
-            <button onClick={handleToggleWishlist} className="p-5 border border-gray-200 rounded-2xl hover:bg-gray-50 transition active:scale-90"><Heart className={`w-6 h-6 ${wishlist.includes(product.id) ? 'fill-red-600 text-red-600 border-red-600' : 'text-gray-400'}`} /></button>
+            <button 
+              onClick={handleToggleWishlist} 
+              className="p-5 border border-gray-200 rounded-2xl hover:bg-gray-50 transition active:scale-90"
+            >
+              <Heart className={`w-6 h-6 ${wishlist.includes(product.id) ? 'fill-red-600 text-red-600' : 'text-gray-400'}`} />
+            </button>
             <div className="relative">
-              <button onClick={() => setShowShareMenu(!showShareMenu)} className="p-5 border border-gray-200 rounded-2xl hover:bg-gray-50 transition"><Share2 className="w-6 h-6 text-gray-400" /></button>
+              <button onClick={() => setShowShareMenu(!showShareMenu)} className="p-5 border border-gray-200 rounded-2xl hover:bg-gray-50 transition">
+                <Share2 className="w-6 h-6 text-gray-400" />
+              </button>
               {showShareMenu && (
                 <div className="absolute right-0 bottom-full mb-4 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-20 min-w-[180px] animate-in slide-in-from-bottom-2">
                   {[
@@ -274,13 +313,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
       {isModal ? (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
           <div className="bg-white rounded-[48px] max-w-7xl w-full max-h-[90vh] overflow-y-auto relative shadow-2xl" onClick={e => e.stopPropagation()}>
-            <button onClick={onClose} className="absolute top-10 right-10 z-30 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X className="w-6 h-6"/></button>
+            <button onClick={onClose} className="absolute top-10 right-10 z-30 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition">
+              <X className="w-6 h-6"/>
+            </button>
             <div className="p-12 flex flex-col lg:flex-row gap-16">{mainContent}</div>
           </div>
         </div>
       ) : (
         <div className="container mx-auto px-4 py-12">
-          <button onClick={() => navigate(-1)} className="flex items-center text-sm font-black uppercase tracking-widest text-gray-400 hover:text-red-600 mb-10 transition"><ArrowLeft className="w-4 h-4 mr-2" /> Back to Collection</button>
+          <button onClick={() => navigate(-1)} className="flex items-center text-sm font-black uppercase tracking-widest text-gray-400 hover:text-red-600 mb-10 transition">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Collection
+          </button>
           <div className="flex flex-col lg:flex-row gap-16 mb-24">{mainContent}</div>
           
           <div className="max-w-4xl mx-auto">
@@ -374,7 +417,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
       {/* Fullscreen Zoom */}
       {showZoom && (
         <div className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-300" onClick={() => setShowZoom(false)}>
-          <button className="absolute top-10 right-10 text-white hover:rotate-90 transition-transform"><X className="w-10 h-10"/></button>
+          <button className="absolute top-10 right-10 text-white hover:rotate-90 transition-transform">
+            <X className="w-10 h-10"/>
+          </button>
           <img src={images[selectedImage]} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       )}
