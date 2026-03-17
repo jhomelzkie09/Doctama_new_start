@@ -47,14 +47,14 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
     loadData();
   }, []);
 
-  // Sync state with URL
+  // Sync state with URL and Reset Pagination on filter change
   useEffect(() => {
     const params = new URLSearchParams();
     if (selectedCategory) params.set('category', selectedCategory.toString());
     if (searchQuery) params.set('q', searchQuery);
     setSearchParams(params);
     setCurrentPage(1);
-  }, [selectedCategory, searchQuery, priceRange, selectedRating, inStockOnly]);
+  }, [selectedCategory, searchQuery, priceRange, selectedRating, inStockOnly, setSearchParams]);
 
   const loadData = async () => {
     try {
@@ -73,6 +73,7 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!user) return onAuthRequired?.('login');
     addItem(product);
     
@@ -84,6 +85,7 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
 
   const toggleWishlist = (e: React.MouseEvent, productId: number) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!user) return onAuthRequired?.('login');
     setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
@@ -125,8 +127,7 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
   // REUSABLE FILTER COMPONENT
   const FilterContent = () => (
     <div className="space-y-6">
-      {/* Categories */}
-      <div className="bg-white lg:bg-transparent rounded-xl p-0 lg:p-0">
+      <div>
         <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
           <Package className="w-5 h-5 mr-2 text-red-600" /> Categories
         </h3>
@@ -144,14 +145,16 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
         </div>
       </div>
 
-      {/* Price Range */}
       <div>
-        <h3 className="font-semibold text-gray-900 mb-4">Max Price: ₱{priceRange.toLocaleString()}</h3>
+        <h3 className="font-semibold text-gray-900 mb-4 text-sm uppercase tracking-wider">Price Range</h3>
         <input type="range" min="1000" max="150000" step="1000" value={priceRange} 
-          onChange={(e) => setPriceRange(parseInt(e.target.value))} className="w-full accent-red-600" />
+          onChange={(e) => setPriceRange(parseInt(e.target.value))} className="w-full accent-red-600 mb-2" />
+        <div className="flex justify-between text-sm font-bold text-red-600">
+          <span>₱1,000</span>
+          <span>₱{priceRange.toLocaleString()}</span>
+        </div>
       </div>
 
-      {/* Ratings */}
       <div>
         <h3 className="font-semibold text-gray-900 mb-4">Minimum Rating</h3>
         {[5, 4, 3, 2, 1].map(rating => (
@@ -163,18 +166,15 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
         ))}
       </div>
 
-      {/* Availability */}
-      <label className="flex items-center gap-3 cursor-pointer p-3 border rounded-xl hover:bg-gray-50">
-        <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="w-4 h-4 text-red-600 rounded" />
+      <label className="flex items-center gap-3 cursor-pointer p-3 border rounded-xl hover:bg-gray-50 transition">
+        <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500" />
         <span className="text-sm font-medium text-gray-700">In Stock Only</span>
       </label>
 
-      {/* Trust Badges */}
-      <div className="pt-6 border-t border-gray-100 hidden lg:block">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 text-sm text-gray-600"><Truck className="w-5 h-5 text-red-600" /> <span>Free shipping over ₱5,000</span></div>
-          <div className="flex items-center gap-3 text-sm text-gray-600"><Shield className="w-5 h-5 text-red-600" /> <span>2-year warranty</span></div>
-        </div>
+      <div className="pt-6 border-t border-gray-100 hidden lg:block space-y-4">
+        <div className="flex items-center gap-3 text-sm text-gray-600"><Truck className="w-5 h-5 text-red-600" /> <span>Free shipping over ₱5,000</span></div>
+        <div className="flex items-center gap-3 text-sm text-gray-600"><Shield className="w-5 h-5 text-red-600" /> <span>2-year warranty</span></div>
+        <div className="flex items-center gap-3 text-sm text-gray-600"><Clock className="w-5 h-5 text-red-600" /> <span>3-5 day delivery</span></div>
       </div>
     </div>
   );
@@ -187,28 +187,24 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Hero */}
       <div className="bg-gradient-to-r from-red-600 to-red-800 text-white py-16">
-        <div className="container mx-auto px-4">
-          <h1 className="text-5xl font-extrabold mb-4 tracking-tight">Modern Living.</h1>
-          <p className="text-xl text-red-100 max-w-xl">Premium furniture designed for comfort and style. Delivered and assembled in Metro Manila.</p>
+        <div className="container mx-auto px-4 text-center md:text-left">
+          <h1 className="text-5xl font-extrabold mb-4 tracking-tight">Shop Collection</h1>
+          <p className="text-xl text-red-100 max-w-xl">Curated premium furniture for your modern home.</p>
         </div>
       </div>
 
       <div className="container mx-auto px-4 -mt-8">
         <div className="flex flex-col lg:flex-row gap-8">
           
-          {/* Sidebar - Desktop */}
           <aside className="hidden lg:block w-72 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24">
+            <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24 border border-gray-100">
               <FilterContent />
             </div>
           </aside>
 
-          {/* Main Content */}
           <main className="flex-1">
-            {/* Toolbar */}
-            <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center border border-gray-100">
               <div className="relative w-full md:w-96">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input type="text" placeholder="Search furniture..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -216,7 +212,7 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
               </div>
               
               <div className="flex items-center gap-4 w-full md:w-auto">
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-red-500">
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-red-500 cursor-pointer">
                   <option value="newest">Newest Arrivals</option>
                   <option value="price-low">Price: Low to High</option>
                   <option value="price-high">Price: High to Low</option>
@@ -224,20 +220,20 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
                 </select>
                 
                 <div className="flex bg-gray-50 p-1 rounded-xl">
-                  <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400'}`}><Grid className="w-5 h-5"/></button>
-                  <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400'}`}><List className="w-5 h-5"/></button>
+                  <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400 hover:text-gray-600'}`}><Grid className="w-5 h-5"/></button>
+                  <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400 hover:text-gray-600'}`}><List className="w-5 h-5"/></button>
                 </div>
                 
-                <button onClick={() => setShowMobileFilters(true)} className="lg:hidden p-2.5 bg-red-600 text-white rounded-xl"><SlidersHorizontal className="w-5 h-5"/></button>
+                <button onClick={() => setShowMobileFilters(true)} className="lg:hidden p-2.5 bg-red-600 text-white rounded-xl active:scale-95 transition"><SlidersHorizontal className="w-5 h-5"/></button>
               </div>
             </div>
 
-            {/* Product Display */}
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-3xl shadow-sm">
+              <div className="text-center py-24 bg-white rounded-3xl shadow-sm border border-gray-100">
                 <Package className="w-20 h-20 text-gray-200 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-800">No matches found</h2>
-                <p className="text-gray-500">Try adjusting your filters or search query.</p>
+                <h2 className="text-2xl font-bold text-gray-800">No products found</h2>
+                <p className="text-gray-500 mb-6">We couldn't find what you're looking for.</p>
+                <button onClick={() => {setSearchQuery(''); setSelectedCategory(null); setPriceRange(100000);}} className="text-red-600 font-bold hover:underline">Clear all filters</button>
               </div>
             ) : (
               <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-4"}>
@@ -255,30 +251,30 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center mt-12 gap-2">
-                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 bg-white rounded-xl shadow-sm disabled:opacity-50"><ChevronLeft/></button>
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-gray-50 border border-gray-100"><ChevronLeft className="w-5 h-5"/></button>
                 {[...Array(totalPages)].map((_, i) => (
-                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl font-bold transition ${currentPage === i + 1 ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>{i + 1}</button>
+                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-12 h-12 rounded-xl font-bold transition-all ${currentPage === i + 1 ? 'bg-red-600 text-white shadow-lg shadow-red-200 scale-110' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-100'}`}>{i + 1}</button>
                 ))}
-                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 bg-white rounded-xl shadow-sm disabled:opacity-50"><ChevronRight/></button>
+                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-gray-50 border border-gray-100"><ChevronRight className="w-5 h-5"/></button>
               </div>
             )}
           </main>
         </div>
       </div>
 
-      {/* Mobile Sidebar Modal */}
+      {/* Mobile Drawer */}
       {showMobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileFilters(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-xs bg-white shadow-2xl p-6 overflow-y-auto">
-            <div className="flex justify-between items-center mb-8">
+        <div className="fixed inset-0 z-[60] lg:hidden">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setShowMobileFilters(false)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-xs bg-white shadow-2xl p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
+            <div className="flex justify-between items-center mb-8 border-b pb-4">
               <h2 className="text-2xl font-bold">Filters</h2>
-              <button onClick={() => setShowMobileFilters(false)} className="p-2 bg-gray-100 rounded-full"><X/></button>
+              <button onClick={() => setShowMobileFilters(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X/></button>
             </div>
             <FilterContent />
+            <button onClick={() => setShowMobileFilters(false)} className="w-full mt-8 py-4 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-100">Apply Filters</button>
           </div>
         </div>
       )}
@@ -286,40 +282,47 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
   );
 };
 
-// Sub-component for Product Card to keep main component clean
+// Internal Product Card Component
 const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onAddToCart, renderStars }: any) => {
   const isGrid = viewMode === 'grid';
 
   return (
     <div className={`group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 ${!isGrid && 'flex'}`}>
-      <div className={`relative overflow-hidden bg-gray-100 ${isGrid ? 'h-64' : 'w-48 h-48 flex-shrink-0'}`}>
-        <img src={product.imageUrl || 'https://via.placeholder.com/400'} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
-        <button onClick={(e) => onToggleWishlist(e, product.id)} className="absolute top-3 right-3 p-2.5 bg-white/90 backdrop-blur-md rounded-full shadow-sm hover:bg-red-50">
-          <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+      <div className={`relative overflow-hidden bg-gray-100 ${isGrid ? 'h-64' : 'w-48 h-full flex-shrink-0'}`}>
+        <Link to={`/products/${product.id}`} className="block h-full w-full">
+          <img src={product.imageUrl || 'https://via.placeholder.com/400'} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+        </Link>
+        <button onClick={(e) => onToggleWishlist(e, product.id)} className="absolute top-3 right-3 p-2.5 bg-white/90 backdrop-blur-md rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-all z-10">
+          <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current text-red-500 group-hover:text-white' : 'text-gray-400'}`} />
         </button>
-        {product.stockQuantity < 5 && product.stockQuantity > 0 && (
-          <div className="absolute top-3 left-3 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Low Stock</div>
+        {product.stockQuantity === 0 ? (
+          <div className="absolute top-3 left-3 bg-gray-900 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase">Sold Out</div>
+        ) : product.stockQuantity < 5 && (
+          <div className="absolute top-3 left-3 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase">Low Stock</div>
         )}
       </div>
 
       <div className="p-5 flex-1 flex flex-col">
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-red-600 transition truncate">{product.name}</h3>
+          <Link to={`/products/${product.id}`} className="block group-hover:text-red-600 transition-colors">
+            <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">{product.name}</h3>
+          </Link>
           <div className="flex items-center gap-2 mb-3">
             {renderStars(4)}
-            <span className="text-xs text-gray-400 font-medium">(24)</span>
+            <span className="text-xs text-gray-400 font-medium">(24 reviews)</span>
           </div>
           {isGrid && <p className="text-gray-500 text-sm line-clamp-2 mb-4 leading-relaxed">{product.description}</p>}
         </div>
 
-        <div className="flex items-center justify-between mt-auto">
-          <div>
+        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
+          <div className="flex flex-col">
             <span className="text-2xl font-black text-red-600">₱{product.price.toLocaleString()}</span>
+            {product.price > 15000 && <span className="text-xs text-gray-400 line-through">₱{(product.price * 1.2).toLocaleString()}</span>}
           </div>
           <button 
             disabled={product.stockQuantity === 0}
             onClick={(e) => onAddToCart(e, product)}
-            className="p-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 transition-colors shadow-lg shadow-red-100"
+            className="p-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 transition-all shadow-lg shadow-red-100 active:scale-90"
           >
             <ShoppingBag className="w-5 h-5" />
           </button>
