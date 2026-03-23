@@ -4,16 +4,7 @@ export interface Category {
   id: number;
   name: string;
   description?: string;
-  imageUrl?: string;
   productCount?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface CreateCategoryData {
-  name: string;
-  description?: string;
-  imageUrl?: string;
 }
 
 class CategoryService {
@@ -30,10 +21,7 @@ class CategoryService {
         return response.data;
       } else if (response.data.data && Array.isArray(response.data.data)) {
         return response.data.data;
-      } else if (response.data.categories && Array.isArray(response.data.categories)) {
-        return response.data.categories;
       }
-      
       return [];
     } catch (error: any) {
       console.error('❌ Error fetching categories:', error.response?.data || error.message);
@@ -46,70 +34,48 @@ class CategoryService {
     try {
       console.log(`📤 Fetching category ${id}...`);
       const response = await api.get(`${this.baseUrl}/${id}`);
-      
-      if (response.data) {
-        return response.data;
-      } else if (response.data.data) {
-        return response.data.data;
-      }
-      
-      return null;
+      return response.data;
     } catch (error: any) {
       console.error(`❌ Error fetching category ${id}:`, error.response?.data || error.message);
       return null;
     }
   }
 
-  // Create category (Admin only)
-  async createCategory(data: CreateCategoryData): Promise<Category> {
+  // Create a new category (Admin only)
+  async createCategory(categoryData: { name: string; description?: string }): Promise<Category> {
     try {
-      console.log('📤 Creating category...', data);
-      const response = await api.post(`${this.baseUrl}/admin/categories`, data);
+      console.log('📤 Creating category...', categoryData);
+      const response = await api.post(this.baseUrl, categoryData);
       console.log('✅ Category created:', response.data);
-      
-      if (response.data) {
-        return response.data;
-      } else if (response.data.data) {
-        return response.data.data;
-      }
-      
-      throw new Error('Invalid response format');
+      return response.data;
     } catch (error: any) {
       console.error('❌ Error creating category:', error.response?.data || error.message);
-      throw error;
+      throw new Error(error.response?.data?.message || 'Failed to create category');
     }
   }
 
-  // Update category (Admin only)
-  async updateCategory(id: number, data: Partial<CreateCategoryData>): Promise<Category> {
+  // Update a category (Admin only)
+  async updateCategory(id: number, categoryData: Partial<Category>): Promise<Category> {
     try {
-      console.log(`📤 Updating category ${id}...`, data);
-      const response = await api.put(`${this.baseUrl}/admin/categories/${id}`, data);
+      console.log(`📤 Updating category ${id}...`, categoryData);
+      const response = await api.put(`${this.baseUrl}/${id}`, categoryData);
       console.log('✅ Category updated:', response.data);
-      
-      if (response.data) {
-        return response.data;
-      } else if (response.data.data) {
-        return response.data.data;
-      }
-      
-      throw new Error('Invalid response format');
+      return response.data;
     } catch (error: any) {
       console.error(`❌ Error updating category ${id}:`, error.response?.data || error.message);
-      throw error;
+      throw new Error(error.response?.data?.message || 'Failed to update category');
     }
   }
 
-  // Delete category (Admin only)
-  async deleteCategory(id: number): Promise<boolean> {
+  // Delete a category (Admin only)
+  async deleteCategory(id: number): Promise<void> {
     try {
       console.log(`📤 Deleting category ${id}...`);
-      await api.delete(`${this.baseUrl}/admin/categories/${id}`);
-      console.log(`✅ Category ${id} deleted`);
-      return true;
+      await api.delete(`${this.baseUrl}/${id}`);
+      console.log('✅ Category deleted');
     } catch (error: any) {
       console.error(`❌ Error deleting category ${id}:`, error.response?.data || error.message);
-      throw error;
+      throw new Error(error.response?.data?.message || 'Failed to delete category');
     }
   }
 }
