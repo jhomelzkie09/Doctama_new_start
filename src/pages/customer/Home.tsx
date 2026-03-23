@@ -4,7 +4,9 @@ import {
   ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Heart, Eye, 
   ChevronRight, Sparkles, Sofa, Armchair, Lamp, Table, Bed, 
   Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle,
-  Folder
+  Folder, Home as HomeIcon, Coffee, Utensils, Monitor, Lightbulb, 
+  Box, BookOpen, Ruler, Watch, Flower2, Library,
+  Shirt, WashingMachine, Car, TreePalm, Music, Tv
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
@@ -41,16 +43,72 @@ const Home = () => {
     }
   };
 
-  // Icon mapping for categories (fallback to Folder if no icon match)
+  // Enhanced icon mapping with valid lucide-react icons
   const getCategoryIcon = (categoryName: string) => {
     const name = categoryName.toLowerCase();
-    if (name.includes('living')) return Sofa;
+    
+    // Living Room / Sofa
+    if (name.includes('living') || name.includes('sofa') || name.includes('couch')) return Sofa;
+    if (name.includes('armchair') || name.includes('lounge')) return Armchair;
+    
+    // Bedroom
     if (name.includes('bed') || name.includes('bedroom')) return Bed;
+    if (name.includes('dresser') || name.includes('wardrobe')) return Home;
+    
+    // Dining
     if (name.includes('dining') || name.includes('table')) return Table;
-    if (name.includes('office') || name.includes('desk')) return Armchair;
-    if (name.includes('light')) return Lamp;
+    if (name.includes('kitchen') || name.includes('utensil')) return Utensils;
+    
+    // Office / Desk
+    if (name.includes('office') || name.includes('desk') || name.includes('work')) return Monitor;
+    if (name.includes('chair') && !name.includes('dining')) return Armchair;
+    
+    // Lighting
+    if (name.includes('light') || name.includes('lamp')) return Lightbulb;
+    if (name.includes('chandelier')) return Lightbulb;
+    
+    // Storage
     if (name.includes('storage') || name.includes('cabinet')) return Package;
+    if (name.includes('shelf') || name.includes('bookcase')) return Library;
+    
+    // Decor
+    if (name.includes('decor') || name.includes('art')) return Sparkles;
+    if (name.includes('rug') || name.includes('carpet')) return Ruler;
+    if (name.includes('mirror')) return Watch;
+    if (name.includes('vase')) return Flower2;
+    if (name.includes('plant')) return TreePalm;
+    
+    // Outdoor
+    if (name.includes('outdoor') || name.includes('garden')) return TreePalm;
+    if (name.includes('patio')) return Car;
+    
+    // Electronics / Media
+    if (name.includes('tv') || name.includes('media')) return Tv;
+    if (name.includes('audio') || name.includes('speaker')) return Music;
+    
+    // Fallback based on category name
+    if (name.includes('furniture')) return Sofa;
+    if (name.includes('home')) return Home;
+    if (name.includes('living')) return Sofa;
+    
     return Folder;
+  };
+
+  // Get color for category icon background
+  const getCategoryColor = (categoryName: string, index: number) => {
+    const colors = [
+      'bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white',
+      'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+      'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
+      'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+      'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
+      'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
+      'bg-pink-50 text-pink-600 group-hover:bg-pink-600 group-hover:text-white',
+      'bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white',
+      'bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white',
+      'bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white',
+    ];
+    return colors[index % colors.length];
   };
 
   const benefits = [
@@ -123,7 +181,6 @@ const Home = () => {
                   className="w-full h-[600px] object-cover"
                 />
               </div>
-              {/* Decorative Blur */}
               <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-rose-200 rounded-full blur-[100px] opacity-50 -z-10" />
             </div>
           </div>
@@ -149,32 +206,40 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories - Dynamic from Backend */}
+      {/* Categories - Enhanced with Better Icons */}
       <section className="py-24">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
             <div className="max-w-xl">
-              <h2 className="text-4xl font-serif text-slate-900 mb-4">Curated Categories</h2>
-              <p className="text-slate-500">Explore our vast collection of furniture, each piece selected for its quality and timeless design language.</p>
+              <h2 className="text-4xl font-serif text-slate-900 mb-4">Shop by Category</h2>
+              <p className="text-slate-500">Find exactly what you're looking for in our curated collections</p>
             </div>
             <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 flex items-center group">
-              View All Categories <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
+              Browse All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
             </Link>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {categories.map((category, i) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
+            {categories.map((category, index) => {
               const IconComponent = getCategoryIcon(category.name);
+              const colorClass = getCategoryColor(category.name, index);
+              
               return (
                 <Link 
                   key={category.id} 
                   to={`/shop?category=${category.id}`} 
                   className="group"
                 >
-                  <div className="aspect-square bg-stone-50 rounded-3xl flex flex-col items-center justify-center p-6 border border-transparent group-hover:border-rose-200 group-hover:bg-white group-hover:shadow-xl transition-all duration-300">
-                    <IconComponent className="w-10 h-10 text-slate-400 group-hover:text-rose-800 transition-colors mb-4" />
-                    <h3 className="font-bold text-slate-900 text-sm">{category.name}</h3>
-                    <span className="text-xs text-slate-400 mt-1">{category.productCount || 0} Pieces</span>
+                  <div className="aspect-square bg-white rounded-2xl flex flex-col items-center justify-center p-5 border border-stone-100 shadow-sm group-hover:shadow-xl group-hover:border-transparent transition-all duration-300">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 ${colorClass}`}>
+                      <IconComponent className="w-8 h-8 transition-transform group-hover:scale-110" />
+                    </div>
+                    <h3 className="font-semibold text-slate-800 text-sm text-center group-hover:text-rose-800 transition-colors">
+                      {category.name}
+                    </h3>
+                    <span className="text-xs text-slate-400 mt-1">
+                      {category.productCount || 0} items
+                    </span>
                   </div>
                 </Link>
               );
@@ -227,6 +292,16 @@ const Home = () => {
                         <ShoppingBag className="w-5 h-5" />
                       </button>
                     </div>
+                    {product.stockQuantity < 5 && product.stockQuantity > 0 && (
+                      <div className="absolute top-4 left-4 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        Low Stock
+                      </div>
+                    )}
+                    {product.stockQuantity === 0 && (
+                      <div className="absolute top-4 left-4 bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        Sold Out
+                      </div>
+                    )}
                   </div>
                   <div className="px-2">
                     <div className="flex justify-between items-start mb-2">
