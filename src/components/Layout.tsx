@@ -127,7 +127,7 @@ const Layout = () => {
               </div>
               <div className="flex flex-col leading-none">
                 <span className="font-black text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
-                <span className="text-[10px] font-bold text-rose-600 tracking-[0.2em] uppercase">Curated Living</span>
+                <span className="text-[10px] font-bold text-rose-600 tracking-[0.2em] uppercase">Marketing</span>
               </div>
             </Link>
 

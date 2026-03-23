@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useOutletContext } from 'react-router-dom';
 import { 
   Search, Grid, List, Package, SlidersHorizontal, X, 
   Star, Heart, ShoppingBag, ChevronLeft, ChevronRight, 
@@ -11,14 +11,18 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { Product, Category } from '../../types';
 
-interface ShopProps {
+interface OutletContextType {
   onAuthRequired?: (mode: 'login' | 'register') => void;
 }
 
-const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
+const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { addItem } = useCart();
+  
+  // Get onAuthRequired from outlet context
+  const outletContext = useOutletContext<OutletContextType>();
+  const onAuthRequired = outletContext?.onAuthRequired;
   
   // Data State
   const [products, setProducts] = useState<Product[]>([]);
@@ -74,7 +78,14 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) return onAuthRequired?.('login');
+    if (!user) {
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      } else {
+        console.warn('onAuthRequired not available');
+      }
+      return;
+    }
     addItem(product);
     
     const button = e.currentTarget;
@@ -86,7 +97,14 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
   const toggleWishlist = (e: React.MouseEvent, productId: number) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) return onAuthRequired?.('login');
+    if (!user) {
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      } else {
+        console.warn('onAuthRequired not available');
+      }
+      return;
+    }
     setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
 
@@ -197,22 +215,34 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
       <div className="container mx-auto px-4 -mt-8">
         <div className="flex flex-col lg:flex-row gap-8">
           
+          {/* Desktop Sidebar */}
           <aside className="hidden lg:block w-72 flex-shrink-0">
             <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24 border border-gray-100">
               <FilterContent />
             </div>
           </aside>
 
+          {/* Main Content */}
           <main className="flex-1">
+            {/* Toolbar */}
             <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center border border-gray-100">
               <div className="relative w-full md:w-96">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input type="text" placeholder="Search furniture..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-red-500" />
+                <input 
+                  type="text" 
+                  placeholder="Search furniture..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-red-500" 
+                />
               </div>
               
               <div className="flex items-center gap-4 w-full md:w-auto">
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-red-500 cursor-pointer">
+                <select 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)} 
+                  className="bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-red-500 cursor-pointer"
+                >
                   <option value="newest">Newest Arrivals</option>
                   <option value="price-low">Price: Low to High</option>
                   <option value="price-high">Price: High to Low</option>
@@ -220,20 +250,41 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
                 </select>
                 
                 <div className="flex bg-gray-50 p-1 rounded-xl">
-                  <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400 hover:text-gray-600'}`}><Grid className="w-5 h-5"/></button>
-                  <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400 hover:text-gray-600'}`}><List className="w-5 h-5"/></button>
+                  <button 
+                    onClick={() => setViewMode('grid')} 
+                    className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    <Grid className="w-5 h-5"/>
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('list')} 
+                    className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow-sm text-red-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    <List className="w-5 h-5"/>
+                  </button>
                 </div>
                 
-                <button onClick={() => setShowMobileFilters(true)} className="lg:hidden p-2.5 bg-red-600 text-white rounded-xl active:scale-95 transition"><SlidersHorizontal className="w-5 h-5"/></button>
+                <button 
+                  onClick={() => setShowMobileFilters(true)} 
+                  className="lg:hidden p-2.5 bg-red-600 text-white rounded-xl active:scale-95 transition"
+                >
+                  <SlidersHorizontal className="w-5 h-5"/>
+                </button>
               </div>
             </div>
 
+            {/* Products Display */}
             {filteredProducts.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-3xl shadow-sm border border-gray-100">
                 <Package className="w-20 h-20 text-gray-200 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-gray-800">No products found</h2>
                 <p className="text-gray-500 mb-6">We couldn't find what you're looking for.</p>
-                <button onClick={() => {setSearchQuery(''); setSelectedCategory(null); setPriceRange(100000);}} className="text-red-600 font-bold hover:underline">Clear all filters</button>
+                <button 
+                  onClick={() => {setSearchQuery(''); setSelectedCategory(null); setPriceRange(100000);}} 
+                  className="text-red-600 font-bold hover:underline"
+                >
+                  Clear all filters
+                </button>
               </div>
             ) : (
               <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-4"}>
@@ -251,30 +302,60 @@ const Shop: React.FC<ShopProps> = ({ onAuthRequired }) => {
               </div>
             )}
 
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center mt-12 gap-2">
-                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-gray-50 border border-gray-100"><ChevronLeft className="w-5 h-5"/></button>
+                <button 
+                  disabled={currentPage === 1} 
+                  onClick={() => setCurrentPage(p => p - 1)} 
+                  className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-gray-50 border border-gray-100"
+                >
+                  <ChevronLeft className="w-5 h-5"/>
+                </button>
                 {[...Array(totalPages)].map((_, i) => (
-                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-12 h-12 rounded-xl font-bold transition-all ${currentPage === i + 1 ? 'bg-red-600 text-white shadow-lg shadow-red-200 scale-110' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-100'}`}>{i + 1}</button>
+                  <button 
+                    key={i} 
+                    onClick={() => setCurrentPage(i + 1)} 
+                    className={`w-12 h-12 rounded-xl font-bold transition-all ${
+                      currentPage === i + 1 
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-200 scale-110' 
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-100'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
                 ))}
-                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-gray-50 border border-gray-100"><ChevronRight className="w-5 h-5"/></button>
+                <button 
+                  disabled={currentPage === totalPages} 
+                  onClick={() => setCurrentPage(p => p + 1)} 
+                  className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-gray-50 border border-gray-100"
+                >
+                  <ChevronRight className="w-5 h-5"/>
+                </button>
               </div>
             )}
           </main>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Filter Drawer */}
       {showMobileFilters && (
         <div className="fixed inset-0 z-[60] lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setShowMobileFilters(false)} />
           <div className="absolute right-0 top-0 h-full w-full max-w-xs bg-white shadow-2xl p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
             <div className="flex justify-between items-center mb-8 border-b pb-4">
               <h2 className="text-2xl font-bold">Filters</h2>
-              <button onClick={() => setShowMobileFilters(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X/></button>
+              <button onClick={() => setShowMobileFilters(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+                <X />
+              </button>
             </div>
             <FilterContent />
-            <button onClick={() => setShowMobileFilters(false)} className="w-full mt-8 py-4 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-100">Apply Filters</button>
+            <button 
+              onClick={() => setShowMobileFilters(false)} 
+              className="w-full mt-8 py-4 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-100"
+            >
+              Apply Filters
+            </button>
           </div>
         </div>
       )}
@@ -290,9 +371,16 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onAddT
     <div className={`group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 ${!isGrid && 'flex'}`}>
       <div className={`relative overflow-hidden bg-gray-100 ${isGrid ? 'h-64' : 'w-48 h-full flex-shrink-0'}`}>
         <Link to={`/products/${product.id}`} className="block h-full w-full">
-          <img src={product.imageUrl || 'https://via.placeholder.com/400'} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+          <img 
+            src={product.imageUrl || 'https://via.placeholder.com/400'} 
+            alt={product.name} 
+            className="w-full h-full object-cover group-hover:scale-110 transition duration-700" 
+          />
         </Link>
-        <button onClick={(e) => onToggleWishlist(e, product.id)} className="absolute top-3 right-3 p-2.5 bg-white/90 backdrop-blur-md rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-all z-10">
+        <button 
+          onClick={(e) => onToggleWishlist(e, product.id)} 
+          className="absolute top-3 right-3 p-2.5 bg-white/90 backdrop-blur-md rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-all z-10"
+        >
           <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current text-red-500 group-hover:text-white' : 'text-gray-400'}`} />
         </button>
         {product.stockQuantity === 0 ? (
