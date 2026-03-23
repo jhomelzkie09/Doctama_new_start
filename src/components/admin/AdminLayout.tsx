@@ -57,10 +57,7 @@ const AdminLayout = () => {
       path: '/admin/orders',
       icon: <ShoppingCart className="w-5 h-5" />,
       submenu: [
-        { title: 'All Orders', path: '/admin/orders' },
-        { title: 'Pending', path: '/admin/orders/pending' },
-        { title: 'Processing', path: '/admin/orders/processing' },
-        { title: 'Completed', path: '/admin/orders/completed' }
+        { title: 'All Orders', path: '/admin/orders' }
       ]
     },
     {
