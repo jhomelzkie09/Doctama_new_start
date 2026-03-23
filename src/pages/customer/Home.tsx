@@ -3,37 +3,55 @@ import { Link } from 'react-router-dom';
 import { 
   ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Heart, Eye, 
   ChevronRight, Sparkles, Sofa, Armchair, Lamp, Table, Bed, 
-  Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle
+  Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle,
+  Folder
 } from 'lucide-react';
 import productService from '../../services/product.service';
-import { Product } from '../../types';
+import categoryService from '../../services/category.service';
+import { Product, Category } from '../../types';
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
 
-  useEffect(() => { loadProducts(); }, []);
+  useEffect(() => { 
+    loadData(); 
+  }, []);
 
-  const loadProducts = async () => {
+  const loadData = async () => {
     setLoading(true);
-    const products = await productService.getProducts();
-    setFeaturedProducts(products.slice(0, 4));
-    setNewArrivals(products.slice(2, 6));
-    setBestSellers(products.slice(1, 5));
-    setLoading(false);
+    try {
+      const [productsData, categoriesData] = await Promise.all([
+        productService.getProducts(),
+        categoryService.getCategories()
+      ]);
+      
+      setFeaturedProducts(productsData.slice(0, 4));
+      setNewArrivals(productsData.slice(2, 6));
+      setBestSellers(productsData.slice(1, 5));
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const categories = [
-    { name: 'Living Room', icon: Sofa, color: 'bg-stone-100', count: 45 },
-    { name: 'Bedroom', icon: Bed, color: 'bg-stone-100', count: 32 },
-    { name: 'Dining', icon: Table, color: 'bg-stone-100', count: 28 },
-    { name: 'Office', icon: Armchair, color: 'bg-stone-100', count: 23 },
-    { name: 'Lighting', icon: Lamp, color: 'bg-stone-100', count: 56 },
-    { name: 'Storage', icon: Package, color: 'bg-stone-100', count: 19 },
-  ];
+  // Icon mapping for categories (fallback to Folder if no icon match)
+  const getCategoryIcon = (categoryName: string) => {
+    const name = categoryName.toLowerCase();
+    if (name.includes('living')) return Sofa;
+    if (name.includes('bed') || name.includes('bedroom')) return Bed;
+    if (name.includes('dining') || name.includes('table')) return Table;
+    if (name.includes('office') || name.includes('desk')) return Armchair;
+    if (name.includes('light')) return Lamp;
+    if (name.includes('storage') || name.includes('cabinet')) return Package;
+    return Folder;
+  };
 
   const benefits = [
     { icon: Truck, title: 'Free Shipping', desc: 'Over ₱5,000' },
@@ -131,7 +149,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories - Grid Style */}
+      {/* Categories - Dynamic from Backend */}
       <section className="py-24">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
@@ -145,15 +163,22 @@ const Home = () => {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {categories.map((cat, i) => (
-              <Link key={i} to={`/shop?category=${cat.name.toLowerCase()}`} className="group">
-                <div className="aspect-square bg-stone-50 rounded-3xl flex flex-col items-center justify-center p-6 border border-transparent group-hover:border-rose-200 group-hover:bg-white group-hover:shadow-xl transition-all duration-300">
-                  <cat.icon className="w-10 h-10 text-slate-400 group-hover:text-rose-800 transition-colors mb-4" />
-                  <h3 className="font-bold text-slate-900 text-sm">{cat.name}</h3>
-                  <span className="text-xs text-slate-400 mt-1">{cat.count} Pieces</span>
-                </div>
-              </Link>
-            ))}
+            {categories.map((category, i) => {
+              const IconComponent = getCategoryIcon(category.name);
+              return (
+                <Link 
+                  key={category.id} 
+                  to={`/shop?category=${category.id}`} 
+                  className="group"
+                >
+                  <div className="aspect-square bg-stone-50 rounded-3xl flex flex-col items-center justify-center p-6 border border-transparent group-hover:border-rose-200 group-hover:bg-white group-hover:shadow-xl transition-all duration-300">
+                    <IconComponent className="w-10 h-10 text-slate-400 group-hover:text-rose-800 transition-colors mb-4" />
+                    <h3 className="font-bold text-slate-900 text-sm">{category.name}</h3>
+                    <span className="text-xs text-slate-400 mt-1">{category.productCount || 0} Pieces</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -215,6 +240,12 @@ const Home = () => {
                 </div>
               ))
             )}
+          </div>
+
+          <div className="text-center mt-16">
+            <Link to="/shop" className="inline-flex items-center gap-2 px-8 py-4 border-2 border-rose-200 rounded-full font-bold text-rose-800 hover:bg-rose-50 transition-all hover:border-rose-300">
+              Discover All Products <ArrowRight className="w-5 h-5" />
+            </Link>
           </div>
         </div>
       </section>
