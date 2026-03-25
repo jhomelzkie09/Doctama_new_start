@@ -178,7 +178,7 @@ const OrderDetail = () => {
     return currentIndex >= 0 ? currentIndex + 1 : 0;
   };
 
-  // Get notification type based on order status
+  // Get simplified notification message
   const getNotification = () => {
     if (!order) return null;
     
@@ -187,7 +187,7 @@ const OrderDetail = () => {
         type: 'approved',
         icon: <ThumbsUp className="w-6 h-6 text-green-600" />,
         title: 'Payment Approved!',
-        message: `Your payment has been approved by ${order.approvedBy} on ${formatDate(order.approvedAt || order.orderDate)}. Your order is now being processed.`,
+        message: `Your payment has been approved. Your order is now being processed.`,
         color: 'bg-green-50 border-green-200 text-green-800'
       };
     }
@@ -197,7 +197,7 @@ const OrderDetail = () => {
         type: 'rejected',
         icon: <ThumbsDown className="w-6 h-6 text-red-600" />,
         title: 'Payment Rejected',
-        message: `Your payment was rejected by ${order.rejectedBy} on ${formatDate(order.rejectedBy || order.orderDate)}. Reason: ${order.rejectionReason || 'Invalid or insufficient payment proof.'}`,
+        message: order.rejectionReason || 'Your payment was rejected due to invalid or insufficient payment proof.',
         color: 'bg-red-50 border-red-200 text-red-800'
       };
     }
@@ -207,7 +207,7 @@ const OrderDetail = () => {
         type: 'cancelled',
         icon: <XCircle className="w-6 h-6 text-red-600" />,
         title: 'Order Cancelled',
-        message: `Your order has been cancelled. ${order.rejectionReason ? `Reason: ${order.rejectionReason}` : 'Please contact support for more information.'}`,
+        message: order.rejectionReason || 'Your order has been cancelled.',
         color: 'bg-red-50 border-red-200 text-red-800'
       };
     }
@@ -217,7 +217,7 @@ const OrderDetail = () => {
         type: 'pending',
         icon: <Clock className="w-6 h-6 text-orange-600" />,
         title: 'Awaiting Payment Verification',
-        message: 'Your payment proof has been submitted and is awaiting admin verification. This usually takes 5-10 minutes.',
+        message: 'Your payment proof has been submitted and is awaiting verification. This usually takes 5-10 minutes.',
         color: 'bg-orange-50 border-orange-200 text-orange-800'
       };
     }
@@ -227,7 +227,7 @@ const OrderDetail = () => {
         type: 'processing',
         icon: <Package className="w-6 h-6 text-blue-600" />,
         title: 'Order Processing',
-        message: 'Your order is being processed. You will receive an update once it ships.',
+        message: 'Your order is being prepared for shipment.',
         color: 'bg-blue-50 border-blue-200 text-blue-800'
       };
     }
@@ -237,7 +237,9 @@ const OrderDetail = () => {
         type: 'shipped',
         icon: <Truck className="w-6 h-6 text-blue-600" />,
         title: 'Order Shipped!',
-        message: `Your order has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
+        message: order.trackingNumber 
+          ? `Your order has been shipped. Tracking number: ${order.trackingNumber}`
+          : 'Your order has been shipped and is on its way!',
         color: 'bg-blue-50 border-blue-200 text-blue-800'
       };
     }
@@ -314,13 +316,6 @@ const OrderDetail = () => {
                 <h3 className="font-bold text-lg mb-1">{notification.title}</h3>
                 <p className="text-sm leading-relaxed">{notification.message}</p>
               </div>
-              {notification.type === 'rejected' && order.rejectionReason && (
-                <div className="flex-shrink-0">
-                  <div className="bg-red-100 rounded-full p-2">
-                    <MessageCircle className="w-5 h-5 text-red-600" />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -450,30 +445,16 @@ const OrderDetail = () => {
                     <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <div>
-                    <p className="text-sm text-gray-500">Payment Status</p>
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
-                      order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                      order.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      order.paymentStatus === 'failed' ? 'bg-red-100 text-red-800' :
-                      'bg-purple-100 text-purple-800'
-                    }`}>
-                      {order.paymentStatus?.toUpperCase()}
-                    </span>
-                  </div>
-                  {order.approvedBy && (
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Approved by</p>
-                      <p className="text-sm font-medium text-green-600">{order.approvedBy}</p>
-                    </div>
-                  )}
-                  {order.rejectedBy && (
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Rejected by</p>
-                      <p className="text-sm font-medium text-red-600">{order.rejectedBy}</p>
-                    </div>
-                  )}
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <p className="text-sm text-gray-500">Payment Status</p>
+                  <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
+                    order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                    order.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    order.paymentStatus === 'failed' ? 'bg-red-100 text-red-800' :
+                    'bg-purple-100 text-purple-800'
+                  }`}>
+                    {order.paymentStatus?.toUpperCase()}
+                  </span>
                 </div>
               </div>
 
@@ -502,23 +483,6 @@ const OrderDetail = () => {
                 </div>
               )}
             </div>
-
-            {/* Rejection Reason Section (if applicable) */}
-            {order.rejectionReason && order.paymentStatus === 'failed' && (
-              <div className="bg-red-50 rounded-2xl shadow-sm border border-red-200 p-6">
-                <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
-                  <Info className="w-5 h-5" />
-                  Rejection Reason
-                </h3>
-                <div className="bg-white rounded-xl p-4 border border-red-100">
-                  <p className="text-red-700 text-sm leading-relaxed">{order.rejectionReason}</p>
-                  <p className="text-xs text-red-500 mt-3 flex items-center gap-1">
-                    <MessageCircle className="w-3 h-3" />
-                    If you have questions, please contact our support team.
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Shipping Information */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -574,15 +538,6 @@ const OrderDetail = () => {
                     <Clock className="w-4 h-4" />
                     Payment Pending
                   </button>
-                )}
-                {(order.rejectionReason || order.status === 'cancelled') && (
-                  <Link
-                    to="/contact"
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Dispute Decision
-                  </Link>
                 )}
                 <Link
                   to="/contact"
