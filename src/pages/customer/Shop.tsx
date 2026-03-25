@@ -291,7 +291,7 @@ const Shop: React.FC = () => {
     // This function is only called from modal, which only opens when user is logged in
     // So we don't need to check auth again here
     for (let i = 0; i < quantity; i++) {
-      addItem(product);
+      addItem(product, color);
     }
   };
 
