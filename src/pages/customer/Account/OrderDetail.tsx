@@ -112,6 +112,47 @@ const OrderDetail = () => {
     }
   };
 
+  // Get the display status (shows payment status for rejected/approved, otherwise order status)
+  const getDisplayStatus = () => {
+    if (!order) return '';
+    
+    // If payment is rejected/failed
+    if (order.rejectedBy && order.paymentStatus === 'failed') {
+      return 'PAYMENT FAILED';
+    }
+    
+    // If payment is approved
+    if (order.approvedBy && order.paymentStatus === 'paid') {
+      return 'PAYMENT APPROVED';
+    }
+    
+    // Otherwise show order status
+    return order.status.replace('_', ' ').toUpperCase();
+  };
+
+  // Get status color based on the actual state
+  const getDisplayStatusColor = () => {
+    if (!order) return '';
+    
+    if (order.rejectedBy && order.paymentStatus === 'failed') {
+      return 'bg-red-100 text-red-800 border-red-200';
+    }
+    
+    if (order.approvedBy && order.paymentStatus === 'paid') {
+      return 'bg-green-100 text-green-800 border-green-200';
+    }
+    
+    switch(order.status) {
+      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
+      case 'shipped': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'processing': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'pending': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'awaiting_payment': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch(status) {
       case 'delivered': return <CheckCircle className="w-6 h-6 text-green-500" />;
@@ -272,6 +313,8 @@ const OrderDetail = () => {
 
   const notification = getNotification();
   const paymentStatusDisplay = getPaymentStatusDisplay(order?.paymentStatus || '', order?.rejectedBy);
+  const displayStatus = getDisplayStatus();
+  const displayStatusColor = getDisplayStatusColor();
 
   if (loading) {
     return (
@@ -334,7 +377,7 @@ const OrderDetail = () => {
           </div>
         )}
 
-        {/* Order Header Card */}
+        {/* Order Header Card - FIXED STATUS DISPLAY */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex flex-wrap justify-between items-start gap-4">
             <div>
@@ -349,8 +392,9 @@ const OrderDetail = () => {
                 <span>Placed on {formatDate(order.orderDate)}</span>
               </div>
             </div>
-            <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${getStatusColor(order.status)}`}>
-              {order.status.replace('_', ' ').toUpperCase()}
+            {/* This now shows the correct status based on payment approval/rejection */}
+            <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${displayStatusColor}`}>
+              {displayStatus}
             </span>
           </div>
 
@@ -358,27 +402,36 @@ const OrderDetail = () => {
           <div className="mt-8">
             <div className="flex items-center justify-between">
               {['Pending', 'Payment', 'Processing', 'Shipped', 'Delivered'].map((step, index) => {
-                const stepStatus = index + 1 <= statusStep;
+                // For rejected payments, the payment step should be marked as failed
+                const isPaymentFailed = order.rejectedBy && order.paymentStatus === 'failed';
+                const stepStatus = isPaymentFailed && step === 'Payment' 
+                  ? false 
+                  : index + 1 <= statusStep;
                 const isCurrent = index + 1 === statusStep;
+                
                 return (
                   <React.Fragment key={step}>
                     <div className="flex flex-col items-center relative">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                        stepStatus
-                          ? 'bg-red-600 text-white shadow-lg shadow-red-200'
+                        stepStatus || (isPaymentFailed && step === 'Payment')
+                          ? isPaymentFailed && step === 'Payment'
+                            ? 'bg-red-600 text-white shadow-lg shadow-red-200'
+                            : 'bg-red-600 text-white shadow-lg shadow-red-200'
                           : 'bg-gray-200 text-gray-400'
                       } ${isCurrent ? 'ring-4 ring-red-100' : ''}`}>
-                        {stepStatus ? <CheckCircle className="w-5 h-5" /> : index + 1}
+                        {stepStatus || (isPaymentFailed && step === 'Payment') ? 
+                          isPaymentFailed && step === 'Payment' ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" /> 
+                          : index + 1}
                       </div>
                       <span className={`text-xs mt-2 font-medium ${
-                        stepStatus ? 'text-red-600' : 'text-gray-400'
+                        stepStatus || (isPaymentFailed && step === 'Payment') ? 'text-red-600' : 'text-gray-400'
                       }`}>
                         {step}
                       </span>
                     </div>
                     {index < 4 && (
                       <div className={`flex-1 h-1 mx-2 rounded-full ${
-                        index + 1 < statusStep ? 'bg-red-600' : 'bg-gray-200'
+                        index + 1 < statusStep && !(isPaymentFailed && index === 0) ? 'bg-red-600' : 'bg-gray-200'
                       }`} />
                     )}
                   </React.Fragment>
