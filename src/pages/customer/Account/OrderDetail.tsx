@@ -23,13 +23,17 @@ import {
   Mail,
   Smartphone,
   Wallet,
-  DollarSign
+  DollarSign,
+  Info,
+  MessageCircle,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 
 // Helper function to convert Order (string id) to ApiOrder (number id)
 const convertToApiOrder = (order: Order): ApiOrder => {
   return {
-    id: parseInt(order.id), // Convert string id to number
+    id: parseInt(order.id),
     orderNumber: order.orderNumber,
     orderDate: order.orderDate,
     totalAmount: order.totalAmount,
@@ -96,7 +100,6 @@ const OrderDetail = () => {
       if (!data) {
         setError('Order not found');
       } else {
-        // Convert the Order (with string id) to ApiOrder (with number id)
         const convertedOrder = convertToApiOrder(data as Order);
         console.log('📦 Converted order:', convertedOrder);
         setOrder(convertedOrder);
@@ -175,6 +178,85 @@ const OrderDetail = () => {
     return currentIndex >= 0 ? currentIndex + 1 : 0;
   };
 
+  // Get notification type based on order status
+  const getNotification = () => {
+    if (!order) return null;
+    
+    if (order.approvedBy && order.paymentStatus === 'paid') {
+      return {
+        type: 'approved',
+        icon: <ThumbsUp className="w-6 h-6 text-green-600" />,
+        title: 'Payment Approved!',
+        message: `Your payment has been approved by ${order.approvedBy} on ${formatDate(order.approvedAt || order.orderDate)}. Your order is now being processed.`,
+        color: 'bg-green-50 border-green-200 text-green-800'
+      };
+    }
+    
+    if (order.rejectedBy && order.paymentStatus === 'failed') {
+      return {
+        type: 'rejected',
+        icon: <ThumbsDown className="w-6 h-6 text-red-600" />,
+        title: 'Payment Rejected',
+        message: `Your payment was rejected by ${order.rejectedBy} on ${formatDate(order.rejectedBy || order.orderDate)}. Reason: ${order.rejectionReason || 'Invalid or insufficient payment proof.'}`,
+        color: 'bg-red-50 border-red-200 text-red-800'
+      };
+    }
+    
+    if (order.status === 'cancelled') {
+      return {
+        type: 'cancelled',
+        icon: <XCircle className="w-6 h-6 text-red-600" />,
+        title: 'Order Cancelled',
+        message: `Your order has been cancelled. ${order.rejectionReason ? `Reason: ${order.rejectionReason}` : 'Please contact support for more information.'}`,
+        color: 'bg-red-50 border-red-200 text-red-800'
+      };
+    }
+    
+    if (order.status === 'awaiting_payment') {
+      return {
+        type: 'pending',
+        icon: <Clock className="w-6 h-6 text-orange-600" />,
+        title: 'Awaiting Payment Verification',
+        message: 'Your payment proof has been submitted and is awaiting admin verification. This usually takes 5-10 minutes.',
+        color: 'bg-orange-50 border-orange-200 text-orange-800'
+      };
+    }
+    
+    if (order.status === 'processing') {
+      return {
+        type: 'processing',
+        icon: <Package className="w-6 h-6 text-blue-600" />,
+        title: 'Order Processing',
+        message: 'Your order is being processed. You will receive an update once it ships.',
+        color: 'bg-blue-50 border-blue-200 text-blue-800'
+      };
+    }
+    
+    if (order.status === 'shipped') {
+      return {
+        type: 'shipped',
+        icon: <Truck className="w-6 h-6 text-blue-600" />,
+        title: 'Order Shipped!',
+        message: `Your order has been shipped${order.trackingNumber ? ` with tracking number: ${order.trackingNumber}` : ''}.`,
+        color: 'bg-blue-50 border-blue-200 text-blue-800'
+      };
+    }
+    
+    if (order.status === 'delivered') {
+      return {
+        type: 'delivered',
+        icon: <CheckCircle className="w-6 h-6 text-green-600" />,
+        title: 'Order Delivered!',
+        message: 'Your order has been delivered. Thank you for shopping with us!',
+        color: 'bg-green-50 border-green-200 text-green-800'
+      };
+    }
+    
+    return null;
+  };
+
+  const notification = getNotification();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -220,6 +302,28 @@ const OrderDetail = () => {
           <ChevronLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition" />
           Back to Orders
         </button>
+
+        {/* Notification Banner */}
+        {notification && (
+          <div className={`mb-6 p-5 rounded-2xl border ${notification.color} shadow-sm animate-in slide-in-from-top duration-300`}>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                {notification.icon}
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg mb-1">{notification.title}</h3>
+                <p className="text-sm leading-relaxed">{notification.message}</p>
+              </div>
+              {notification.type === 'rejected' && order.rejectionReason && (
+                <div className="flex-shrink-0">
+                  <div className="bg-red-100 rounded-full p-2">
+                    <MessageCircle className="w-5 h-5 text-red-600" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Order Header Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -364,6 +468,12 @@ const OrderDetail = () => {
                       <p className="text-sm font-medium text-green-600">{order.approvedBy}</p>
                     </div>
                   )}
+                  {order.rejectedBy && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">Rejected by</p>
+                      <p className="text-sm font-medium text-red-600">{order.rejectedBy}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -392,6 +502,23 @@ const OrderDetail = () => {
                 </div>
               )}
             </div>
+
+            {/* Rejection Reason Section (if applicable) */}
+            {order.rejectionReason && order.paymentStatus === 'failed' && (
+              <div className="bg-red-50 rounded-2xl shadow-sm border border-red-200 p-6">
+                <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                  <Info className="w-5 h-5" />
+                  Rejection Reason
+                </h3>
+                <div className="bg-white rounded-xl p-4 border border-red-100">
+                  <p className="text-red-700 text-sm leading-relaxed">{order.rejectionReason}</p>
+                  <p className="text-xs text-red-500 mt-3 flex items-center gap-1">
+                    <MessageCircle className="w-3 h-3" />
+                    If you have questions, please contact our support team.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Shipping Information */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -447,6 +574,15 @@ const OrderDetail = () => {
                     <Clock className="w-4 h-4" />
                     Payment Pending
                   </button>
+                )}
+                {(order.rejectionReason || order.status === 'cancelled') && (
+                  <Link
+                    to="/contact"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Dispute Decision
+                  </Link>
                 )}
                 <Link
                   to="/contact"
