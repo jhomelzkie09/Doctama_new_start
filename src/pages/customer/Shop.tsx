@@ -286,25 +286,30 @@ const Shop: React.FC = () => {
     }
   };
 
-  // Handle Add to Cart from Modal
+  // Handle Add to Cart from Modal (only for logged-in users)
   const handleAddToCartWithOptions = (product: Product, quantity: number, color: string) => {
+    // This function is only called from modal, which only opens when user is logged in
+    // So we don't need to check auth again here
+    for (let i = 0; i < quantity; i++) {
+      addItem(product);
+    }
+  };
+
+  // Open modal for quick view - ONLY if user is logged in
+  const handleOpenModal = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Check if user is logged in
     if (!user) {
+      // Show auth sidebar instead of modal
       if (onAuthRequired) {
         onAuthRequired('login');
       }
       return;
     }
     
-    // Add the product to cart multiple times based on quantity
-    for (let i = 0; i < quantity; i++) {
-      addItem(product);
-    }
-  };
-
-  // Open modal for quick view
-  const handleOpenModal = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
+    // User is logged in, show modal
     setSelectedProduct(product);
     setShowModal(true);
   };
@@ -315,8 +320,6 @@ const Shop: React.FC = () => {
     if (!user) {
       if (onAuthRequired) {
         onAuthRequired('login');
-      } else {
-        console.warn('onAuthRequired not available');
       }
       return;
     }
@@ -577,13 +580,15 @@ const Shop: React.FC = () => {
         )}
       </div>
 
-      {/* Product Quick View Modal */}
-      <ProductQuickViewModal 
-        product={selectedProduct}
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onAddToCart={handleAddToCartWithOptions}
-      />
+      {/* Product Quick View Modal - Only rendered when user is logged in */}
+      {user && (
+        <ProductQuickViewModal 
+          product={selectedProduct}
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          onAddToCart={handleAddToCartWithOptions}
+        />
+      )}
     </>
   );
 };
