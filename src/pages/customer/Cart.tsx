@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Minus, 
@@ -24,7 +24,14 @@ import {
   Star
 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOutletContext } from 'react-router-dom';
+import productService from '../../services/product.service';
 import { Product } from '../../types';
+
+interface OutletContextType {
+  onAuthRequired?: (mode: 'login' | 'register') => void;
+}
 
 // Edit Modal Component
 const EditCartItemModal = ({ 
@@ -82,7 +89,6 @@ const EditCartItemModal = ({
         
         <div className="p-6">
           <div className="flex flex-col md:flex-row gap-6">
-            {/* Product Image */}
             <div className="md:w-1/3">
               <div className="aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
                 <img 
@@ -93,7 +99,6 @@ const EditCartItemModal = ({
               </div>
             </div>
             
-            {/* Product Info */}
             <div className="flex-1 space-y-5">
               <div>
                 <h3 className="text-2xl font-bold text-gray-900">{item.name}</h3>
@@ -108,7 +113,6 @@ const EditCartItemModal = ({
                 <p className="text-sm text-gray-500 mt-1">Price per item</p>
               </div>
               
-              {/* Color Selection */}
               {productColors && productColors.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -132,7 +136,6 @@ const EditCartItemModal = ({
                 </div>
               )}
               
-              {/* Quantity Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
                 <div className="flex items-center gap-3">
@@ -151,11 +154,9 @@ const EditCartItemModal = ({
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
-                  <span className="text-xs text-gray-500">Max: 10</span>
                 </div>
               </div>
               
-              {/* Total Price */}
               <div className="border-t border-gray-100 pt-4">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Updated Total:</span>
@@ -165,7 +166,6 @@ const EditCartItemModal = ({
                 </div>
               </div>
               
-              {/* Action Buttons */}
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleUpdate}
@@ -201,13 +201,18 @@ const EditCartItemModal = ({
 
 const Cart = () => {
   const { state, updateQuantity, removeItem, addItem } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const outletContext = useOutletContext<OutletContextType>();
+  const onAuthRequired = outletContext?.onAuthRequired;
   
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError] = useState('');
   const [savedForLater, setSavedForLater] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(true);
   
   // Edit Modal State
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -218,6 +223,25 @@ const Cart = () => {
     'WELCOME10': 10,
     'FURNITURE20': 20,
     'FREESHIP': 0
+  };
+
+  useEffect(() => {
+    loadRecommendedProducts();
+  }, []);
+
+  const loadRecommendedProducts = async () => {
+    setLoadingRecommendations(true);
+    try {
+      const allProducts = await productService.getProducts();
+      // Get products not in cart
+      const cartProductIds = state.items.map(item => item.id);
+      const filtered = allProducts.filter(p => !cartProductIds.includes(p.id)).slice(0, 4);
+      setRecommendedProducts(filtered);
+    } catch (error) {
+      console.error('Failed to load recommended products:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
   };
 
   const handleApplyPromo = () => {
@@ -248,13 +272,11 @@ const Cart = () => {
     );
   };
 
-  // Handle editing an item
   const handleEditItem = (item: any) => {
     setEditingItem(item);
     setShowEditModal(true);
   };
 
-  // Handle updating an item
   const handleUpdateItem = (uniqueId: string, newQuantity: number, newColor: string) => {
     // First, remove the old item
     removeItem(uniqueId);
@@ -282,6 +304,21 @@ const Cart = () => {
     }
   };
 
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) {
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      }
+      return;
+    }
+    
+    // Add to cart with default options
+    addItem(product);
+  };
+
   const calculateSubtotal = () => {
     return state.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
@@ -304,7 +341,6 @@ const Cart = () => {
     }).format(amount);
   };
 
-  // Helper function to get color display name
   const getColorDisplayName = (color: string) => {
     const colorNames: Record<string, string> = {
       'red': 'Red',
@@ -325,6 +361,14 @@ const Cart = () => {
     };
     return colorNames[color.toLowerCase()] || color;
   };
+
+  const renderStars = (rating: number = 4) => (
+    <div className="flex gap-0.5">
+      {[...Array(5)].map((_, i) => (
+        <Star key={i} className={`w-3 h-3 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-200'}`} />
+      ))}
+    </div>
+  );
 
   if (state.items.length === 0) {
     return (
@@ -394,7 +438,6 @@ const Cart = () => {
                             </h3>
                             <p className="text-sm text-gray-500 mt-1 line-clamp-1">{item.description}</p>
                             
-                            {/* Display selected color */}
                             {item.selectedColor && (
                               <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
                                 <Palette className="w-3 h-3" />
@@ -416,12 +459,10 @@ const Cart = () => {
                           </p>
                         </div>
 
-                        {/* Price per unit */}
                         <p className="text-sm text-gray-500 mb-3">
                           ₱{item.price.toLocaleString()} each
                         </p>
 
-                        {/* Quantity Controls with Edit Button */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
@@ -441,7 +482,6 @@ const Cart = () => {
                               </button>
                             </div>
                             
-                            {/* Edit Button */}
                             <button
                               onClick={() => handleEditItem(item)}
                               className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -452,7 +492,6 @@ const Cart = () => {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {/* Save for Later */}
                             <button
                               onClick={() => handleSaveForLater(item.uniqueId)}
                               className={`p-2 rounded-lg transition ${
@@ -465,7 +504,6 @@ const Cart = () => {
                               <Heart className={`w-5 h-5 ${savedForLater.includes(item.uniqueId) ? 'fill-current' : ''}`} />
                             </button>
 
-                            {/* Remove */}
                             <button
                               onClick={() => removeItem(item.uniqueId)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
@@ -545,8 +583,6 @@ const Cart = () => {
                       Promo applied successfully!
                     </p>
                   )}
-
-                  {/* Sample promo codes */}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full flex items-center">
                       <Tag className="w-3 h-3 mr-1" />
@@ -582,7 +618,6 @@ const Cart = () => {
                     <span className="text-green-600 font-medium">Free</span>
                   </div>
 
-                  {/* Estimated delivery */}
                   <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
                     <Clock className="w-4 h-4" />
                     <span>Estimated delivery: 3-5 business days</span>
@@ -594,7 +629,6 @@ const Cart = () => {
                   </div>
                 </div>
 
-                {/* Checkout Button */}
                 <button
                   onClick={() => navigate('/checkout')}
                   className="w-full py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-semibold text-lg flex items-center justify-center group mb-3"
@@ -603,7 +637,6 @@ const Cart = () => {
                   <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
                 </button>
 
-                {/* Payment Methods */}
                 <div className="text-center">
                   <p className="text-xs text-gray-500 mb-3">We accept:</p>
                   <div className="flex justify-center gap-3">
@@ -622,7 +655,6 @@ const Cart = () => {
                   </div>
                 </div>
 
-                {/* Trust Badges */}
                 <div className="mt-6 pt-6 border-t">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -647,18 +679,54 @@ const Cart = () => {
             </div>
           </div>
 
-          {/* You Might Also Like Section */}
+          {/* You Might Also Like Section - With Real Products */}
           <div className="mt-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">You Might Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((item) => (
-                <div key={item} className="bg-white rounded-lg p-4 hover:shadow-md transition cursor-pointer">
-                  <div className="h-32 bg-gray-100 rounded-lg mb-3"></div>
-                  <h3 className="font-medium text-sm mb-1">Modern Side Table</h3>
-                  <p className="text-red-600 font-bold text-sm">₱3,999</p>
-                </div>
-              ))}
-            </div>
+            {loadingRecommendations ? (
+              <div className="flex justify-center py-12">
+                <Loader className="w-8 h-8 animate-spin text-red-600" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {recommendedProducts.map((product) => (
+                  <Link
+                    key={product.id}
+                    to={`/products/${product.id}`}
+                    className="group bg-white rounded-xl p-4 hover:shadow-lg transition-all duration-300 border border-gray-100"
+                  >
+                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
+                      <img
+                        src={product.imageUrl || 'https://via.placeholder.com/400'}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                    </div>
+                    <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-1 group-hover:text-red-600 transition">
+                      {product.name}
+                    </h3>
+                    <div className="flex items-center gap-1 mb-2">
+                      {renderStars(4)}
+                      <span className="text-xs text-gray-400">(24)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-red-600 font-bold text-sm">₱{product.price.toLocaleString()}</p>
+                      <button
+                        onClick={(e) => handleAddToCart(e, product)}
+                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition"
+                      >
+                        <ShoppingBag className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {recommendedProducts.length === 0 && !loadingRecommendations && (
+              <div className="text-center py-12 bg-white rounded-xl">
+                <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No recommendations available</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
