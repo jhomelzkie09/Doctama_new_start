@@ -71,6 +71,11 @@ const Layout = () => {
     }
   };
 
+  const handleLogout = () => {
+    setUserMenuOpen(false);
+    logout();
+  };
+
   const isActive = (path: string) => location.pathname === path;
 
   const navLinks = [
@@ -196,7 +201,10 @@ const Layout = () => {
                       <Link to="/account" className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
                         <UserCircle className="w-4 h-4" /> My Profile
                       </Link>
-                      <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors mt-2">
+                      <button 
+                        onClick={handleLogout} 
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors mt-2"
+                      >
                         <LogOut className="w-4 h-4" /> Sign Out
                       </button>
                     </div>

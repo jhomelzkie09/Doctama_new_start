@@ -47,15 +47,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (currentUser && token) {
       setUser(currentUser);
-      
-      // Auto-redirect admin to admin dashboard if on home page
-      if (checkIsAdmin(currentUser) && window.location.pathname === '/') {
-        console.log('👑 Admin detected, redirecting to admin dashboard');
-        navigate('/admin');
-      }
     }
     setLoading(false);
-  }, [navigate]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
@@ -93,10 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    console.log('👋 Logging out...');
     authService.logout();
     setUser(null);
-    navigate('/');
-    console.log('👋 User logged out');
+    // Force a full page reload to ensure header/footer render properly
+    window.location.href = '/';
   };
 
   const register = async (data: RegisterData) => {
