@@ -572,3 +572,49 @@ export interface UserUpdateDto {
 export interface ToggleUserStatusDto {
   isActive: boolean;
 }
+
+// ========== API ORDER TYPES (Matches Backend Response) ==========
+
+/**
+ * API Order Item - matches backend SimpleOrderItem response
+ */
+export interface ApiOrderItem {
+  id: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  price?: number;
+  imageUrl?: string;
+}
+
+/**
+ * API Order - matches backend SimpleOrder response
+ */
+export interface ApiOrder {
+  id: number;
+  orderNumber: string;
+  orderDate: string;
+  totalAmount: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  shippingAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  items?: ApiOrderItem[];
+  trackingNumber?: string;
+  paymentProofImage?: string;
+  paymentProofReference?: string;
+  paymentProofSender?: string;
+  paymentProofDate?: string;
+  paymentProofNotes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

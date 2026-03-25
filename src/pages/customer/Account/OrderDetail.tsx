@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import orderService from '../../../services/order.service';
-import { Order, OrderStatus, PaymentStatus } from '../../../types';
+import { ApiOrder, Order } from '../../../types';
 import {
   Package,
   ChevronLeft,
@@ -21,16 +21,51 @@ import {
   ShoppingBag,
   Phone,
   Mail,
-  Home,
   Smartphone,
   Wallet,
   DollarSign
 } from 'lucide-react';
 
+// Helper function to convert Order (string id) to ApiOrder (number id)
+const convertToApiOrder = (order: Order): ApiOrder => {
+  return {
+    id: parseInt(order.id), // Convert string id to number
+    orderNumber: order.orderNumber,
+    orderDate: order.orderDate,
+    totalAmount: order.totalAmount,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    shippingAddress: order.shippingAddress || '',
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    customerPhone: order.customerPhone,
+    items: order.items?.map(item => ({
+      id: item.id ? parseInt(item.id) : 0,
+      productId: parseInt(item.productId),
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice || item.price,
+      price: item.price,
+      imageUrl: item.imageUrl
+    })),
+    trackingNumber: (order as any).trackingNumber,
+    paymentProofImage: (order as any).paymentProofImage,
+    paymentProofReference: (order as any).paymentProofReference,
+    paymentProofSender: (order as any).paymentProofSender,
+    paymentProofDate: (order as any).paymentProofDate,
+    paymentProofNotes: (order as any).paymentProofNotes,
+    approvedBy: (order as any).approvedBy,
+    approvedAt: (order as any).approvedAt,
+    rejectedBy: (order as any).rejectedBy,
+    rejectionReason: (order as any).rejectionReason
+  };
+};
+
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<ApiOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -56,13 +91,15 @@ const OrderDetail = () => {
       }
       
       const data = await orderService.getOrderById(orderId);
-      console.log('📦 Order data:', data);
+      console.log('📦 Order data from API:', data);
       
       if (!data) {
         setError('Order not found');
       } else {
-        // Cast to Order type (backend returns number id, which is fine)
-        setOrder(data as Order);
+        // Convert the Order (with string id) to ApiOrder (with number id)
+        const convertedOrder = convertToApiOrder(data as Order);
+        console.log('📦 Converted order:', convertedOrder);
+        setOrder(convertedOrder);
       }
     } catch (error: any) {
       console.error('❌ Failed to load order:', error);
@@ -72,7 +109,7 @@ const OrderDetail = () => {
     }
   };
 
-  const getStatusIcon = (status: OrderStatus) => {
+  const getStatusIcon = (status: string) => {
     switch(status) {
       case 'delivered': return <CheckCircle className="w-6 h-6 text-green-500" />;
       case 'shipped': return <Truck className="w-6 h-6 text-blue-500" />;
@@ -84,7 +121,7 @@ const OrderDetail = () => {
     }
   };
 
-  const getStatusColor = (status: OrderStatus) => {
+  const getStatusColor = (status: string) => {
     switch(status) {
       case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
       case 'shipped': return 'bg-blue-100 text-blue-800 border-blue-200';
@@ -132,8 +169,8 @@ const OrderDetail = () => {
     }).format(amount);
   };
 
-  const getStatusStep = (status: OrderStatus) => {
-    const steps: OrderStatus[] = ['pending', 'awaiting_payment', 'processing', 'shipped', 'delivered'];
+  const getStatusStep = (status: string) => {
+    const steps = ['pending', 'awaiting_payment', 'processing', 'shipped', 'delivered'];
     const currentIndex = steps.indexOf(status);
     return currentIndex >= 0 ? currentIndex + 1 : 0;
   };
@@ -254,7 +291,7 @@ const OrderDetail = () => {
                       {item.imageUrl ? (
                         <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
                       ) : (
-                        <Package className="w-8 h-8 text-gray-400 m-6" />
+                        <Package className="w-8 h-8 text-gray-400 m-4" />
                       )}
                     </div>
                     <div className="flex-1">
@@ -321,17 +358,17 @@ const OrderDetail = () => {
                       {order.paymentStatus?.toUpperCase()}
                     </span>
                   </div>
-                  {(order as any).approvedBy && (
+                  {order.approvedBy && (
                     <div className="text-right">
                       <p className="text-xs text-gray-500">Approved by</p>
-                      <p className="text-sm font-medium text-green-600">{(order as any).approvedBy}</p>
+                      <p className="text-sm font-medium text-green-600">{order.approvedBy}</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Payment Proof */}
-              {(order as any).paymentProofImage && (
+              {order.paymentProofImage && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <p className="text-sm text-gray-500 mb-2">Payment Proof</p>
                   <div 
@@ -339,7 +376,7 @@ const OrderDetail = () => {
                     onClick={() => setShowReceiptModal(true)}
                   >
                     <img
-                      src={(order as any).paymentProofImage}
+                      src={order.paymentProofImage}
                       alt="Payment receipt"
                       className="w-full h-32 object-cover rounded-xl border border-gray-200 group-hover:scale-105 transition duration-300"
                     />
@@ -347,9 +384,9 @@ const OrderDetail = () => {
                       <Receipt className="w-8 h-8 text-white" />
                     </div>
                   </div>
-                  {(order as any).paymentProofReference && (
+                  {order.paymentProofReference && (
                     <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-                      <span className="font-medium">Reference:</span> {(order as any).paymentProofReference}
+                      <span className="font-medium">Reference:</span> {order.paymentProofReference}
                     </div>
                   )}
                 </div>
@@ -363,10 +400,10 @@ const OrderDetail = () => {
                 Shipping Address
               </h3>
               <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{order.shippingAddress}</p>
-              {(order as any).trackingNumber && (
+              {order.trackingNumber && (
                 <div className="mt-4 p-3 bg-blue-50 rounded-xl">
                   <p className="text-xs text-blue-600 font-medium">Tracking Number</p>
-                  <p className="text-sm font-medium text-blue-800">{(order as any).trackingNumber}</p>
+                  <p className="text-sm font-medium text-blue-800">{order.trackingNumber}</p>
                 </div>
               )}
             </div>
@@ -425,7 +462,7 @@ const OrderDetail = () => {
       </div>
 
       {/* Receipt Modal */}
-      {showReceiptModal && (order as any).paymentProofImage && (
+      {showReceiptModal && order.paymentProofImage && (
         <div 
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
           onClick={() => setShowReceiptModal(false)}
@@ -437,7 +474,7 @@ const OrderDetail = () => {
             <XCircle className="w-8 h-8" />
           </button>
           <img
-            src={(order as any).paymentProofImage}
+            src={order.paymentProofImage}
             alt="Receipt full size"
             className="max-w-full max-h-full object-contain rounded-2xl"
           />
