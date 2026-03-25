@@ -14,27 +14,13 @@ import {
   AlertCircle,
   Tag,
   Heart,
-  X,
   Check,
-  Percent,
   Gift,
   Package,
   Loader,
   Palette
 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
-
-// Extended CartItem interface to include selected color
-interface CartItemWithColor {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  quantity: number;
-  imageUrl: string;
-  selectedColor?: string;
-  [key: string]: any;
-}
 
 const Cart = () => {
   const { state, updateQuantity, removeItem } = useCart();
@@ -43,7 +29,7 @@ const Cart = () => {
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError] = useState('');
-  const [savedForLater, setSavedForLater] = useState<number[]>([]);
+  const [savedForLater, setSavedForLater] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Mock promo codes
@@ -73,11 +59,11 @@ const Cart = () => {
     }, 500);
   };
 
-  const handleSaveForLater = (productId: number) => {
+  const handleSaveForLater = (uniqueId: string) => {
     setSavedForLater(prev => 
-      prev.includes(productId) 
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
+      prev.includes(uniqueId) 
+        ? prev.filter(id => id !== uniqueId)
+        : [...prev, uniqueId]
     );
   };
 
@@ -167,7 +153,7 @@ const Cart = () => {
           <div className="flex-1">
             <div className="bg-white rounded-xl shadow-sm divide-y">
               {state.items.map((item) => (
-                <div key={item.id} className="p-6 hover:bg-gray-50 transition group">
+                <div key={item.uniqueId} className="p-6 hover:bg-gray-50 transition group">
                   <div className="flex gap-6">
                     {/* Product Image */}
                     <div className="relative">
@@ -192,18 +178,18 @@ const Cart = () => {
                           </h3>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-1">{item.description}</p>
                           
-                          {/* Display selected color if available */}
-                          {(item as CartItemWithColor).selectedColor && (
+                          {/* Display selected color - ALWAYS show if exists */}
+                          {item.selectedColor && (
                             <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
                               <Palette className="w-3 h-3" />
                               <span>Color: </span>
                               <div className="flex items-center gap-1">
                                 <div 
                                   className="w-3 h-3 rounded-full border border-gray-300"
-                                  style={{ backgroundColor: (item as CartItemWithColor).selectedColor?.toLowerCase() }}
+                                  style={{ backgroundColor: item.selectedColor.toLowerCase() }}
                                 />
                                 <span className="font-medium text-gray-700">
-                                  {getColorDisplayName((item as CartItemWithColor).selectedColor!)}
+                                  {getColorDisplayName(item.selectedColor)}
                                 </span>
                               </div>
                             </div>
@@ -223,7 +209,7 @@ const Cart = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.uniqueId, item.quantity - 1)}
                             disabled={item.quantity <= 1}
                             className="p-2 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -231,7 +217,7 @@ const Cart = () => {
                           </button>
                           <span className="w-12 text-center font-medium">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.uniqueId, item.quantity + 1)}
                             className="p-2 hover:bg-gray-100 transition"
                           >
                             <Plus className="w-4 h-4" />
@@ -241,20 +227,20 @@ const Cart = () => {
                         <div className="flex items-center gap-2">
                           {/* Save for Later */}
                           <button
-                            onClick={() => handleSaveForLater(item.id)}
+                            onClick={() => handleSaveForLater(item.uniqueId)}
                             className={`p-2 rounded-lg transition ${
-                              savedForLater.includes(item.id)
+                              savedForLater.includes(item.uniqueId)
                                 ? 'text-red-600 bg-red-50'
                                 : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                             }`}
-                            title={savedForLater.includes(item.id) ? 'Remove from saved' : 'Save for later'}
+                            title={savedForLater.includes(item.uniqueId) ? 'Remove from saved' : 'Save for later'}
                           >
-                            <Heart className={`w-5 h-5 ${savedForLater.includes(item.id) ? 'fill-current' : ''}`} />
+                            <Heart className={`w-5 h-5 ${savedForLater.includes(item.uniqueId) ? 'fill-current' : ''}`} />
                           </button>
 
                           {/* Remove */}
                           <button
-                            onClick={() => removeItem(item.id)}
+                            onClick={() => removeItem(item.uniqueId)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                             title="Remove item"
                           >
