@@ -375,24 +375,7 @@ const Layout = () => {
       {/* Footer - Mobile Optimized */}
       <footer className="bg-slate-900 text-white pt-12 pb-6">
         <div className="container mx-auto px-4">
-          {/* Newsletter Box */}
-          <div className="bg-rose-600 rounded-2xl p-6 md:p-8 mb-12 relative overflow-hidden">
-            <div className="relative z-10 text-center">
-              <h3 className="text-xl md:text-3xl font-black mb-2 tracking-tight">Join the Inner Circle.</h3>
-              <p className="text-rose-100 text-sm md:text-base mb-4">Get early access and 10% off your first order.</p>
-              <form className="flex flex-col sm:flex-row gap-2 bg-white/10 p-2 rounded-xl">
-                <input
-                  type="email"
-                  placeholder="email@example.com"
-                  className="bg-transparent border border-white/20 rounded-lg text-white placeholder:text-rose-200 focus:outline-none px-4 py-2 flex-1"
-                />
-                <button className="bg-white text-rose-600 font-bold px-6 py-2 rounded-lg hover:bg-slate-900 hover:text-white transition">
-                  Subscribe
-                </button>
-              </form>
-            </div>
-          </div>
-
+          
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
