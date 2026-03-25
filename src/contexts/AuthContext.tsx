@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, RegisterData } from '../types';
 import authService from '../services/auth.service';
 import { isAdmin as checkIsAdmin, isCustomer, isManager } from '../utils/roleUtils';
@@ -30,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Compute role-based values using imported utilities
   const isAdmin = checkIsAdmin(user);
@@ -37,26 +39,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isManagerValue = isManager(user);
 
   useEffect(() => {
-    // Get user from sessionStorage on mount
+    // Get user from localStorage on mount
     const currentUser = authService.getCurrentUser();
-    console.log('🏁 Initial user from sessionStorage:', currentUser);
-    setUser(currentUser);
+    const token = authService.getToken();
+    console.log('🏁 Initial user from localStorage:', currentUser);
+    console.log('🏁 Initial token exists?', !!token);
+    
+    if (currentUser && token) {
+      setUser(currentUser);
+      
+      // Auto-redirect admin to admin dashboard if on home page
+      if (checkIsAdmin(currentUser) && window.location.pathname === '/') {
+        console.log('👑 Admin detected, redirecting to admin dashboard');
+        navigate('/admin');
+      }
+    }
     setLoading(false);
-  }, []);
+  }, [navigate]);
 
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      await authService.login({ email, password });
+      const response = await authService.login({ email, password });
+      console.log('✅ Login response:', response);
       
-      // Get the updated user from sessionStorage
+      // Get the updated user from storage
       const currentUser = authService.getCurrentUser();
-      console.log('🔑 User after login:', currentUser);
+      const token = authService.getToken();
+      
+      console.log('🔑 Token after login:', !!token);
+      console.log('👤 User after login:', currentUser);
+      
       setUser(currentUser);
       
+      // Redirect based on role
+      if (checkIsAdmin(currentUser)) {
+        console.log('👑 Admin logged in, redirecting to /admin');
+        navigate('/admin');
+      } else {
+        console.log('👤 Regular user logged in, redirecting to /');
+        navigate('/');
+      }
+      
     } catch (err: any) {
+      console.error('❌ Login error:', err);
       setError(err.message || 'Login failed');
       throw err;
     } finally {
@@ -67,7 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     authService.logout();
     setUser(null);
-    console.log('👋 User logged out, sessionStorage cleared');
+    navigate('/');
+    console.log('👋 User logged out');
   };
 
   const register = async (data: RegisterData) => {
@@ -79,6 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const currentUser = authService.getCurrentUser();
       setUser(currentUser);
+      
+      navigate('/');
       
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -92,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && !!authService.getToken(),
         isAdmin,
         isCustomer: isCustomerValue,
         isManager: isManagerValue,
