@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Heart, Eye, 
+  ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Eye, 
   ChevronRight, Sparkles, Sofa, Armchair, Lamp, Table, Bed, 
   Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle,
   Folder, Home as HomeIcon, Coffee, Utensils, Monitor, Lightbulb, 
@@ -9,11 +9,22 @@ import {
   Shirt, WashingMachine, Car, TreePalm, Music, Tv,
   ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOutletContext } from 'react-router-dom';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
 import { Product, Category } from '../../types';
 
+interface OutletContextType {
+  onAuthRequired?: (mode: 'login' | 'register') => void;
+}
+
 const Home = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const outletContext = useOutletContext<OutletContextType>();
+  const onAuthRequired = outletContext?.onAuthRequired;
+  
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
@@ -80,7 +91,6 @@ const Home = () => {
       setNewArrivals(productsData.slice(2, 6));
       setBestSellers(productsData.slice(1, 5));
       
-      // Calculate product count for each category based on actual products
       const categoriesWithCounts = categoriesData.map(category => {
         const productCount = productsData.filter(product => product.categoryId === category.id).length;
         return {
@@ -97,7 +107,23 @@ const Home = () => {
     }
   };
 
-  // Enhanced icon mapping with valid lucide-react icons
+  // Handle Add to Cart - Navigate to shop page
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) {
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      }
+      return;
+    }
+    
+    // Navigate to shop page with product selected to open modal
+    navigate('/shop', { state: { selectedProduct: product, openModal: true } });
+  };
+
+  // Enhanced icon mapping
   const getCategoryIcon = (categoryName: string) => {
     const name = categoryName.toLowerCase();
     
@@ -148,7 +174,6 @@ const Home = () => {
     setCurrentCategoryIndex(prev => Math.max(0, prev - 1));
     setTimeout(() => setIsAnimating(false), 500);
     
-    // Restart interval after manual navigation
     setTimeout(() => {
       if (!carouselIntervalRef.current && categories.length > itemsPerView) {
         carouselIntervalRef.current = setInterval(() => {
@@ -173,7 +198,6 @@ const Home = () => {
     setCurrentCategoryIndex(prev => Math.min(categories.length - itemsPerView, prev + 1));
     setTimeout(() => setIsAnimating(false), 500);
     
-    // Restart interval after manual navigation
     setTimeout(() => {
       if (!carouselIntervalRef.current && categories.length > itemsPerView) {
         carouselIntervalRef.current = setInterval(() => {
@@ -211,7 +235,7 @@ const Home = () => {
 
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
-      {/* Hero Section - Luxury Minimalist */}
+      {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center bg-[#F9F8F6] overflow-hidden">
         <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-950/5 hidden lg:block" />
         
@@ -289,7 +313,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories - Continuous Flowing Carousel Section */}
+      {/* Categories Carousel */}
       <section className="py-24">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
@@ -302,7 +326,6 @@ const Home = () => {
                 Browse All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
               </Link>
               
-              {/* Carousel Navigation Buttons */}
               {categories.length > itemsPerView && (
                 <div className="flex gap-2">
                   <button
@@ -332,7 +355,6 @@ const Home = () => {
             </div>
           </div>
           
-          {/* Carousel Container with Smooth Animation */}
           <div className="relative overflow-hidden">
             <div 
               ref={carouselRef}
@@ -367,7 +389,6 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Carousel Indicators */}
           {categories.length > itemsPerView && (
             <div className="flex justify-center gap-2 mt-8">
               {Array.from({ length: totalSlides }).map((_, idx) => {
@@ -377,7 +398,6 @@ const Home = () => {
                   <button
                     key={idx}
                     onClick={() => {
-                      // Stop auto-scroll
                       if (carouselIntervalRef.current) {
                         clearInterval(carouselIntervalRef.current);
                         carouselIntervalRef.current = null;
@@ -386,7 +406,6 @@ const Home = () => {
                       setCurrentCategoryIndex(startIndex);
                       setTimeout(() => setIsAnimating(false), 500);
                       
-                      // Restart auto-scroll after 5 seconds of inactivity
                       setTimeout(() => {
                         if (!carouselIntervalRef.current && categories.length > itemsPerView) {
                           carouselIntervalRef.current = setInterval(() => {
@@ -414,7 +433,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Product Section - Refined Cards */}
+      {/* Product Section - Trending Now */}
       <section className="py-24 bg-[#FBFBFA]">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
@@ -445,16 +464,19 @@ const Home = () => {
               (activeTab === 'featured' ? featuredProducts : activeTab === 'new' ? newArrivals : bestSellers).map((product) => (
                 <div key={product.id} className="group">
                   <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden bg-stone-100 mb-6 shadow-sm">
-                    <img 
-                      src={product.imageUrl} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                      alt={product.name} 
-                    />
+                    <Link to={`/products/${product.id}`} className="block w-full h-full">
+                      <img 
+                        src={product.imageUrl} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                        alt={product.name} 
+                      />
+                    </Link>
                     <div className="absolute top-4 right-4 flex flex-col gap-2">
-                      <button className="p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0">
-                        <Heart className="w-5 h-5" />
-                      </button>
-                      <button className="p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0 delay-75">
+                      {/* Add to Cart Button - Navigates to Shop */}
+                      <button 
+                        onClick={(e) => handleAddToCart(e, product)}
+                        className="p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0"
+                      >
                         <ShoppingBag className="w-5 h-5" />
                       </button>
                     </div>
@@ -516,7 +538,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Newsletter - High Contrast */}
+      {/* Newsletter */}
       <section className="py-20 bg-stone-50 border-t border-stone-200">
         <div className="container mx-auto px-6 max-w-4xl text-center">
           <h2 className="text-4xl font-serif text-slate-900 mb-6">Join the Inner Circle</h2>
