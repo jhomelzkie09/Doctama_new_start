@@ -17,13 +17,16 @@ import {
   Eye,
   ShoppingBag,
   Calendar,
-  DollarSign
+  DollarSign,
+  ThumbsUp,
+  ThumbsDown,
+  Info
 } from 'lucide-react';
 
 // Helper function to convert Order (string id) to ApiOrder (number id)
 const convertToApiOrder = (order: Order): ApiOrder => {
   return {
-    id: parseInt(order.id), // Convert string id to number
+    id: parseInt(order.id),
     orderNumber: order.orderNumber,
     orderDate: order.orderDate,
     totalAmount: order.totalAmount,
@@ -79,11 +82,9 @@ const Orders = () => {
       const response = await orderService.getMyOrders(1, 50);
       console.log('📦 Orders response:', response);
       
-      // response has an 'orders' property that contains Order[] (with string id)
       const ordersData = response.orders || [];
       console.log('📦 Orders data from API:', ordersData);
       
-      // Convert each Order to ApiOrder
       const convertedOrders = ordersData.map(convertToApiOrder);
       console.log('📦 Converted orders:', convertedOrders);
       
@@ -98,19 +99,16 @@ const Orders = () => {
   const filterOrders = () => {
     let filtered = [...orders];
 
-    // Search filter
     if (searchQuery) {
       filtered = filtered.filter(order =>
         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
 
-    // Date filter
     if (dateFilter !== 'all') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -136,7 +134,16 @@ const Orders = () => {
     navigate(`/account/orders/${orderId}`);
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
+    // Priority: Check for approval/rejection status first
+    if (approvedBy && paymentStatus === 'paid') {
+      return <ThumbsUp className="w-5 h-5 text-green-500" />;
+    }
+    if (rejectedBy && paymentStatus === 'failed') {
+      return <ThumbsDown className="w-5 h-5 text-red-500" />;
+    }
+    
+    // Then check order status
     switch(status) {
       case 'delivered': return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'shipped': return <Truck className="w-5 h-5 text-blue-500" />;
@@ -148,15 +155,43 @@ const Orders = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
+    // Priority for approval/rejection
+    if (approvedBy && paymentStatus === 'paid') {
+      return 'bg-green-100 text-green-800 border-green-200';
+    }
+    if (rejectedBy && paymentStatus === 'failed') {
+      return 'bg-red-100 text-red-800 border-red-200';
+    }
+    
+    // Then order status
     switch(status) {
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'shipped': return 'bg-blue-100 text-blue-800';
-      case 'processing': return 'bg-yellow-100 text-yellow-800';
-      case 'pending': return 'bg-gray-100 text-gray-800';
-      case 'awaiting_payment': return 'bg-orange-100 text-orange-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
+      case 'shipped': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'processing': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'pending': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'awaiting_payment': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
+    if (approvedBy && paymentStatus === 'paid') {
+      return 'Payment Approved';
+    }
+    if (rejectedBy && paymentStatus === 'failed') {
+      return 'Payment Rejected';
+    }
+    
+    switch(status) {
+      case 'delivered': return 'Delivered';
+      case 'shipped': return 'Shipped';
+      case 'processing': return 'Processing';
+      case 'pending': return 'Pending';
+      case 'awaiting_payment': return 'Awaiting Payment';
+      case 'cancelled': return 'Cancelled';
+      default: return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
     }
   };
 
@@ -282,12 +317,34 @@ const Orders = () => {
                       <p className="font-bold text-red-600 text-lg">{formatCurrency(order.totalAmount)}</p>
                     </div>
                     <div>
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 ${getStatusColor(order.status)}`}>
-                        {getStatusIcon(order.status)}
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 ${getStatusColor(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}`}>
+                        {getStatusIcon(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}
+                        {getStatusText(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Additional Status Info */}
+                  {order.approvedBy && order.paymentStatus === 'paid' && (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded-lg">
+                      <Info className="w-3 h-3" />
+                      <span>Payment approved by {order.approvedBy}</span>
+                    </div>
+                  )}
+                  
+                  {order.rejectedBy && order.paymentStatus === 'failed' && (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Payment rejected: {order.rejectionReason?.substring(0, 100)}...</span>
+                    </div>
+                  )}
+                  
+                  {order.trackingNumber && order.status === 'shipped' && (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                      <Truck className="w-3 h-3" />
+                      <span>Tracking: {order.trackingNumber}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Order Items Preview */}
