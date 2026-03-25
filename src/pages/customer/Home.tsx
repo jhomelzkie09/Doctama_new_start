@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Heart, Eye, 
@@ -6,7 +6,8 @@ import {
   Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle,
   Folder, Home as HomeIcon, Coffee, Utensils, Monitor, Lightbulb, 
   Box, BookOpen, Ruler, Watch, Flower2, Library,
-  Shirt, WashingMachine, Car, TreePalm, Music, Tv
+  Shirt, WashingMachine, Car, TreePalm, Music, Tv,
+  ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
@@ -19,9 +20,27 @@ const Home = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
+  
+  // Carousel state
+  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
+  const [itemsPerView, setItemsPerView] = useState(6);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { 
     loadData(); 
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) setItemsPerView(2);
+      else if (window.innerWidth < 768) setItemsPerView(3);
+      else if (window.innerWidth < 1024) setItemsPerView(4);
+      else if (window.innerWidth < 1280) setItemsPerView(5);
+      else setItemsPerView(6);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const loadData = async () => {
@@ -47,54 +66,30 @@ const Home = () => {
   const getCategoryIcon = (categoryName: string) => {
     const name = categoryName.toLowerCase();
     
-    // Living Room / Sofa
     if (name.includes('living') || name.includes('sofa') || name.includes('couch')) return Sofa;
     if (name.includes('armchair') || name.includes('lounge')) return Armchair;
-    
-    // Bedroom
     if (name.includes('bed') || name.includes('bedroom')) return Bed;
-    if (name.includes('dresser') || name.includes('wardrobe')) return Home;
-    
-    // Dining
+    if (name.includes('dresser') || name.includes('wardrobe')) return HomeIcon;
     if (name.includes('dining') || name.includes('table')) return Table;
     if (name.includes('kitchen') || name.includes('utensil')) return Utensils;
-    
-    // Office / Desk
     if (name.includes('office') || name.includes('desk') || name.includes('work')) return Monitor;
-    if (name.includes('chair') && !name.includes('dining')) return Armchair;
-    
-    // Lighting
     if (name.includes('light') || name.includes('lamp')) return Lightbulb;
-    if (name.includes('chandelier')) return Lightbulb;
-    
-    // Storage
     if (name.includes('storage') || name.includes('cabinet')) return Package;
     if (name.includes('shelf') || name.includes('bookcase')) return Library;
-    
-    // Decor
     if (name.includes('decor') || name.includes('art')) return Sparkles;
     if (name.includes('rug') || name.includes('carpet')) return Ruler;
     if (name.includes('mirror')) return Watch;
     if (name.includes('vase')) return Flower2;
     if (name.includes('plant')) return TreePalm;
-    
-    // Outdoor
     if (name.includes('outdoor') || name.includes('garden')) return TreePalm;
-    if (name.includes('patio')) return Car;
-    
-    // Electronics / Media
     if (name.includes('tv') || name.includes('media')) return Tv;
     if (name.includes('audio') || name.includes('speaker')) return Music;
-    
-    // Fallback based on category name
     if (name.includes('furniture')) return Sofa;
-    if (name.includes('home')) return Home;
-    if (name.includes('living')) return Sofa;
+    if (name.includes('home')) return HomeIcon;
     
     return Folder;
   };
 
-  // Get color for category icon background
   const getCategoryColor = (categoryName: string, index: number) => {
     const colors = [
       'bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white',
@@ -105,10 +100,16 @@ const Home = () => {
       'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
       'bg-pink-50 text-pink-600 group-hover:bg-pink-600 group-hover:text-white',
       'bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white',
-      'bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white',
-      'bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white',
     ];
     return colors[index % colors.length];
+  };
+
+  const handlePrevCategory = () => {
+    setCurrentCategoryIndex(prev => Math.max(0, prev - itemsPerView));
+  };
+
+  const handleNextCategory = () => {
+    setCurrentCategoryIndex(prev => Math.min(categories.length - itemsPerView, prev + itemsPerView));
   };
 
   const benefits = [
@@ -125,6 +126,10 @@ const Home = () => {
       ))}
     </div>
   );
+
+  const visibleCategories = categories.slice(currentCategoryIndex, currentCategoryIndex + itemsPerView);
+  const canScrollPrev = currentCategoryIndex > 0;
+  const canScrollNext = currentCategoryIndex + itemsPerView < categories.length;
 
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
@@ -206,45 +211,104 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories - Enhanced with Better Icons */}
+      {/* Categories - Carousel Section */}
       <section className="py-24">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
             <div className="max-w-xl">
               <h2 className="text-4xl font-serif text-slate-900 mb-4">Shop by Category</h2>
               <p className="text-slate-500">Find exactly what you're looking for in our curated collections</p>
             </div>
-            <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 flex items-center group">
-              Browse All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 flex items-center group">
+                Browse All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
+              </Link>
+              
+              {/* Carousel Navigation Buttons */}
+              {categories.length > itemsPerView && (
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={handlePrevCategory}
+                    disabled={!canScrollPrev}
+                    className={`p-2 rounded-full border transition-all ${
+                      canScrollPrev 
+                        ? 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300' 
+                        : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleNextCategory}
+                    disabled={!canScrollNext}
+                    className={`p-2 rounded-full border transition-all ${
+                      canScrollNext 
+                        ? 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300' 
+                        : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <ChevronRightIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-            {categories.map((category, index) => {
-              const IconComponent = getCategoryIcon(category.name);
-              const colorClass = getCategoryColor(category.name, index);
-              
-              return (
-                <Link 
-                  key={category.id} 
-                  to={`/shop?category=${category.id}`} 
-                  className="group"
-                >
-                  <div className="aspect-square bg-white rounded-2xl flex flex-col items-center justify-center p-5 border border-stone-100 shadow-sm group-hover:shadow-xl group-hover:border-transparent transition-all duration-300">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 ${colorClass}`}>
-                      <IconComponent className="w-8 h-8 transition-transform group-hover:scale-110" />
-                    </div>
-                    <h3 className="font-semibold text-slate-800 text-sm text-center group-hover:text-rose-800 transition-colors">
-                      {category.name}
-                    </h3>
-                    <span className="text-xs text-slate-400 mt-1">
-                      {category.productCount || 0} items
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+          {/* Carousel Container */}
+          <div className="relative overflow-hidden">
+            <div 
+              ref={carouselRef}
+              className="transition-transform duration-500 ease-out"
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                {visibleCategories.map((category, index) => {
+                  const IconComponent = getCategoryIcon(category.name);
+                  const colorClass = getCategoryColor(category.name, currentCategoryIndex + index);
+                  
+                  return (
+                    <Link 
+                      key={category.id} 
+                      to={`/shop?category=${category.id}`} 
+                      className="group animate-fadeIn"
+                    >
+                      <div className="aspect-square bg-white rounded-2xl flex flex-col items-center justify-center p-5 border border-stone-100 shadow-sm group-hover:shadow-xl group-hover:border-transparent transition-all duration-300 hover:-translate-y-1">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 ${colorClass}`}>
+                          <IconComponent className="w-8 h-8 transition-transform group-hover:scale-110" />
+                        </div>
+                        <h3 className="font-semibold text-slate-800 text-sm text-center group-hover:text-rose-800 transition-colors">
+                          {category.name}
+                        </h3>
+                        <span className="text-xs text-slate-400 mt-1">
+                          {category.productCount || 0} items
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
+          {/* Carousel Indicators */}
+          {categories.length > itemsPerView && (
+            <div className="flex justify-center mt-8 gap-2">
+              {Array.from({ length: Math.ceil(categories.length / itemsPerView) }).map((_, idx) => {
+                const startIndex = idx * itemsPerView;
+                const isActive = currentCategoryIndex >= startIndex && currentCategoryIndex < startIndex + itemsPerView;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentCategoryIndex(startIndex)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      isActive 
+                        ? 'w-8 bg-rose-600' 
+                        : 'w-4 bg-stone-300 hover:bg-stone-400'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
