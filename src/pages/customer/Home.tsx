@@ -7,7 +7,7 @@ import {
   Folder, Home as HomeIcon, Coffee, Utensils, Monitor, Lightbulb, 
   Box, BookOpen, Ruler, Watch, Flower2, Library,
   Shirt, WashingMachine, Car, TreePalm, Music, Tv,
-  ChevronLeft, ChevronRight as ChevronRightIcon
+  ChevronLeft, ChevronRight as ChevronRightIcon, Pause, Play
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
@@ -24,6 +24,8 @@ const Home = () => {
   // Carousel state
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(6);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { 
@@ -42,6 +44,49 @@ const Home = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Auto-play logic
+  useEffect(() => {
+    if (isAutoPlaying && categories.length > itemsPerView) {
+      autoPlayIntervalRef.current = setInterval(() => {
+        setCurrentCategoryIndex(prev => {
+          const maxIndex = categories.length - itemsPerView;
+          if (prev >= maxIndex) {
+            return 0;
+          }
+          return prev + itemsPerView;
+        });
+      }, 5000); // Change slide every 5 seconds
+    }
+
+    return () => {
+      if (autoPlayIntervalRef.current) {
+        clearInterval(autoPlayIntervalRef.current);
+      }
+    };
+  }, [isAutoPlaying, categories.length, itemsPerView]);
+
+  // Pause auto-play on hover
+  const handleMouseEnter = () => {
+    if (autoPlayIntervalRef.current) {
+      clearInterval(autoPlayIntervalRef.current);
+      autoPlayIntervalRef.current = null;
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isAutoPlaying && categories.length > itemsPerView) {
+      autoPlayIntervalRef.current = setInterval(() => {
+        setCurrentCategoryIndex(prev => {
+          const maxIndex = categories.length - itemsPerView;
+          if (prev >= maxIndex) {
+            return 0;
+          }
+          return prev + itemsPerView;
+        });
+      }, 5000);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -105,11 +150,100 @@ const Home = () => {
   };
 
   const handlePrevCategory = () => {
+    // Pause auto-play temporarily
+    if (autoPlayIntervalRef.current) {
+      clearInterval(autoPlayIntervalRef.current);
+      autoPlayIntervalRef.current = null;
+    }
     setCurrentCategoryIndex(prev => Math.max(0, prev - itemsPerView));
+    // Resume auto-play after 10 seconds of inactivity
+    if (isAutoPlaying) {
+      setTimeout(() => {
+        if (isAutoPlaying && !autoPlayIntervalRef.current) {
+          autoPlayIntervalRef.current = setInterval(() => {
+            setCurrentCategoryIndex(prev => {
+              const maxIndex = categories.length - itemsPerView;
+              if (prev >= maxIndex) {
+                return 0;
+              }
+              return prev + itemsPerView;
+            });
+          }, 5000);
+        }
+      }, 10000);
+    }
   };
 
   const handleNextCategory = () => {
+    // Pause auto-play temporarily
+    if (autoPlayIntervalRef.current) {
+      clearInterval(autoPlayIntervalRef.current);
+      autoPlayIntervalRef.current = null;
+    }
     setCurrentCategoryIndex(prev => Math.min(categories.length - itemsPerView, prev + itemsPerView));
+    // Resume auto-play after 10 seconds of inactivity
+    if (isAutoPlaying) {
+      setTimeout(() => {
+        if (isAutoPlaying && !autoPlayIntervalRef.current) {
+          autoPlayIntervalRef.current = setInterval(() => {
+            setCurrentCategoryIndex(prev => {
+              const maxIndex = categories.length - itemsPerView;
+              if (prev >= maxIndex) {
+                return 0;
+              }
+              return prev + itemsPerView;
+            });
+          }, 5000);
+        }
+      }, 10000);
+    }
+  };
+
+  const toggleAutoPlay = () => {
+    setIsAutoPlaying(!isAutoPlaying);
+    if (!isAutoPlaying) {
+      // Start auto-play
+      autoPlayIntervalRef.current = setInterval(() => {
+        setCurrentCategoryIndex(prev => {
+          const maxIndex = categories.length - itemsPerView;
+          if (prev >= maxIndex) {
+            return 0;
+          }
+          return prev + itemsPerView;
+        });
+      }, 5000);
+    } else {
+      // Stop auto-play
+      if (autoPlayIntervalRef.current) {
+        clearInterval(autoPlayIntervalRef.current);
+        autoPlayIntervalRef.current = null;
+      }
+    }
+  };
+
+  const goToSlide = (index: number) => {
+    // Pause auto-play temporarily
+    if (autoPlayIntervalRef.current) {
+      clearInterval(autoPlayIntervalRef.current);
+      autoPlayIntervalRef.current = null;
+    }
+    setCurrentCategoryIndex(index);
+    // Resume auto-play after 10 seconds of inactivity
+    if (isAutoPlaying) {
+      setTimeout(() => {
+        if (isAutoPlaying && !autoPlayIntervalRef.current) {
+          autoPlayIntervalRef.current = setInterval(() => {
+            setCurrentCategoryIndex(prev => {
+              const maxIndex = categories.length - itemsPerView;
+              if (prev >= maxIndex) {
+                return 0;
+              }
+              return prev + itemsPerView;
+            });
+          }, 5000);
+        }
+      }, 10000);
+    }
   };
 
   const benefits = [
@@ -130,6 +264,8 @@ const Home = () => {
   const visibleCategories = categories.slice(currentCategoryIndex, currentCategoryIndex + itemsPerView);
   const canScrollPrev = currentCategoryIndex > 0;
   const canScrollNext = currentCategoryIndex + itemsPerView < categories.length;
+  const totalSlides = Math.ceil(categories.length / itemsPerView);
+  const currentSlide = Math.floor(currentCategoryIndex / itemsPerView);
 
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
@@ -211,7 +347,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories - Carousel Section */}
+      {/* Categories - Auto-Playing Carousel Section */}
       <section className="py-24">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
@@ -224,9 +360,24 @@ const Home = () => {
                 Browse All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
               </Link>
               
+              {/* Auto-Play Toggle Button */}
+              {categories.length > itemsPerView && (
+                <button
+                  onClick={toggleAutoPlay}
+                  className={`p-2 rounded-full border transition-all ${
+                    isAutoPlaying 
+                      ? 'border-rose-200 text-rose-600 hover:bg-rose-50' 
+                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                  }`}
+                  title={isAutoPlaying ? 'Pause slideshow' : 'Play slideshow'}
+                >
+                  {isAutoPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </button>
+              )}
+              
               {/* Carousel Navigation Buttons */}
               {categories.length > itemsPerView && (
-                <div className="flex gap-2 ml-4">
+                <div className="flex gap-2">
                   <button
                     onClick={handlePrevCategory}
                     disabled={!canScrollPrev}
@@ -255,7 +406,11 @@ const Home = () => {
           </div>
           
           {/* Carousel Container */}
-          <div className="relative overflow-hidden">
+          <div 
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className="relative overflow-hidden"
+          >
             <div 
               ref={carouselRef}
               className="transition-transform duration-500 ease-out"
@@ -289,16 +444,16 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Carousel Indicators */}
+          {/* Carousel Indicators with Play/Pause indication */}
           {categories.length > itemsPerView && (
-            <div className="flex justify-center mt-8 gap-2">
-              {Array.from({ length: Math.ceil(categories.length / itemsPerView) }).map((_, idx) => {
+            <div className="flex justify-center items-center gap-3 mt-8">
+              {Array.from({ length: totalSlides }).map((_, idx) => {
                 const startIndex = idx * itemsPerView;
                 const isActive = currentCategoryIndex >= startIndex && currentCategoryIndex < startIndex + itemsPerView;
                 return (
                   <button
                     key={idx}
-                    onClick={() => setCurrentCategoryIndex(startIndex)}
+                    onClick={() => goToSlide(startIndex)}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
                       isActive 
                         ? 'w-8 bg-rose-600' 
@@ -307,6 +462,9 @@ const Home = () => {
                   />
                 );
               })}
+              {isAutoPlaying && totalSlides > 1 && (
+                <span className="text-xs text-rose-500 animate-pulse ml-2">● Auto-playing</span>
+              )}
             </div>
           )}
         </div>
