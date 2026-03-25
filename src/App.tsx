@@ -62,11 +62,18 @@ function App() {
                   <AccountOrders />
                 </ProtectedRoute>
               } />
+              {/* ✅ ADD THIS DYNAMIC ROUTE FOR INDIVIDUAL ORDER DETAILS */}
+              <Route path="/account/orders/:id" element={
+                <ProtectedRoute>
+                  <AccountOrderDetails />
+                </ProtectedRoute>
+              } />
               <Route path="/account/profile" element={
                 <ProtectedRoute>
                   <AccountProfile />
                 </ProtectedRoute>
               } />
+              {/* Keep the old route for backward compatibility if needed */}
               <Route path="/account/orderdetails" element={
                 <ProtectedRoute>
                   <AccountOrderDetails />
