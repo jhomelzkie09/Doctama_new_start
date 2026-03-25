@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, RegisterData } from '../types';
 import authService from '../services/auth.service';
-import { isAdmin as checkIsAdmin, isCustomer, isManager, hasRole, hasAnyRole } from '../utils/roleUtils';
+import { isAdmin as checkIsAdmin, isCustomer, isManager } from '../utils/roleUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -37,9 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isManagerValue = isManager(user);
 
   useEffect(() => {
-    // Get user from storage on mount
+    // Get user from sessionStorage on mount
     const currentUser = authService.getCurrentUser();
-    console.log('🏁 Initial user from storage:', currentUser);
+    console.log('🏁 Initial user from sessionStorage:', currentUser);
     setUser(currentUser);
     setLoading(false);
   }, []);
@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await authService.login({ email, password });
       
-      // Get the updated user from storage
+      // Get the updated user from sessionStorage
       const currentUser = authService.getCurrentUser();
       console.log('🔑 User after login:', currentUser);
       setUser(currentUser);
@@ -67,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     authService.logout();
     setUser(null);
+    console.log('👋 User logged out, sessionStorage cleared');
   };
 
   const register = async (data: RegisterData) => {

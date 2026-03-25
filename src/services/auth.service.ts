@@ -11,56 +11,56 @@ interface StoredUser {
 }
 
 const authService = {
-  // Login method
+  // Login method - NOW USING SESSIONSTORAGE
   login: async (credentials: LoginCredentials): Promise<{
-  token: string;
-  roles: string[];
-  userId: string;
-  email: string;
-  fullName?: string;
-}> => {
-  try {
-    console.log('🌐 Calling API:', `${API_URL}/auth/login`);
-    const response = await axios.post(`${API_URL}/auth/login`, credentials, {
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const data = response.data;
-    
-    console.log('📦 Raw API response:', data); // 👈 Check this
-    
-    if (!data.token) {
-      throw new Error('Login failed: No token received');
+    token: string;
+    roles: string[];
+    userId: string;
+    email: string;
+    fullName?: string;
+  }> => {
+    try {
+      console.log('🌐 Calling API:', `${API_URL}/auth/login`);
+      const response = await axios.post(`${API_URL}/auth/login`, credentials, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = response.data;
+      
+      console.log('📦 Raw API response:', data);
+      
+      if (!data.token) {
+        throw new Error('Login failed: No token received');
+      }
+      
+      // Store user data with fullName if available
+      const userData = {
+        id: data.userId,
+        email: data.email,
+        fullName: data.fullName || data.email?.split('@')[0] || 'User',
+        roles: data.roles || []
+      };
+      
+      console.log('💾 Storing user data in sessionStorage:', userData);
+      
+      // 🔥 CHANGE: Use sessionStorage instead of localStorage
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(userData));
+      
+      return {
+        ...data,
+        fullName: userData.fullName
+      };
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
-    
-    // Store user data with fullName if available
-    const userData = {
-      id: data.userId,
-      email: data.email,
-      fullName: data.fullName || data.email?.split('@')[0] || 'User',
-      roles: data.roles || []
-    };
-    
-    console.log('💾 Storing user data:', userData); // 👈 Check this
-    
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    
-    return {
-      ...data,
-      fullName: userData.fullName
-    };
-  } catch (error: any) {
-    console.error('Login error:', error);
-    throw new Error(error.response?.data?.message || 'Login failed');
-  }
-},
+  },
 
-  // Register method - FIXED to use axios consistently
+  // Register method - NOW USING SESSIONSTORAGE
   register: async (userData: RegisterData): Promise<any> => {
     try {
       console.log('📤 Registering user with data:', userData);
       
-      // Use axios with full URL like login does
       const response = await axios.post(`${API_URL}/auth/register`, {
         email: userData.email,
         password: userData.password,
@@ -75,8 +75,9 @@ const authService = {
       const data = response.data;
       
       if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify({
+        // 🔥 CHANGE: Use sessionStorage instead of localStorage
+        sessionStorage.setItem('token', data.token);
+        sessionStorage.setItem('user', JSON.stringify({
           id: data.userId,
           email: data.email,
           fullName: data.fullName || userData.fullName,
@@ -90,7 +91,6 @@ const authService = {
       
       // Extract and format error message
       if (error.response?.data?.errors) {
-        // Handle validation errors
         const errorMessages = Object.values(error.response.data.errors).flat();
         throw new Error(errorMessages.join(', '));
       } else if (error.response?.data?.message) {
@@ -103,52 +103,56 @@ const authService = {
     }
   },
 
+  // Get current user - NOW READING FROM SESSIONSTORAGE
   getCurrentUser: (): User | null => {
-  try {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return null;
-    
-    console.log('📖 Raw user from storage:', userStr); // 👈 Check this
-    
-    const storedUser: StoredUser = JSON.parse(userStr);
-    
-    console.log('📖 Parsed stored user:', storedUser); // 👈 Check this
-    
-    // Return a complete User object with default values for missing fields
-    const fullUser: User = {
-      id: storedUser.id,
-      email: storedUser.email,
-      fullName: storedUser.fullName || storedUser.email?.split('@')[0] || 'User',
-      firstName: storedUser.fullName?.split(' ')[0] || '',
-      lastName: storedUser.fullName?.split(' ').slice(1).join(' ') || '',
-      roles: storedUser.roles || [],
-      isActive: true,
-      emailConfirmed: true,
-      createdAt: new Date().toISOString(),
-      phoneNumber: '',
-      address: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: '',
-      profileImage: '',
-      updatedAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString()
-    };
-    
-    console.log('👤 Final user object:', fullUser); // 👈 Check this
-    console.log('👑 User roles:', fullUser.roles); // 👈 Check this
-    
-    return fullUser;
-  } catch (error) {
-    console.error('Error parsing user:', error);
-    return null;
-  }
-},
-  // Get minimal user data
+    try {
+      // 🔥 CHANGE: Read from sessionStorage instead of localStorage
+      const userStr = sessionStorage.getItem('user');
+      if (!userStr) return null;
+      
+      console.log('📖 Raw user from sessionStorage:', userStr);
+      
+      const storedUser: StoredUser = JSON.parse(userStr);
+      
+      console.log('📖 Parsed stored user:', storedUser);
+      
+      // Return a complete User object with default values for missing fields
+      const fullUser: User = {
+        id: storedUser.id,
+        email: storedUser.email,
+        fullName: storedUser.fullName || storedUser.email?.split('@')[0] || 'User',
+        firstName: storedUser.fullName?.split(' ')[0] || '',
+        lastName: storedUser.fullName?.split(' ').slice(1).join(' ') || '',
+        roles: storedUser.roles || [],
+        isActive: true,
+        emailConfirmed: true,
+        createdAt: new Date().toISOString(),
+        phoneNumber: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: '',
+        profileImage: '',
+        updatedAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString()
+      };
+      
+      console.log('👤 Final user object:', fullUser);
+      console.log('👑 User roles:', fullUser.roles);
+      
+      return fullUser;
+    } catch (error) {
+      console.error('Error parsing user:', error);
+      return null;
+    }
+  },
+  
+  // Get minimal user data - NOW READING FROM SESSIONSTORAGE
   getStoredUser: (): StoredUser | null => {
     try {
-      const userStr = localStorage.getItem('user');
+      // 🔥 CHANGE: Read from sessionStorage instead of localStorage
+      const userStr = sessionStorage.getItem('user');
       if (!userStr) return null;
       
       return JSON.parse(userStr);
@@ -158,23 +162,26 @@ const authService = {
     }
   },
 
-  // Logout method
+  // Logout method - NOW CLEARING SESSIONSTORAGE
   logout: (): void => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    // 🔥 CHANGE: Remove from sessionStorage instead of localStorage
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
   },
 
-  // Check if user is authenticated
+  // Check if user is authenticated - NOW CHECKING SESSIONSTORAGE
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token');
+    // 🔥 CHANGE: Check sessionStorage instead of localStorage
+    return !!sessionStorage.getItem('token');
   },
 
-  // Get auth token
+  // Get auth token - NOW READING FROM SESSIONSTORAGE
   getToken: (): string | null => {
-    return localStorage.getItem('token');
+    // 🔥 CHANGE: Read from sessionStorage instead of localStorage
+    return sessionStorage.getItem('token');
   },
 
-  // Check if user has admin role
+  // Check if user has admin role - NOW READING FROM SESSIONSTORAGE
   isAdmin: (): boolean => {
     const user = authService.getStoredUser();
     return user?.roles?.some(role => 
@@ -182,13 +189,14 @@ const authService = {
     ) || false;
   },
 
-  // Update user in storage
+  // Update user in storage - NOW WRITING TO SESSIONSTORAGE
   updateStoredUser: (updates: Partial<StoredUser>): void => {
     try {
       const currentUser = authService.getStoredUser();
       if (currentUser) {
         const updatedUser = { ...currentUser, ...updates };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        // 🔥 CHANGE: Store in sessionStorage instead of localStorage
+        sessionStorage.setItem('user', JSON.stringify(updatedUser));
       }
     } catch (error) {
       console.error('Error updating stored user:', error);
