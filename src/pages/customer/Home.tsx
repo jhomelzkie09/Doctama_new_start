@@ -18,6 +18,7 @@ const Home = () => {
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
   
@@ -56,7 +57,7 @@ const Home = () => {
           }
           return prev + 1;
         });
-      }, 3000); // Scroll every 3 seconds
+      }, 3000);
     }
 
     return () => {
@@ -74,10 +75,21 @@ const Home = () => {
         categoryService.getCategories()
       ]);
       
+      setProducts(productsData);
       setFeaturedProducts(productsData.slice(0, 4));
       setNewArrivals(productsData.slice(2, 6));
       setBestSellers(productsData.slice(1, 5));
-      setCategories(categoriesData);
+      
+      // Calculate product count for each category based on actual products
+      const categoriesWithCounts = categoriesData.map(category => {
+        const productCount = productsData.filter(product => product.categoryId === category.id).length;
+        return {
+          ...category,
+          productCount
+        };
+      });
+      
+      setCategories(categoriesWithCounts);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -181,7 +193,6 @@ const Home = () => {
   const canScrollPrev = currentCategoryIndex > 0;
   const canScrollNext = currentCategoryIndex + itemsPerView < categories.length;
   const totalSlides = Math.ceil(categories.length / itemsPerView);
-  const currentSlide = Math.floor(currentCategoryIndex / itemsPerView);
 
   const benefits = [
     { icon: Truck, title: 'Free Shipping', desc: 'Over ₱5,000' },
@@ -346,7 +357,7 @@ const Home = () => {
                           {category.name}
                         </h3>
                         <span className="text-xs text-slate-400 mt-1">
-                          {category.productCount || 0} items
+                          {category.productCount || 0} {category.productCount === 1 ? 'item' : 'items'}
                         </span>
                       </div>
                     </Link>
