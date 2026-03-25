@@ -19,9 +19,22 @@ import {
   Percent,
   Gift,
   Package,
-  Loader
+  Loader,
+  Palette
 } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
+
+// Extended CartItem interface to include selected color
+interface CartItemWithColor {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  quantity: number;
+  imageUrl: string;
+  selectedColor?: string;
+  [key: string]: any;
+}
 
 const Cart = () => {
   const { state, updateQuantity, removeItem } = useCart();
@@ -52,7 +65,6 @@ const Cart = () => {
       if (discount !== undefined) {
         setPromoApplied(true);
         setPromoError('');
-        // Apply discount logic here
       } else {
         setPromoError('Invalid promo code');
         setPromoApplied(false);
@@ -89,6 +101,28 @@ const Cart = () => {
       style: 'currency',
       currency: 'PHP'
     }).format(amount);
+  };
+
+  // Helper function to get color display name
+  const getColorDisplayName = (color: string) => {
+    const colorNames: Record<string, string> = {
+      'red': 'Red',
+      'blue': 'Blue',
+      'green': 'Green',
+      'yellow': 'Yellow',
+      'black': 'Black',
+      'white': 'White',
+      'gray': 'Gray',
+      'brown': 'Brown',
+      'beige': 'Beige',
+      'navy': 'Navy Blue',
+      'teal': 'Teal',
+      'maroon': 'Maroon',
+      'purple': 'Purple',
+      'pink': 'Pink',
+      'orange': 'Orange'
+    };
+    return colorNames[color.toLowerCase()] || color;
   };
 
   if (state.items.length === 0) {
@@ -157,6 +191,23 @@ const Cart = () => {
                             <Link to={`/products/${item.id}`}>{item.name}</Link>
                           </h3>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-1">{item.description}</p>
+                          
+                          {/* Display selected color if available */}
+                          {(item as CartItemWithColor).selectedColor && (
+                            <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                              <Palette className="w-3 h-3" />
+                              <span>Color: </span>
+                              <div className="flex items-center gap-1">
+                                <div 
+                                  className="w-3 h-3 rounded-full border border-gray-300"
+                                  style={{ backgroundColor: (item as CartItemWithColor).selectedColor?.toLowerCase() }}
+                                />
+                                <span className="font-medium text-gray-700">
+                                  {getColorDisplayName((item as CartItemWithColor).selectedColor!)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <p className="font-bold text-red-600 text-lg">
                           {formatCurrency(item.price * item.quantity)}
