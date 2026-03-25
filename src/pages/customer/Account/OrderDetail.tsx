@@ -136,6 +136,19 @@ const OrderDetail = () => {
     }
   };
 
+  const getPaymentStatusDisplay = (paymentStatus: string, rejectedBy?: string) => {
+    if (rejectedBy && paymentStatus === 'failed') {
+      return { text: 'FAILED', color: 'bg-red-100 text-red-800' };
+    }
+    switch(paymentStatus) {
+      case 'paid': return { text: 'PAID', color: 'bg-green-100 text-green-800' };
+      case 'pending': return { text: 'PENDING', color: 'bg-yellow-100 text-yellow-800' };
+      case 'failed': return { text: 'FAILED', color: 'bg-red-100 text-red-800' };
+      case 'refunded': return { text: 'REFUNDED', color: 'bg-purple-100 text-purple-800' };
+      default: return { text: paymentStatus.toUpperCase(), color: 'bg-gray-100 text-gray-800' };
+    }
+  };
+
   const getPaymentMethodIcon = (method: string) => {
     switch(method) {
       case 'cod': return <DollarSign className="w-5 h-5 text-green-600" />;
@@ -258,6 +271,7 @@ const OrderDetail = () => {
   };
 
   const notification = getNotification();
+  const paymentStatusDisplay = getPaymentStatusDisplay(order?.paymentStatus || '', order?.rejectedBy);
 
   if (loading) {
     return (
@@ -447,13 +461,8 @@ const OrderDetail = () => {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <p className="text-sm text-gray-500">Payment Status</p>
-                  <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
-                    order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                    order.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    order.paymentStatus === 'failed' ? 'bg-red-100 text-red-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
-                    {order.paymentStatus?.toUpperCase()}
+                  <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-1 ${paymentStatusDisplay.color}`}>
+                    {paymentStatusDisplay.text}
                   </span>
                 </div>
               </div>
@@ -533,11 +542,20 @@ const OrderDetail = () => {
                     Download Invoice
                   </button>
                 )}
-                {order.status === 'pending' && order.paymentMethod !== 'cod' && (
+                {order.paymentStatus === 'pending' && order.paymentMethod !== 'cod' && (
                   <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-yellow-600 text-white rounded-xl hover:bg-yellow-700 transition">
                     <Clock className="w-4 h-4" />
                     Payment Pending
                   </button>
+                )}
+                {order.paymentStatus === 'failed' && (
+                  <Link
+                    to="/contact"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Resubmit Payment
+                  </Link>
                 )}
                 <Link
                   to="/contact"

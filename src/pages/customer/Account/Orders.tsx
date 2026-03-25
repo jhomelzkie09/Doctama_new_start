@@ -181,7 +181,7 @@ const Orders = () => {
       return 'Payment Approved';
     }
     if (rejectedBy && paymentStatus === 'failed') {
-      return 'Payment Rejected';
+      return 'Payment Failed';
     }
     
     switch(status) {
@@ -324,21 +324,15 @@ const Orders = () => {
                     </div>
                   </div>
                   
-                  {/* Additional Status Info */}
-                  {order.approvedBy && order.paymentStatus === 'paid' && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded-lg">
-                      <Info className="w-3 h-3" />
-                      <span>Payment approved by {order.approvedBy}</span>
+                  {/* Rejection reason for failed payments */}
+                  {order.rejectedBy && order.paymentStatus === 'failed' && order.rejectionReason && (
+                    <div className="mt-3 flex items-start gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
+                      <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <span className="flex-1">{order.rejectionReason}</span>
                     </div>
                   )}
                   
-                  {order.rejectedBy && order.paymentStatus === 'failed' && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>Payment rejected: {order.rejectionReason?.substring(0, 100)}...</span>
-                    </div>
-                  )}
-                  
+                  {/* Tracking info for shipped orders */}
                   {order.trackingNumber && order.status === 'shipped' && (
                     <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
                       <Truck className="w-3 h-3" />
