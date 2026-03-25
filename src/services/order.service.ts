@@ -2,15 +2,15 @@ import api from '../api/config';
 import { Order } from '../types';
 
 class OrderService {
+  private readonly baseUrl = '/orders';
+
   // Fix the getUserOrders method to actually work
   async getUserOrders(userId: string): Promise<Order[]> {
     try {
       console.log(`📤 Fetching orders for user ${userId}...`);
-      // You can either use getAllOrders and filter, or create a specific endpoint
       const response = await api.get(`${this.baseUrl}/user/${userId}`);
       console.log('✅ User orders fetched:', response.data);
       
-      // Handle different response formats
       if (Array.isArray(response.data)) {
         return response.data;
       } else if (response.data.orders && Array.isArray(response.data.orders)) {
@@ -21,7 +21,7 @@ class OrderService {
       return [];
     } catch (error: any) {
       console.error('❌ Error fetching user orders:', error.response?.data || error.message);
-      return []; // Return empty array on error
+      return [];
     }
   }
 
@@ -36,8 +36,6 @@ class OrderService {
       throw error;
     }
   }
-  
-  private readonly baseUrl = '/orders';
 
   async createOrder(orderData: any): Promise<Order> {
     try {
@@ -62,7 +60,6 @@ class OrderService {
       const response = await api.get(`${this.baseUrl}/my-orders?page=${page}&limit=${limit}`);
       console.log('✅ Orders fetched:', response.data);
       
-      // Handle different response formats
       if (response.data.orders && Array.isArray(response.data.orders)) {
         return response.data;
       } else if (Array.isArray(response.data)) {
@@ -91,14 +88,29 @@ class OrderService {
     }
   }
 
+  // IMPROVED: Get order by ID with fallback to admin endpoint
   async getOrderById(id: number): Promise<Order | null> {
     try {
       console.log(`📤 Fetching order ${id}...`);
-      const response = await api.get(`${this.baseUrl}/my-orders/${id}`);
-      console.log('✅ Order fetched:', response.data);
-      return response.data;
+      
+      // First try the user endpoint
+      let response;
+      try {
+        response = await api.get(`${this.baseUrl}/my-orders/${id}`);
+        console.log('✅ Order fetched from user endpoint:', response.data);
+        return response.data;
+      } catch (userError: any) {
+        // If 404, try admin endpoint
+        if (userError.response?.status === 404) {
+          console.log('📤 Order not found in user orders, trying admin endpoint...');
+          response = await api.get(`${this.baseUrl}/admin/${id}`);
+          console.log('✅ Order fetched from admin endpoint:', response.data);
+          return response.data;
+        }
+        throw userError;
+      }
     } catch (error: any) {
-      console.error('❌ Error fetching order:', error.response?.data || error.message);
+      console.error(`❌ Error fetching order ${id}:`, error.response?.data || error.message);
       return null;
     }
   }
@@ -109,7 +121,6 @@ class OrderService {
       const response = await api.get(`${this.baseUrl}/admin/all`);
       console.log('✅ Orders fetched:', response.data);
       
-      // Handle different response formats
       if (Array.isArray(response.data)) {
         return response.data;
       } else if (response.data.orders && Array.isArray(response.data.orders)) {
@@ -125,22 +136,16 @@ class OrderService {
   }
 
   async updateOrderStatus(id: number, status: string): Promise<Order> {
-  try {
-    console.log(`📤 Updating order ${id} status to ${status}...`);
-    // Make sure we're sending an object with the exact property name the server expects
-    const response = await api.put(`${this.baseUrl}/admin/${id}/status`, { 
-      status: status  // This matches the DTO property name
-    });
-    console.log('✅ Order updated:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Error updating order:', error.response?.data || error.message);
-    if (error.response?.data) {
-      console.error('Validation errors:', error.response.data.errors);
+    try {
+      console.log(`📤 Updating order ${id} status to ${status}...`);
+      const response = await api.put(`${this.baseUrl}/admin/${id}/status`, { status });
+      console.log('✅ Order updated:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error updating order:', error.response?.data || error.message);
+      throw error;
     }
-    throw error;
   }
-}
 }
 
 const orderService = new OrderService();
