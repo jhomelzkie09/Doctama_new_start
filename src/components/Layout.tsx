@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import AuthSidebar from './AuthSidebar';
 import ConfirmationModal from './ConfirmationModal';
-import logo from '../../public/logo.png';
+import logo from '../assets/logo.png';
 
 const Layout = () => {
   const { user, logout } = useAuth();
