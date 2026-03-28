@@ -19,7 +19,8 @@ import {
   Truck,
   CreditCard,
   Home,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 
 interface MenuItem {
@@ -77,7 +78,17 @@ const AdminLayout = () => {
         { title: 'All Admins', path: '/admin/admins' },
         { title: 'Add Admin', path: '/admin/admins/new' }
       ]
-    }
+    },
+    {
+    title: 'Reports',
+    path: '/admin/reports',
+    icon: <FileText className="w-5 h-5" />,
+    submenu: [
+      { title: 'Sales Report', path: '/admin/reports/sales' },
+      { title: 'Orders Report', path: '/admin/reports/orders' },
+      { title: 'Products Report', path: '/admin/reports/products' }
+    ]
+  }
   ];
 
   const toggleSubmenu = (title: string) => {

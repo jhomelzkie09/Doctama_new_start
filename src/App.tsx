@@ -30,6 +30,9 @@ import Orders from './pages/admin/AdminOrders';
 import CustomerManagement from './pages/admin/CustomerManagement'; 
 import CustomerDetail from './pages/admin/CustomerDetail';
 import AdminManagement from './pages/admin/AdminManagement';
+import SalesReport from './pages/admin/SalesReport';
+import OrdersReport from './pages/admin/OrdersReport';
+import ProductsReport from './pages/admin/ProductsReport';
 
 function App() {
   return (
@@ -100,6 +103,9 @@ function App() {
                 <Route path="customers/new" element={<CustomerManagement />} />
                 <Route path="customers/:id" element={<CustomerDetail />} />
                 <Route path="customers/edit/:id" element={<CustomerManagement />} />
+                <Route path="/admin/reports/sales" element={<SalesReport />} />
+                <Route path="/admin/reports/orders" element={<OrdersReport />} />
+                <Route path="/admin/reports/products" element={<ProductsReport />} />
               </Route>
             </Route>
             
