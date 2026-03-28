@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import PhilippineAddressAutocomplete from '../../components/PhilippineAddressAutocomplete';
 import { 
   CreditCard, 
   Truck, 
@@ -35,9 +36,7 @@ import {
   Edit,
   QrCode,
   Copy,
-  CheckCheck,
-  Building2,
-  Landmark
+  CheckCheck
 } from 'lucide-react';
 import orderService from '../../services/order.service';
 import uploadService from '../../services/upload.service';
@@ -49,7 +48,7 @@ const SHOP_PAYMENT_DETAILS = {
     name: 'GCash',
     accountName: 'Doctama Marketing',
     accountNumber: '09123456789',
-    qrCode: 'https://via.placeholder.com/200?text=GCash+QR+Code', // Replace with actual QR code URL
+    qrCode: 'https://via.placeholder.com/200?text=GCash+QR+Code',
     instructions: [
       'Open your GCash app',
       'Tap "Pay QR"',
@@ -63,7 +62,7 @@ const SHOP_PAYMENT_DETAILS = {
     name: 'PayMaya',
     accountName: 'Doctama Marketing',
     accountNumber: '09123456789',
-    qrCode: 'https://via.placeholder.com/200?text=PayMaya+QR+Code', // Replace with actual QR code URL
+    qrCode: 'https://via.placeholder.com/200?text=PayMaya+QR+Code',
     instructions: [
       'Open your PayMaya app',
       'Tap "Send Money"',
@@ -254,13 +253,11 @@ const Checkout = () => {
     if (!shippingInfo.phone.trim()) newErrors.phone = 'Phone number is required';
     if (!shippingInfo.email.trim()) newErrors.email = 'Email is required';
     
-    // Phone number validation (Philippines format)
     const phoneRegex = /^(09|\+639)\d{9}$/;
     if (shippingInfo.phone && !phoneRegex.test(shippingInfo.phone.replace(/\s/g, ''))) {
       newErrors.phone = 'Please enter a valid Philippine mobile number';
     }
     
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (shippingInfo.email && !emailRegex.test(shippingInfo.email)) {
       newErrors.email = 'Please enter a valid email address';
@@ -293,6 +290,17 @@ const Checkout = () => {
       setStep(2);
       window.scrollTo(0, 0);
     }
+  };
+
+  const handleAddressSelect = (address: string, components?: any) => {
+    setShippingInfo(prev => ({
+      ...prev,
+      address: address,
+      barangay: components?.barangay || prev.barangay,
+      city: components?.city || prev.city,
+      province: components?.province || prev.province,
+      zipCode: components?.zipCode || prev.zipCode
+    }));
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -489,7 +497,6 @@ const Checkout = () => {
                     Shipping Information
                   </h2>
                   <form onSubmit={handleShippingSubmit}>
-                    {/* Shipping form fields - same as before */}
                     <div className="space-y-4">
                       {/* Full Name */}
                       <div>
@@ -551,26 +558,23 @@ const Checkout = () => {
                         {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
                       </div>
 
-                      {/* Address, Barangay, City, Province, ZIP Code fields continue... */}
+                      {/* Address with Autocomplete */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Street Address <span className="text-red-600">*</span>
                         </label>
-                        <div className="relative">
-                          <Home className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                          <input
-                            type="text"
-                            value={shippingInfo.address}
-                            onChange={(e) => setShippingInfo({...shippingInfo, address: e.target.value})}
-                            className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                              errors.address ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            placeholder="123 Rizal St"
-                          />
-                        </div>
-                        {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
+                        <PhilippineAddressAutocomplete
+                          value={shippingInfo.address}
+                          onChange={handleAddressSelect}
+                          placeholder="Start typing your address (e.g., Makati, Quezon City)"
+                          error={errors.address}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Start typing to see address suggestions
+                        </p>
                       </div>
 
+                      {/* Barangay */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Barangay <span className="text-red-600">*</span>
@@ -587,6 +591,7 @@ const Checkout = () => {
                         {errors.barangay && <p className="mt-1 text-sm text-red-600">{errors.barangay}</p>}
                       </div>
 
+                      {/* City and Province */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -620,6 +625,7 @@ const Checkout = () => {
                         </div>
                       </div>
 
+                      {/* ZIP Code */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           ZIP Code <span className="text-red-600">*</span>
@@ -636,6 +642,7 @@ const Checkout = () => {
                         {errors.zipCode && <p className="mt-1 text-sm text-red-600">{errors.zipCode}</p>}
                       </div>
 
+                      {/* Delivery Instructions */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Delivery Instructions (Optional)
@@ -698,7 +705,7 @@ const Checkout = () => {
                       </div>
                     </label>
 
-                    {/* GCash with View Details Button */}
+                    {/* GCash */}
                     <div className={`border-2 rounded-xl transition-all ${
                       paymentMethod === 'gcash' 
                         ? 'border-blue-500 bg-blue-50' 
@@ -741,7 +748,7 @@ const Checkout = () => {
                       )}
                     </div>
 
-                    {/* PayMaya with View Details Button */}
+                    {/* PayMaya */}
                     <div className={`border-2 rounded-xl transition-all ${
                       paymentMethod === 'paymaya' 
                         ? 'border-purple-500 bg-purple-50' 
@@ -784,7 +791,7 @@ const Checkout = () => {
                       )}
                     </div>
 
-                    {/* Receipt Upload Section - Only for GCash/PayMaya */}
+                    {/* Receipt Upload Section */}
                     {paymentMethod !== 'cod' && (
                       <div className="mt-6 pt-6 border-t">
                         <h3 className="font-semibold text-gray-900 mb-4">Upload Payment Proof</h3>
