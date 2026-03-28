@@ -159,13 +159,13 @@ const Layout = () => {
             
             {/* Elegant Logo Design - Mobile Optimized */}
             <Link to="/" className="group flex items-center gap-2 md:gap-3">
-              <div className="w-15 h-15 md:w-10 md:h-10 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
-                <img 
-                  src= {logo} 
-                  alt="Doctama Logo" 
-                  className="w-full h-full object-contain"
-                />
-              </div>
+              <div className="w-20 h-20 md:w-16 md:h-16 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
+  <img 
+    src={logo} 
+    alt="Doctama Logo" 
+    className="w-full h-full object-contain"
+  />
+</div>
               <div className="flex flex-col leading-none">
                 <span className="font-black text-sm md:text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
                 <span className="text-[8px] md:text-[10px] font-bold text-rose-600 tracking-[0.1em] md:tracking-[0.2em] uppercase">Marketing</span>
