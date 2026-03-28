@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import AuthSidebar from './AuthSidebar';
 import ConfirmationModal from './ConfirmationModal';
+import logo from '../../public/logo.png';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -158,8 +159,12 @@ const Layout = () => {
             
             {/* Elegant Logo Design - Mobile Optimized */}
             <Link to="/" className="group flex items-center gap-2 md:gap-3">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-rose-600 rounded-lg flex items-center justify-center rotate-3 group-hover:rotate-0 transition-transform duration-300 shadow-lg shadow-rose-200">
-                <span className="text-white font-black text-lg md:text-xl italic">D</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
+                <img 
+                  src= {logo} 
+                  alt="Doctama Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="flex flex-col leading-none">
                 <span className="font-black text-sm md:text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
