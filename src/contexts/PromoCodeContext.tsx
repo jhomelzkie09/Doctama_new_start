@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { PromoCode } from '../types';
+import { PromoCode } from '../types/index';
 import promoCodeService from '../services/promoCode.service';
 import { useAuth } from './AuthContext';
 
@@ -17,15 +17,15 @@ type PromoCodeAction =
   | { type: 'SET_ACTIVE_PROMO_CODES'; payload: PromoCode[] }
   | { type: 'ADD_PROMO_CODE'; payload: PromoCode }
   | { type: 'UPDATE_PROMO_CODE'; payload: PromoCode }
-  | { type: 'DELETE_PROMO_CODE'; payload: string };
+  | { type: 'DELETE_PROMO_CODE'; payload: number };
 
 interface PromoCodeContextType {
   state: PromoCodeState;
   getAllPromoCodes: () => Promise<void>;
   getActivePromoCodes: () => Promise<void>;
   createPromoCode: (data: any) => Promise<PromoCode>;
-  updatePromoCode: (id: string, data: Partial<PromoCode>) => Promise<void>;
-  deletePromoCode: (id: string) => Promise<void>;
+  updatePromoCode: (id: number, data: Partial<PromoCode>) => Promise<void>;
+  deletePromoCode: (id: number) => Promise<void>;
   validatePromoCode: (code: string, cartTotal: number) => Promise<any>;
 }
 
@@ -111,7 +111,7 @@ export const PromoCodeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const updatePromoCode = async (id: string, data: Partial<PromoCode>) => {
+  const updatePromoCode = async (id: number, data: Partial<PromoCode>) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const updated = await promoCodeService.updatePromoCode(id, data);
@@ -124,7 +124,7 @@ export const PromoCodeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const deletePromoCode = async (id: string) => {
+  const deletePromoCode = async (id: number) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       await promoCodeService.deletePromoCode(id);

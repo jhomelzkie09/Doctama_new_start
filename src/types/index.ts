@@ -621,7 +621,7 @@ export interface ApiOrder {
 
 // Promo Code Types
 export interface PromoCode {
-  id: string;
+  id: number;
   code: string;
   description: string;
   discountType: 'percentage' | 'fixed';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Tag, Percent, DollarSign, Calendar, Users, Package, X, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, Tag, Percent, Users, X, Check } from 'lucide-react';
 import { usePromoCodes } from '../../contexts/PromoCodeContext';
 import { PromoCode } from '../../types';
 import ConfirmationModal from '../../components/ConfirmationModal';
