@@ -159,7 +159,7 @@ const Layout = () => {
             
             {/* Elegant Logo Design - Mobile Optimized */}
             <Link to="/" className="group flex items-center gap-2 md:gap-3">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
+              <div className="w-10 h-10 md:w-10 md:h-10 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
                 <img 
                   src= {logo} 
                   alt="Doctama Logo" 
