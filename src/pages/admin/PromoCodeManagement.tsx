@@ -67,6 +67,7 @@ const PromoCodeManagement: React.FC = () => {
     e.preventDefault();
     try {
       if (editingPromo) {
+        // editingPromo.id is now number, so no conversion needed
         await updatePromoCode(editingPromo.id, formData);
       } else {
         await createPromoCode(formData);
@@ -81,6 +82,7 @@ const PromoCodeManagement: React.FC = () => {
   const handleDelete = async () => {
     if (deleteTarget) {
       try {
+        // deleteTarget.id is now number, so no conversion needed
         await deletePromoCode(deleteTarget.id);
         setDeleteTarget(null);
         getAllPromoCodes();

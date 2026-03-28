@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { PromoCode } from '../types/index';
+import { PromoCode } from '../types';
 import promoCodeService from '../services/promoCode.service';
 import { useAuth } from './AuthContext';
 
@@ -53,7 +53,9 @@ const promoCodeReducer = (state: PromoCodeState, action: PromoCodeAction): Promo
     case 'UPDATE_PROMO_CODE':
       return {
         ...state,
-        promoCodes: state.promoCodes.map(pc => pc.id === action.payload.id ? action.payload : pc)
+        promoCodes: state.promoCodes.map(pc => 
+          pc.id === action.payload.id ? action.payload : pc
+        )
       };
     case 'DELETE_PROMO_CODE':
       return {
