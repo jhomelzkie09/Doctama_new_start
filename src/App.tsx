@@ -34,6 +34,7 @@ import AdminManagement from './pages/admin/AdminManagement';
 import SalesReport from './pages/admin/SalesReport';
 import OrdersReport from './pages/admin/OrdersReport';
 import ProductsReport from './pages/admin/ProductsReport';
+import PromoCodeManagement from './pages/admin/PromoCodeManagement';
 
 function App() {
   return (
@@ -102,6 +103,7 @@ function App() {
                   <Route path="reports/sales" element={<SalesReport />} />
                   <Route path="reports/orders" element={<OrdersReport />} />
                   <Route path="reports/products" element={<ProductsReport />} />
+                  <Route path="promoCodes" element={<PromoCodeManagement />} />
                 </Route>
               </Route>
               

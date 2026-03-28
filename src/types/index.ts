@@ -618,3 +618,31 @@ export interface ApiOrder {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Promo Code Types
+export interface PromoCode {
+  id: string;
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderAmount?: number;
+  maxDiscountAmount?: number;
+  startDate: string;
+  endDate: string;
+  usageLimit?: number;
+  usageCount: number;
+  perUserLimit?: number;
+  applicableProducts?: number[]; // Empty array means all products
+  applicableCategories?: number[]; // Empty array means all categories
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PromoCodeValidation {
+  isValid: boolean;
+  message?: string;
+  discountAmount?: number;
+  newTotal?: number;
+}
