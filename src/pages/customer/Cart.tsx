@@ -34,29 +34,6 @@ interface OutletContextType {
   onAuthRequired?: (mode: 'login' | 'register') => void;
 }
 
-// Delete Modal State
-const [showDeleteModal, setShowDeleteModal] = useState(false);
-const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-const [deleting, setDeleting] = useState(false);
-
-// Delete Confirmation Handler
-const handleDeleteClick = (uniqueId: string) => {
-  setItemToDelete(uniqueId);
-  setShowDeleteModal(true);
-};
-
-
-const handleConfirmDelete = async () => {
-  if (!itemToDelete) return;
-  setDeleting(true);
-  // Small delay for better UX
-  await new Promise(resolve => setTimeout(resolve, 300));
-  removeItem(itemToDelete);
-  setShowDeleteModal(false);
-  setItemToDelete(null);
-  setDeleting(false);
-};
-
 // Edit Modal Component
 const EditCartItemModal = ({ 
   item, 
@@ -241,6 +218,11 @@ const Cart = () => {
   // Edit Modal State
   const [editingItem, setEditingItem] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  
+  // Delete Modal State - MOVED INSIDE THE COMPONENT
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Mock promo codes
   const validPromos = {
@@ -326,6 +308,23 @@ const Cart = () => {
     for (let i = 0; i < newQuantity; i++) {
       addItem(product, newColor);
     }
+  };
+
+  // Delete handlers - MOVED INSIDE THE COMPONENT
+  const handleDeleteClick = (uniqueId: string) => {
+    setItemToDelete(uniqueId);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeleting(true);
+    // Small delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 300));
+    removeItem(itemToDelete);
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+    setDeleting(false);
   };
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
@@ -782,7 +781,3 @@ const Cart = () => {
 };
 
 export default Cart;
-
-function removeItem(itemToDelete: string) {
-  throw new Error('Function not implemented.');
-}
