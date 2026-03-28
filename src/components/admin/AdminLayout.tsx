@@ -22,6 +22,7 @@ import {
   ChevronRight,
   FileText
 } from 'lucide-react';
+import path from 'path/win32';
 
 interface MenuItem {
   title: string;
@@ -88,7 +89,14 @@ const AdminLayout = () => {
       { title: 'Orders Report', path: '/admin/reports/orders' },
       { title: 'Products Report', path: '/admin/reports/products' }
     ]
+  },
+
+  {
+    title: 'Promo Codes',
+    path: '/admin/promo-codes',
+    icon: <Tag className="w-5 h-5" />
   }
+
   ];
 
   const toggleSubmenu = (title: string) => {
