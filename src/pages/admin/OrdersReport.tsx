@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Clock, CheckCircle, XCircle } from 'lucide-react';
-import ReportFilters from '../../components/admin/Reportfilters';
+import ReportFilters from '../../components/admin/ReportFilters';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 
