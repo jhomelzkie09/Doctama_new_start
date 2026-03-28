@@ -104,7 +104,7 @@ function App() {
                     <Route path="reports/sales" element={<SalesReport />} />
                     <Route path="reports/orders" element={<OrdersReport />} />
                     <Route path="reports/products" element={<ProductsReport />} />
-                    <Route path="promoCodes" element={<PromoCodeManagement />} />
+                    <Route path="promo-codes" element={<PromoCodeManagement />} />
                   </Route>
                 </Route>
                 
