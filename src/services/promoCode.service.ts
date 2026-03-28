@@ -27,7 +27,7 @@ class PromoCodeService {
   }
 
   // Get single promo code by ID
-  async getPromoCodeById(id: string): Promise<PromoCode | null> {
+  async getPromoCodeById(id: number): Promise<PromoCode | null> {
     try {
       const response = await api.get(`${this.baseUrl}/${id}`);
       return response.data;
@@ -38,7 +38,7 @@ class PromoCodeService {
   }
 
   // Create promo code (admin)
-  async createPromoCode(data: Omit<PromoCode, 'id' | 'createdAt' | 'usageCount'>): Promise<PromoCode> {
+  async createPromoCode(data: any): Promise<PromoCode> {
     try {
       const response = await api.post(`${this.baseUrl}/admin`, data);
       return response.data;
@@ -49,7 +49,7 @@ class PromoCodeService {
   }
 
   // Update promo code (admin)
-  async updatePromoCode(id: string, data: Partial<PromoCode>): Promise<PromoCode> {
+  async updatePromoCode(id: number, data: any): Promise<PromoCode> {
     try {
       const response = await api.put(`${this.baseUrl}/admin/${id}`, data);
       return response.data;
@@ -60,7 +60,7 @@ class PromoCodeService {
   }
 
   // Delete promo code (admin)
-  async deletePromoCode(id: string): Promise<void> {
+  async deletePromoCode(id: number): Promise<void> {
     try {
       await api.delete(`${this.baseUrl}/admin/${id}`);
     } catch (error: any) {
@@ -99,21 +99,12 @@ class PromoCodeService {
     newTotal?: number;
   }> {
     try {
-      const validation = await this.validatePromoCode(code, cartTotal, userId);
-      
-      if (!validation.isValid) {
-        return {
-          success: false,
-          message: validation.message || 'Invalid promo code'
-        };
-      }
-
-      return {
-        success: true,
-        message: 'Promo code applied successfully!',
-        discountAmount: validation.discountAmount,
-        newTotal: cartTotal - (validation.discountAmount || 0)
-      };
+      const response = await api.post(`${this.baseUrl}/apply`, {
+        code,
+        cartTotal,
+        userId
+      });
+      return response.data;
     } catch (error: any) {
       return {
         success: false,
