@@ -35,7 +35,7 @@ const philippineLocations = [
   'Las Piñas', 'Muntinlupa', 'Pateros',
   // Luzon
   'Baguio', 'Angeles', 'San Fernando (Pampanga)', 'Olongapo', 'Batangas City', 'Lucena',
-  'Naga City', 'Legazpi', 'Tuguegarao', 'Cabanatuan', 'Tarlac City', 'Dagupan',
+  'Naga City', 'Legazpi', 'Tuguegarao', 'Cabanatuan', 'Tarlac City', 'Dagupan', 'Sorsogon City',
   // Visayas
   'Cebu City', 'Mandaue', 'Lapu-Lapu City', 'Iloilo City', 'Bacolod', 'Tacloban',
   'Roxas City', 'Tagbilaran', 'Dumaguete', 'Ormoc',

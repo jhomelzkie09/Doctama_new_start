@@ -28,10 +28,34 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOutletContext } from 'react-router-dom';
 import productService from '../../services/product.service';
 import { Product } from '../../types';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 interface OutletContextType {
   onAuthRequired?: (mode: 'login' | 'register') => void;
 }
+
+// Delete Modal State
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+const [deleting, setDeleting] = useState(false);
+
+// Delete Confirmation Handler
+const handleDeleteClick = (uniqueId: string) => {
+  setItemToDelete(uniqueId);
+  setShowDeleteModal(true);
+};
+
+
+const handleConfirmDelete = async () => {
+  if (!itemToDelete) return;
+  setDeleting(true);
+  // Small delay for better UX
+  await new Promise(resolve => setTimeout(resolve, 300));
+  removeItem(itemToDelete);
+  setShowDeleteModal(false);
+  setItemToDelete(null);
+  setDeleting(false);
+};
 
 // Edit Modal Component
 const EditCartItemModal = ({ 
@@ -505,7 +529,7 @@ const Cart = () => {
                             </button>
 
                             <button
-                              onClick={() => removeItem(item.uniqueId)}
+                              onClick={() => handleDeleteClick(item.uniqueId)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                               title="Remove item"
                             >
@@ -738,8 +762,27 @@ const Cart = () => {
         onClose={() => setShowEditModal(false)}
         onUpdate={handleUpdateItem}
       />
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Remove Item"
+        message="Are you sure you want to remove this item from your cart?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleting}
+      />
     </>
   );
 };
 
 export default Cart;
+
+function removeItem(itemToDelete: string) {
+  throw new Error('Function not implemented.');
+}

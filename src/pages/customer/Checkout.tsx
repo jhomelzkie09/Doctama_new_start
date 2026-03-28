@@ -52,7 +52,7 @@ const SHOP_PAYMENT_DETAILS = {
     qrCode: qrCode,
     instructions: [
       'Open your GCash app',
-      'Tap "Pay QR"',
+      'Tap "Pay QR"', 
       'Scan the QR code or enter the number manually',
       'Enter the exact amount',
       'Add your order number as reference',

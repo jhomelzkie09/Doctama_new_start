@@ -33,6 +33,7 @@ import {
   Heart as HeartIcon
 } from 'lucide-react';
 import AuthSidebar from './AuthSidebar';
+import ConfirmationModal from './ConfirmationModal';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -46,6 +47,8 @@ const Layout = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -74,10 +77,19 @@ const Layout = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
     setUserMenuOpen(false);
     setMobileMenuOpen(false);
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500));
     logout();
+    setShowLogoutModal(false);
+    setLoggingOut(false);
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -91,6 +103,19 @@ const Layout = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-slate-900">
+      {/* Confirmation Modal for Logout */}
+      <ConfirmationModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+        title="Sign Out"
+        message="Are you sure you want to sign out? You'll need to log in again to access your account."
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        type="warning"
+        loading={loggingOut}
+      />
+
       {/* 1. Refined Announcement Bar */}
       <div className="bg-slate-900 text-slate-300 py-2 border-b border-white/5">
         <div className="container mx-auto px-4 md:px-6">
@@ -229,7 +254,7 @@ const Layout = () => {
                       </Link>
                       <div className="border-t border-slate-100 my-1"></div>
                       <button 
-                        onClick={handleLogout} 
+                        onClick={handleLogoutClick} 
                         className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4" /> Sign Out
@@ -338,7 +363,7 @@ const Layout = () => {
                   <HeartIcon className="w-5 h-5" />
                   <span>Wishlist</span>
                 </Link>
-                <button onClick={handleLogout} className="w-full flex items-center gap-3 p-3 rounded-xl text-red-600 hover:bg-red-50 transition">
+                <button onClick={handleLogoutClick} className="w-full flex items-center gap-3 p-3 rounded-xl text-red-600 hover:bg-red-50 transition">
                   <LogOut className="w-5 h-5" />
                   <span>Sign Out</span>
                 </button>
