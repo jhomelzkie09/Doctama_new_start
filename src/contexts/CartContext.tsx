@@ -1,5 +1,7 @@
+// contexts/CartContext.tsx
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Product } from '../types';
+import { useAuth } from './AuthContext';
 
 // Extended CartItem with color support
 export interface CartItem extends Product {
@@ -17,7 +19,8 @@ type CartAction =
   | { type: 'ADD_ITEM'; payload: { product: Product; color?: string } }
   | { type: 'REMOVE_ITEM'; payload: { uniqueId: string } }
   | { type: 'UPDATE_QUANTITY'; payload: { uniqueId: string; quantity: number } }
-  | { type: 'CLEAR_CART' };
+  | { type: 'CLEAR_CART' }
+  | { type: 'LOAD_CART'; payload: CartItem[] };
 
 // Helper to generate unique ID based on product ID and color
 const generateUniqueId = (productId: number, color?: string): string => {
@@ -91,6 +94,12 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     
     case 'CLEAR_CART':
       return { items: [], total: 0 };
+
+    case 'LOAD_CART':
+      return { 
+        items: action.payload, 
+        total: action.payload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
+      };
       
     default:
       return state;
@@ -99,48 +108,73 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
+  const { user } = useAuth();
 
-  useEffect(() => {
-    // Load cart from localStorage
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        const { items } = JSON.parse(savedCart);
-        if (Array.isArray(items)) {
-          items.forEach((item: CartItem) => {
-            // Re-add each item with its color
-            const product: Product = {
-              id: item.id,
-              name: item.name,
-              description: item.description,
-              price: item.price,
-              imageUrl: item.imageUrl,
-              categoryId: item.categoryId,
-              stockQuantity: item.stockQuantity,
-              isActive: item.isActive,
-              createdAt: item.createdAt,
-              height: item.height,
-              width: item.width,
-              length: item.length,
-              colorsVariant: item.colorsVariant,
-            };
-            
-            // Add the item with the stored quantity
-            for (let i = 0; i < item.quantity; i++) {
-              dispatch({ type: 'ADD_ITEM', payload: { product, color: item.selectedColor } });
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load cart from localStorage:', error);
-      }
+  // Get the cart storage key for the current user
+  const getCartStorageKey = () => {
+    if (user && user.id) {
+      return `cart_${user.id}`;
     }
-  }, []);
+    return 'cart_guest';
+  };
 
+  // Load cart when user changes (login, logout, or switch accounts)
   useEffect(() => {
-    // Save cart to localStorage
-    localStorage.setItem('cart', JSON.stringify(state));
-  }, [state]);
+    const loadCart = () => {
+      const storageKey = getCartStorageKey();
+      const savedCart = localStorage.getItem(storageKey);
+      
+      console.log(`🛒 Loading cart for ${user ? `user ${user.id}` : 'guest'} from key: ${storageKey}`);
+      
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart);
+          // Handle both old format (just items array) and new format ({ items: [] })
+          let items = Array.isArray(parsedCart) ? parsedCart : parsedCart.items;
+          
+          if (Array.isArray(items) && items.length > 0) {
+            // Validate that items have required fields
+            const validItems = items.filter(item => item.id && item.quantity);
+            if (validItems.length > 0) {
+              dispatch({ type: 'LOAD_CART', payload: validItems });
+              console.log(`✅ Loaded ${validItems.length} items for ${user ? `user ${user.id}` : 'guest'}`);
+            } else {
+              dispatch({ type: 'CLEAR_CART' });
+            }
+          } else {
+            dispatch({ type: 'CLEAR_CART' });
+          }
+        } catch (error) {
+          console.error('Failed to load cart from localStorage:', error);
+          dispatch({ type: 'CLEAR_CART' });
+        }
+      } else {
+        // No saved cart for this user
+        dispatch({ type: 'CLEAR_CART' });
+        console.log(`📭 No saved cart found for ${user ? `user ${user.id}` : 'guest'}`);
+      }
+    };
+
+    loadCart();
+  }, [user?.id]); // Re-run when user ID changes
+
+  // Save cart whenever it changes
+  useEffect(() => {
+    const saveCart = () => {
+      const storageKey = getCartStorageKey();
+      
+      if (state.items.length > 0) {
+        localStorage.setItem(storageKey, JSON.stringify(state.items));
+        console.log(`💾 Saved ${state.items.length} items for ${user ? `user ${user.id}` : 'guest'} to key: ${storageKey}`);
+      } else {
+        // If cart is empty, remove from localStorage to keep it clean
+        localStorage.removeItem(storageKey);
+        console.log(`🗑️ Removed empty cart for ${user ? `user ${user.id}` : 'guest'} from key: ${storageKey}`);
+      }
+    };
+
+    saveCart();
+  }, [state.items, user?.id]);
 
   const addItem = (product: Product, color?: string) => {
     dispatch({ type: 'ADD_ITEM', payload: { product, color } });
