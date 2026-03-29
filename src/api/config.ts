@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Get API URL from environment or use default
-const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapisimple-production.up.railway.app/api';
+//const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapisimple-production.up.railway.app/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapi-simple.onrender.com';
 
 console.log('🔧 API Config loaded:', {
   API_URL,
