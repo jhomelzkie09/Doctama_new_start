@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Product } from '../types';
 import { useAuth } from './AuthContext';
+import { showSuccess, showError, showInfo, showLoading, dismissToast } from '../utils/toast';
 
 // Extended CartItem with color support
 export interface CartItem extends Product {
@@ -177,11 +178,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id]);
 
   const addItem = (product: Product, color?: string) => {
-    dispatch({ type: 'ADD_ITEM', payload: { product, color } });
+    // Check if item already exists
+    const uniqueId = generateUniqueId(product.id, color);
+    const existingItem = state.items.find(item => item.uniqueId === uniqueId);
+    
+    if (existingItem) {
+      // Item exists, show quantity increased message
+      dispatch({ type: 'ADD_ITEM', payload: { product, color } });
+      showSuccess(`${product.name} quantity increased!`);
+    } else {
+      // New item, show added to cart message
+      dispatch({ type: 'ADD_ITEM', payload: { product, color } });
+      showSuccess(`${product.name} added to cart! 🛒`);
+    }
   };
 
   const removeItem = (uniqueId: string) => {
+    // Find the item before removing to get its name
+    const item = state.items.find(item => item.uniqueId === uniqueId);
     dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId } });
+    if (item) {
+      showInfo(`${item.name} removed from cart`);
+    }
   };
 
   const updateQuantity = (uniqueId: string, quantity: number) => {
@@ -189,11 +207,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       removeItem(uniqueId);
       return;
     }
+    
+    // Find the item to get its name
+    const item = state.items.find(item => item.uniqueId === uniqueId);
     dispatch({ type: 'UPDATE_QUANTITY', payload: { uniqueId, quantity } });
+    
+    if (item) {
+      showSuccess(`${item.name} quantity updated to ${quantity}`);
+    }
   };
 
   const clearCart = () => {
     dispatch({ type: 'CLEAR_CART' });
+    showInfo('Cart cleared');
   };
 
   return (

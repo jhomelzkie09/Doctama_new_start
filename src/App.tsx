@@ -1,9 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast'; // Add this import
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { OrderProvider } from './contexts/OrderContext';
-import { PromoCodeProvider } from './contexts/PromoCodeContext'; // Add this import
+import { PromoCodeProvider } from './contexts/PromoCodeContext';
 import Layout from './components/Layout';
 
 // Pages
@@ -43,7 +44,51 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <OrderProvider>
-            <PromoCodeProvider> {/* Add PromoCodeProvider here */}
+            <PromoCodeProvider>
+              {/* Toast Notifications - Place this here */}
+              <Toaster 
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
+                    borderRadius: '12px',
+                    padding: '12px 20px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                  },
+                  success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: '#10b981',
+                      secondary: '#fff',
+                    },
+                    style: {
+                      background: '#10b981',
+                      color: '#fff',
+                    },
+                  },
+                  error: {
+                    duration: 4000,
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
+                    style: {
+                      background: '#ef4444',
+                      color: '#fff',
+                    },
+                  },
+                  loading: {
+                    duration: 2000,
+                    style: {
+                      background: '#6366f1',
+                      color: '#fff',
+                    },
+                  },
+                }}
+              />
               <Routes>
                 {/* ========== PUBLIC ROUTES with Layout ========== */}
                 <Route element={<Layout />}>
