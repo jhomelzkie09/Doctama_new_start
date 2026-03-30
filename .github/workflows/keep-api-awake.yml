@@ -1,0 +1,41 @@
+name: Keep API Awake
+
+on:
+  schedule:
+    # Runs every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  keep-awake:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check time
+        run: echo "🕐 Running at $(date -u)"
+      
+      - name: Ping Render API
+        id: ping
+        continue-on-error: true
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" https://doctamaapi-simple.onrender.com/api/health)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          echo "response_body=$BODY" >> $GITHUB_OUTPUT
+          
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo "📦 Response: $BODY"
+      
+      - name: Check Result
+        run: |
+          if [ "${{ steps.ping.outputs.http_code }}" == "200" ]; then
+            echo "✅ API is awake and healthy!"
+          else
+            echo "⚠️ API returned ${{ steps.ping.outputs.http_code }}"
+          fi
+      
+      - name: Log Completion
+        run: |
+          echo "✅ Keep-alive completed at $(date -u)"
