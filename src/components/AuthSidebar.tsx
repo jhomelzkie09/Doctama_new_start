@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion'; // Added for smooth transitions
+import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -32,19 +33,16 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
   const { login, register } = useAuth();
 
-  // Password strength checker
+  // Your original password strength logic
   const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
     if (!password) return { score: 0, label: '', color: 'bg-gray-200' };
-    
     let score = 0;
     if (password.length >= 8) score++;
     if (/[A-Z]/.test(password)) score++;
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
-    
     const labels = ['Weak', 'Fair', 'Good', 'Strong'];
     const colors = ['bg-red-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'];
-    
     return {
       score,
       label: labels[score] || '',
@@ -74,17 +72,14 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
         return false;
       }
     }
-    
     if (!formData.email.trim()) {
       setError('Email is required');
       return false;
     }
-    
     if (!formData.password.trim()) {
       setError('Password is required');
       return false;
     }
-    
     return true;
   };
 
@@ -92,60 +87,35 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     e.preventDefault();
     setError('');
     setSuccess('');
-    
     if (!validateForm()) return;
-    
     setLoading(true);
 
     try {
       if (mode === 'login') {
         console.log('🔐 Attempting login with:', formData.email);
-        
         await login(formData.email, formData.password);
-        
         console.log('✅ Login successful');
-        
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);
-          console.log('👤 User from storage:', user);
-          
           onClose();
-          
           if (user.roles?.includes('Admin')) {
-            console.log('👑 Admin detected, redirecting...');
             window.location.href = '/admin';
           } else {
-            console.log('👤 Regular user, redirecting to home');
             window.location.href = '/';
           }
         }
       } else {
-        console.log('📝 Attempting registration for:', formData.email);
-        
         await register({
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName
         });
-        
         setSuccess('Account created successfully! Please check your email to verify your account.');
-        
-        // Clear form
-        setFormData({
-          email: '',
-          password: '',
-          fullName: '',
-          confirmPassword: ''
-        });
-        
-        // Switch to login after 3 seconds
-        setTimeout(() => {
-          handleModeChange('login');
-        }, 3000);
+        setFormData({ email: '', password: '', fullName: '', confirmPassword: '' });
+        setTimeout(() => { handleModeChange('login'); }, 3000);
       }
     } catch (err: any) {
-      console.error('❌ Auth error:', err);
       setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
@@ -155,249 +125,231 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
   const passwordStrength = getPasswordStrength(formData.password);
 
   return (
-    <>
-      {/* Overlay */}
+    <AnimatePresence>
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 transition-opacity"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        {/* Simple Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {mode === 'login' ? (
-              <LogIn className="w-5 h-5 text-red-600" />
-            ) : (
-              <UserPlus className="w-5 h-5 text-red-600" />
-            )}
-            <h2 className="text-lg font-semibold text-gray-900">
-              {mode === 'login' ? 'Sign In' : 'Create Account'}
-            </h2>
-          </div>
-          <button
+        <>
+          {/* Enhanced Backdrop with Blur */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 transition-all"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-500"
+          />
+
+          {/* Upgraded Sidebar */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed top-0 right-0 h-full w-full md:w-[400px] bg-white shadow-2xl z-50 flex flex-col"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 h-[calc(100%-4rem)] overflow-y-auto">
-          {/* Mode Toggle - Clean Tabs */}
-          <div className="flex space-x-1 mb-6">
-            <button
-              onClick={() => handleModeChange('login')}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${
-                mode === 'login'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => handleModeChange('register')}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${
-                mode === 'register'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Register
-            </button>
-          </div>
-
-          {/* Success Message */}
-          {success && (
-            <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-green-700">{success}</p>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'register' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    required
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                    placeholder="John Doe"
-                  />
+            {/* Header Section */}
+            <div className="px-6 py-6 border-b border-gray-50 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
+                  {mode === 'login' ? <LogIn size={22} /> : <UserPlus size={22} />}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 leading-tight">
+                    {mode === 'login' ? 'Sign In' : 'Join Us'}
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium">To continue to your account</p>
                 </div>
               </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                  placeholder="you@example.com"
-                />
-              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-9 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                  placeholder="••••••••"
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              
+              {/* Sliding Tab Switcher */}
+              <div className="relative flex p-1 bg-gray-100 rounded-xl">
+                <motion.div
+                  className="absolute inset-y-1 bg-white rounded-lg shadow-sm w-[calc(50%-4px)]"
+                  animate={{ x: mode === 'login' ? 0 : '100%' }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => handleModeChange('login')}
+                  className={`relative z-10 flex-1 py-2 text-sm font-bold transition-colors ${mode === 'login' ? 'text-red-600' : 'text-gray-500'}`}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  Sign In
+                </button>
+                <button
+                  onClick={() => handleModeChange('register')}
+                  className={`relative z-10 flex-1 py-2 text-sm font-bold transition-colors ${mode === 'register' ? 'text-red-600' : 'text-gray-500'}`}
+                >
+                  Register
                 </button>
               </div>
-              
-              {/* Password strength indicator - only in register mode */}
-              {mode === 'register' && formData.password && (
-                <div className="mt-2">
-                  <div className="flex items-center space-x-1 mb-1">
-                    {[0, 1, 2, 3].map((index) => (
-                      <div
-                        key={index}
-                        className={`h-1 flex-1 rounded-full ${
-                          index < passwordStrength.score
-                            ? passwordStrength.color
-                            : 'bg-gray-200'
-                        }`}
+
+              {/* Success/Error Alerts */}
+              <AnimatePresence mode="wait">
+                {success && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-3"
+                  >
+                    <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <p className="text-sm text-emerald-700 leading-snug">{success}</p>
+                  </motion.div>
+                )}
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-red-50 border border-red-100 rounded-xl"
+                  >
+                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {mode === 'register' && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Full Name</label>
+                    <div className="relative group">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-500 transition-colors" size={18} />
+                      <input
+                        type="text"
+                        required
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all text-sm"
+                        placeholder="John Doe"
                       />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email Address</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-500 transition-colors" size={18} />
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all text-sm"
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between px-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Password</label>
+                    {mode === 'login' && <button type="button" className="text-xs font-bold text-red-600">Forgot?</button>}
+                  </div>
+                  <div className="relative group">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-500 transition-colors" size={18} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all text-sm"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+
+                  {/* Your Strength Indicator logic preserved */}
+                  {mode === 'register' && formData.password && (
+                    <div className="pt-1 px-1">
+                      <div className="flex space-x-1 mb-1">
+                        {[0, 1, 2, 3].map((index) => (
+                          <div key={index} className={`h-1 flex-1 rounded-full ${index < passwordStrength.score ? passwordStrength.color : 'bg-gray-100'}`} />
+                        ))}
+                      </div>
+                      <p className={`text-[10px] font-bold uppercase ${passwordStrength.color.replace('bg-', 'text-')}`}>
+                        {passwordStrength.label} Password
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {mode === 'register' && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Confirm Password</label>
+                    <div className="relative group">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-500 transition-colors" size={18} />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        className={`w-full pl-10 pr-10 py-3 border rounded-xl outline-none transition-all text-sm ${
+                          formData.confirmPassword && formData.password !== formData.confirmPassword
+                            ? 'border-red-300 bg-red-50'
+                            : 'bg-gray-50 border-gray-200 focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500'
+                        }`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 bg-red-600 text-white rounded-xl shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 group"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
+                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </motion.button>
+              </form>
+
+              {/* Benefits Section preserved with cleaner UI */}
+              {mode === 'register' && (
+                <div className="pt-6 border-t border-gray-50">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4 text-center">Exclusive Perks</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {['Track your orders', 'Faster checkout', 'Save your favorites'].map((item) => (
+                      <div key={item} className="flex items-center space-x-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                          <CheckCircle className="w-3 h-3 text-green-600" />
+                        </div>
+                        <span className="font-medium">{item}</span>
+                      </div>
                     ))}
                   </div>
-                  <p className={`text-xs ${passwordStrength.color.replace('bg-', 'text-')}`}>
-                    {passwordStrength.label} password
-                  </p>
                 </div>
               )}
             </div>
-
-            {mode === 'register' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    required
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className={`w-full pl-9 pr-10 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${
-                      formData.confirmPassword && formData.password !== formData.confirmPassword
-                        ? 'border-red-300 bg-red-50'
-                        : 'border-gray-200'
-                    }`}
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                  <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
-                )}
-              </div>
-            )}
-
-            {mode === 'login' && (
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="text-xs text-red-600 hover:text-red-700 font-medium"
-                >
-                  Forgot password?
-                </button>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  {mode === 'login' ? 'Signing in...' : 'Creating account...'}
-                </div>
-              ) : mode === 'login' ? (
-                'Sign In'
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
-
-          {/* Simple Benefits */}
-          {mode === 'register' && (
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <p className="text-xs font-medium text-gray-700 mb-3">By joining, you'll get:</p>
-              <ul className="space-y-2">
-                <li className="flex items-center text-xs text-gray-600">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mr-2" />
-                  Track your orders
-                </li>
-                <li className="flex items-center text-xs text-gray-600">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mr-2" />
-                  Faster checkout
-                </li>
-                <li className="flex items-center text-xs text-gray-600">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500 mr-2" />
-                  Save your favorites
-                </li>
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-    </>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };
 
