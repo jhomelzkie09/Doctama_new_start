@@ -259,12 +259,6 @@ const Home = () => {
       alt: "Cozy Living Room",
       title: "Warm & Cozy",
       description: "Create your perfect sanctuary"
-    },
-    {
-      url: "https://images.pexels.com/photos/1571465/pexels-photo-1571465.jpeg?auto=compress&cs=tinysrgb&w=1200",
-      alt: "Modern Furniture",
-      title: "Modern Luxury",
-      description: "Elevate your space"
     }
   ];
   
