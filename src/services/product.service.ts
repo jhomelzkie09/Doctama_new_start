@@ -1,9 +1,8 @@
-// src/services/product.service.ts
 import api from '../api/config';
 import { Product, Category } from '../types';
 
 class ProductService {
-  private readonly baseUrl = '/products/simple'; // Fix: Use correct route
+  private readonly baseUrl = '/products/simple';
 
   // Get all products
   async getProducts(): Promise<Product[]> {
@@ -12,7 +11,6 @@ class ProductService {
       const response = await api.get('/products/simple');
       console.log('✅ Products fetched:', response.data);
       
-      // Handle different response formats
       if (Array.isArray(response.data)) {
         return response.data;
       } else if (response.data.data && Array.isArray(response.data.data)) {
@@ -41,26 +39,43 @@ class ProductService {
     }
   }
 
-  // Create product - FIXED: Use PascalCase field names
+  // Create product
   async createProduct(productData: any): Promise<Product> {
     try {
-      // Convert camelCase to PascalCase for backend
+      // Ensure images is an array of strings (not objects)
+      let imagesArray: string[] = [];
+      if (productData.images && Array.isArray(productData.images)) {
+        imagesArray = productData.images
+          .map((img: string | { imageUrl: string }) => 
+            typeof img === 'string' ? img : img.imageUrl
+          )
+          .filter((url: string) => url && url.trim() !== '');
+      }
+      
+      // Ensure colorsVariant is an array of strings
+      let colorsArray: string[] = [];
+      if (productData.colorsVariant && Array.isArray(productData.colorsVariant)) {
+        colorsArray = productData.colorsVariant.filter((c: string) => c && c.trim() !== '');
+      }
+      
       const backendData = {
-        Name: productData.name,
-        Description: productData.description,
-        Price: productData.price,
-        StockQuantity: productData.stockQuantity,
-        CategoryId: productData.categoryId,
-        ImageUrl: productData.imageUrl,
-        Images: productData.images || [],
-        Height: productData.height || 0,
-        Width: productData.width || 0,
-        Length: productData.length || 0,
-        ColorsVariant: productData.colorsVariant || [],
-        IsActive: productData.isActive
+        Name: productData.name || '',
+        Description: productData.description || '',
+        Price: typeof productData.price === 'number' ? productData.price : parseFloat(productData.price) || 0,
+        StockQuantity: typeof productData.stockQuantity === 'number' ? productData.stockQuantity : parseInt(productData.stockQuantity) || 0,
+        CategoryId: typeof productData.categoryId === 'number' ? productData.categoryId : parseInt(productData.categoryId) || 0,
+        ImageUrl: productData.imageUrl || '',
+        Images: imagesArray,
+        Height: typeof productData.height === 'number' ? productData.height : parseFloat(productData.height) || 0,
+        Width: typeof productData.width === 'number' ? productData.width : parseFloat(productData.width) || 0,
+        Length: typeof productData.length === 'number' ? productData.length : parseFloat(productData.length) || 0,
+        ColorsVariant: colorsArray,
+        IsActive: productData.isActive === true || productData.isActive === 'true' ? true : false
       };
       
-      console.log('📤 Creating product with /products/simple...', JSON.stringify(backendData, null, 2));
+      console.log('📤 Creating product with /products/simple...');
+      console.log('📦 Backend data:', JSON.stringify(backendData, null, 2));
+      
       const response = await api.post('/products/simple', backendData);
       console.log('✅ Product created:', response.data);
       return response.data;
@@ -84,26 +99,43 @@ class ProductService {
     }
   }
 
-  // Update product - FIXED: Use PascalCase field names
+  // Update product
   async updateProduct(id: number, productData: any): Promise<Product> {
     try {
-      // Convert camelCase to PascalCase for backend
+      // Ensure images is an array of strings (not objects)
+      let imagesArray: string[] = [];
+      if (productData.images && Array.isArray(productData.images)) {
+        imagesArray = productData.images
+          .map((img: string | { imageUrl: string }) => 
+            typeof img === 'string' ? img : img.imageUrl
+          )
+          .filter((url: string) => url && url.trim() !== '');
+      }
+      
+      // Ensure colorsVariant is an array of strings
+      let colorsArray: string[] = [];
+      if (productData.colorsVariant && Array.isArray(productData.colorsVariant)) {
+        colorsArray = productData.colorsVariant.filter((c: string) => c && c.trim() !== '');
+      }
+      
       const backendData = {
-        Name: productData.name,
-        Description: productData.description,
-        Price: productData.price,
-        StockQuantity: productData.stockQuantity,
-        CategoryId: productData.categoryId,
-        ImageUrl: productData.imageUrl,
-        Images: productData.images || [],
-        Height: productData.height || 0,
-        Width: productData.width || 0,
-        Length: productData.length || 0,
-        ColorsVariant: productData.colorsVariant || [],
-        IsActive: productData.isActive
+        Name: productData.name || '',
+        Description: productData.description || '',
+        Price: typeof productData.price === 'number' ? productData.price : parseFloat(productData.price) || 0,
+        StockQuantity: typeof productData.stockQuantity === 'number' ? productData.stockQuantity : parseInt(productData.stockQuantity) || 0,
+        CategoryId: typeof productData.categoryId === 'number' ? productData.categoryId : parseInt(productData.categoryId) || 0,
+        ImageUrl: productData.imageUrl || '',
+        Images: imagesArray,
+        Height: typeof productData.height === 'number' ? productData.height : parseFloat(productData.height) || 0,
+        Width: typeof productData.width === 'number' ? productData.width : parseFloat(productData.width) || 0,
+        Length: typeof productData.length === 'number' ? productData.length : parseFloat(productData.length) || 0,
+        ColorsVariant: colorsArray,
+        IsActive: productData.isActive === true || productData.isActive === 'true' ? true : false
       };
       
-      console.log(`📤 Updating product ${id} with /products/simple...`, JSON.stringify(backendData, null, 2));
+      console.log(`📤 Updating product ${id} with /products/simple...`);
+      console.log('📦 Backend data:', JSON.stringify(backendData, null, 2));
+      
       const response = await api.put(`/products/simple/${id}`, backendData);
       console.log('✅ Product updated:', response.data);
       return response.data;

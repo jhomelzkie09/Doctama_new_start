@@ -35,10 +35,10 @@ interface FormData {
 }
 
 interface ImageItem {
-  id?: string; // For existing images from DB
+  id?: string;
   url: string;
-  isNew: boolean; // true for new images to upload, false for existing
-  file?: File; // Only for new images
+  isNew: boolean;
+  file?: File;
 }
 
 const ProductForm = () => {
@@ -54,11 +54,8 @@ const ProductForm = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   
-  // Image states - simplified
   const [mainImage, setMainImage] = useState<ImageItem | null>(null);
   const [additionalImages, setAdditionalImages] = useState<ImageItem[]>([]);
-  
-  // Color states
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   
   const [formData, setFormData] = useState<FormData>({
@@ -101,7 +98,6 @@ const ProductForm = () => {
       console.log('✅ Product data loaded:', product);
       
       if (product) {
-        // Handle main image
         if (product.imageUrl) {
           setMainImage({
             id: `main-${Date.now()}`,
@@ -112,7 +108,6 @@ const ProductForm = () => {
           setMainImage(null);
         }
         
-        // Handle additional images
         let imageUrls: string[] = [];
         if (product.images && Array.isArray(product.images)) {
           imageUrls = product.images.map(img => 
@@ -120,7 +115,6 @@ const ProductForm = () => {
           ).filter(url => url && url.trim() !== '');
         }
         
-        // Remove main image from additional if it's there
         const additionalUrls = imageUrls.filter(url => url !== product.imageUrl);
         
         const additional: ImageItem[] = additionalUrls.map((url, index) => ({
@@ -130,11 +124,8 @@ const ProductForm = () => {
         }));
         
         setAdditionalImages(additional);
-        
-        // Set colors
         setSelectedColors(product.colorsVariant || []);
         
-        // Set form data
         setFormData({
           name: product.name || '',
           description: product.description || '',
@@ -238,7 +229,6 @@ const ProductForm = () => {
     setUploadProgress(0);
     
     try {
-      // Collect all images that need to be uploaded (isNew = true)
       const imagesToUpload: File[] = [];
       
       if (mainImage?.isNew && mainImage.file) {
@@ -260,12 +250,10 @@ const ProductForm = () => {
         setUploadProgress(100);
       }
 
-      // Build final image URLs
       let uploadedIndex = 0;
       let finalMainImage = '';
       const finalAdditionalImages: string[] = [];
       
-      // Handle main image
       if (mainImage) {
         if (mainImage.isNew) {
           finalMainImage = uploadedUrls[uploadedIndex++] || '';
@@ -274,7 +262,6 @@ const ProductForm = () => {
         }
       }
       
-      // Handle additional images
       additionalImages.forEach(img => {
         if (img.isNew) {
           const newUrl = uploadedUrls[uploadedIndex++];
@@ -286,10 +273,8 @@ const ProductForm = () => {
         }
       });
       
-      // Combine all images (main + additional)
       const allImages = [finalMainImage, ...finalAdditionalImages].filter(url => url && url.trim() !== '');
       
-      // Remove duplicates (just in case)
       const uniqueImages: string[] = [];
       allImages.forEach(url => {
         if (!uniqueImages.includes(url)) {
@@ -299,6 +284,7 @@ const ProductForm = () => {
       
       console.log('🖼️ Final unique images:', uniqueImages);
 
+      // FIXED: Send images as array of strings, not objects
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -306,7 +292,7 @@ const ProductForm = () => {
         stockQuantity: parseInt(formData.stockQuantity),
         categoryId: parseInt(formData.categoryId),
         imageUrl: uniqueImages[0] || '',
-        images: uniqueImages.map(url => ({ imageUrl: url })),
+        images: uniqueImages, // Array of strings - matches backend DTO
         height: formData.height ? parseFloat(formData.height) : 0,
         width: formData.width ? parseFloat(formData.width) : 0,
         length: formData.length ? parseFloat(formData.length) : 0,
@@ -314,7 +300,7 @@ const ProductForm = () => {
         isActive: formData.isActive
       };
       
-      console.log('📤 Sending product data:', productData);
+      console.log('📤 Sending product data:', JSON.stringify(productData, null, 2));
 
       if (isEditMode) {
         await productService.updateProduct(Number(id), productData);
@@ -328,7 +314,8 @@ const ProductForm = () => {
       
     } catch (err: any) {
       console.error('Save error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to save product');
+      setError(err.message || 'Failed to save product');
+      alert(err.message || 'Failed to save product');
     } finally {
       setSaving(false);
       setUploadingImages(false);
@@ -350,7 +337,6 @@ const ProductForm = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <button
@@ -371,7 +357,6 @@ const ProductForm = () => {
           </div>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
             <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
@@ -379,16 +364,13 @@ const ProductForm = () => {
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Image Section */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <ImageIcon className="w-5 h-5 mr-2 text-blue-600" />
               Product Images
             </h2>
             
-            {/* Main Image */}
             <div className="mb-8">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Main Image (Thumbnail)
@@ -441,7 +423,6 @@ const ProductForm = () => {
               </div>
             </div>
 
-            {/* Additional Images */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Additional Images
@@ -517,7 +498,6 @@ const ProductForm = () => {
             </div>
           </div>
 
-          {/* Basic Info */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Package className="w-5 h-5 mr-2 text-blue-600" />
@@ -608,7 +588,6 @@ const ProductForm = () => {
             </div>
           </div>
 
-          {/* Color Variants */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Palette className="w-5 h-5 mr-2 text-blue-600" />
@@ -621,7 +600,6 @@ const ProductForm = () => {
             />
           </div>
 
-          {/* Dimensions */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Ruler className="w-5 h-5 mr-2 text-blue-600" />
@@ -679,7 +657,6 @@ const ProductForm = () => {
             </div>
           </div>
 
-          {/* Status */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <Wrench className="w-5 h-5 mr-2 text-blue-600" />
@@ -698,7 +675,6 @@ const ProductForm = () => {
             </label>
           </div>
 
-          {/* Form Actions */}
           <div className="flex justify-end space-x-3">
             <button
               type="button"
