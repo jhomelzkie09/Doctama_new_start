@@ -7,12 +7,5 @@
   "env": {
     "REACT_APP_API_URL": "https://doctamaapi-simple.onrender.com/api",
     "REACT_APP_ENVIRONMENT": "production"
-  },
-
-    "crons": [
-    {
-      "path": "/api/keepalive",
-      "schedule": "*/10 * * * *"
-    }
-  ]
+  }
 }
