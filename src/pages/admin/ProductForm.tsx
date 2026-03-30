@@ -7,7 +7,6 @@ import uploadService from '../../services/upload.service';
 import ColorSelector from '../../components/ColorSelector';
 import { 
   Save, 
-  X, 
   Loader, 
   Upload,
   Image as ImageIcon,
@@ -35,6 +34,13 @@ interface FormData {
   isActive: boolean;
 }
 
+interface ImageItem {
+  id?: string; // For existing images from DB
+  url: string;
+  isNew: boolean; // true for new images to upload, false for existing
+  file?: File; // Only for new images
+}
+
 const ProductForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -48,11 +54,9 @@ const ProductForm = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   
-  // Image states
-  const [mainImage, setMainImage] = useState<string>('');
-  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
-  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]);
+  // Image states - simplified
+  const [mainImage, setMainImage] = useState<ImageItem | null>(null);
+  const [additionalImages, setAdditionalImages] = useState<ImageItem[]>([]);
   
   // Color states
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -97,11 +101,18 @@ const ProductForm = () => {
       console.log('✅ Product data loaded:', product);
       
       if (product) {
-        // Set main image
-        setMainImage(product.imageUrl || '');
-        setMainImageFile(null); // Clear any pending file upload
+        // Handle main image
+        if (product.imageUrl) {
+          setMainImage({
+            id: `main-${Date.now()}`,
+            url: product.imageUrl,
+            isNew: false
+          });
+        } else {
+          setMainImage(null);
+        }
         
-        // Handle images - extract URLs from the product
+        // Handle additional images
         let imageUrls: string[] = [];
         if (product.images && Array.isArray(product.images)) {
           imageUrls = product.images.map(img => 
@@ -109,13 +120,16 @@ const ProductForm = () => {
           ).filter(url => url && url.trim() !== '');
         }
         
-        // Set additional images (all images except the main image if it's in the list)
-        const mainImageUrl = product.imageUrl || '';
-        const additional = imageUrls.filter(url => url !== mainImageUrl);
-        setAdditionalImages(additional);
+        // Remove main image from additional if it's there
+        const additionalUrls = imageUrls.filter(url => url !== product.imageUrl);
         
-        // CRITICAL: Clear additionalImageFiles when editing (these are for new uploads only)
-        setAdditionalImageFiles([]);
+        const additional: ImageItem[] = additionalUrls.map((url, index) => ({
+          id: `existing-${index}-${Date.now()}`,
+          url: url,
+          isNew: false
+        }));
+        
+        setAdditionalImages(additional);
         
         // Set colors
         setSelectedColors(product.colorsVariant || []);
@@ -153,11 +167,14 @@ const ProductForm = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setMainImageFile(file);
-    
     const reader = new FileReader();
     reader.onloadend = () => {
-      setMainImage(reader.result as string);
+      setMainImage({
+        id: `new-main-${Date.now()}`,
+        url: reader.result as string,
+        isNew: true,
+        file: file
+      });
     };
     reader.readAsDataURL(file);
   };
@@ -167,32 +184,34 @@ const ProductForm = () => {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
-    setAdditionalImageFiles(prev => [...prev, ...fileArray]);
     
     fileArray.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAdditionalImages(prev => [...prev, reader.result as string]);
+        setAdditionalImages(prev => [...prev, {
+          id: `new-${Date.now()}-${Math.random()}`,
+          url: reader.result as string,
+          isNew: true,
+          file: file
+        }]);
       };
       reader.readAsDataURL(file);
     });
   };
 
+  const removeMainImage = () => {
+    setMainImage(null);
+  };
+
   const removeAdditionalImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, i) => i !== index));
-    setAdditionalImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const moveImage = (fromIndex: number, toIndex: number) => {
-    const newPreviewImages = [...additionalImages];
-    const [movedPreview] = newPreviewImages.splice(fromIndex, 1);
-    newPreviewImages.splice(toIndex, 0, movedPreview);
-    setAdditionalImages(newPreviewImages);
-    
-    const newFiles = [...additionalImageFiles];
-    const [movedFile] = newFiles.splice(fromIndex, 1);
-    newFiles.splice(toIndex, 0, movedFile);
-    setAdditionalImageFiles(newFiles);
+    const newImages = [...additionalImages];
+    const [moved] = newImages.splice(fromIndex, 1);
+    newImages.splice(toIndex, 0, moved);
+    setAdditionalImages(newImages);
   };
 
   const validateForm = (): string | null => {
@@ -219,74 +238,66 @@ const ProductForm = () => {
     setUploadProgress(0);
     
     try {
-      let finalMainImage = mainImage;
-      let finalImageUrls: string[] = [];
-
-      // Separate existing images from new blob images
-      const existingImageUrls = additionalImages.filter(url => !url.startsWith('blob:') && url !== '');
-      const newBlobImages = additionalImages.filter(url => url.startsWith('blob:'));
+      // Collect all images that need to be uploaded (isNew = true)
+      const imagesToUpload: File[] = [];
       
-      console.log('📸 Existing images from DB:', existingImageUrls);
-      console.log('🆕 New blob images to upload:', newBlobImages.length);
-
-      // Upload new images only (the blob URLs)
-      const filesToUpload: File[] = [];
-      
-      // Add main image file if it's a new upload
-      if (mainImageFile) {
-        filesToUpload.push(mainImageFile);
+      if (mainImage?.isNew && mainImage.file) {
+        imagesToUpload.push(mainImage.file);
       }
       
-      // Add additional image files (new ones only)
-      for (let i = 0; i < additionalImageFiles.length; i++) {
-        const file = additionalImageFiles[i];
-        const blobUrl = URL.createObjectURL(file);
-        if (newBlobImages.includes(blobUrl)) {
-          filesToUpload.push(file);
+      additionalImages.forEach(img => {
+        if (img.isNew && img.file) {
+          imagesToUpload.push(img.file);
         }
-        URL.revokeObjectURL(blobUrl);
-      }
+      });
 
-      if (filesToUpload.length > 0) {
-        console.log('📤 Uploading new images...', filesToUpload.length);
-        
-        const uploadedUrls = await uploadService.uploadImages(filesToUpload);
+      let uploadedUrls: string[] = [];
+      
+      if (imagesToUpload.length > 0) {
+        console.log('📤 Uploading new images...', imagesToUpload.length);
+        uploadedUrls = await uploadService.uploadImages(imagesToUpload);
         console.log('✅ Uploaded URLs:', uploadedUrls);
         setUploadProgress(100);
-        
-        if (Array.isArray(uploadedUrls) && uploadedUrls.length > 0) {
-          let urlIndex = 0;
-          
-          // Main image
-          if (mainImageFile && urlIndex < uploadedUrls.length) {
-            finalMainImage = uploadedUrls[urlIndex++];
-          }
-          
-          // Additional images
-          for (let i = 0; i < newBlobImages.length; i++) {
-            if (urlIndex < uploadedUrls.length) {
-              finalImageUrls.push(uploadedUrls[urlIndex++]);
-            }
-          }
-        }
-      } else {
-        // No new images to upload
-        finalMainImage = mainImage;
-        finalImageUrls = existingImageUrls;
       }
 
-      // Combine existing images with new uploaded images
-      const allImageUrls = [...existingImageUrls, ...finalImageUrls];
+      // Build final image URLs
+      let uploadedIndex = 0;
+      let finalMainImage = '';
+      const finalAdditionalImages: string[] = [];
       
-      // Remove duplicates manually (fix for Set error)
-      const uniqueImageUrls: string[] = [];
-      allImageUrls.forEach(url => {
-        if (url && url.trim() !== '' && !uniqueImageUrls.includes(url)) {
-          uniqueImageUrls.push(url);
+      // Handle main image
+      if (mainImage) {
+        if (mainImage.isNew) {
+          finalMainImage = uploadedUrls[uploadedIndex++] || '';
+        } else {
+          finalMainImage = mainImage.url;
+        }
+      }
+      
+      // Handle additional images
+      additionalImages.forEach(img => {
+        if (img.isNew) {
+          const newUrl = uploadedUrls[uploadedIndex++];
+          if (newUrl) {
+            finalAdditionalImages.push(newUrl);
+          }
+        } else {
+          finalAdditionalImages.push(img.url);
         }
       });
       
-      console.log('🖼️ Final image URLs:', uniqueImageUrls);
+      // Combine all images (main + additional)
+      const allImages = [finalMainImage, ...finalAdditionalImages].filter(url => url && url.trim() !== '');
+      
+      // Remove duplicates (just in case)
+      const uniqueImages: string[] = [];
+      allImages.forEach(url => {
+        if (!uniqueImages.includes(url)) {
+          uniqueImages.push(url);
+        }
+      });
+      
+      console.log('🖼️ Final unique images:', uniqueImages);
 
       const productData = {
         name: formData.name.trim(),
@@ -294,8 +305,8 @@ const ProductForm = () => {
         price: parseFloat(formData.price),
         stockQuantity: parseInt(formData.stockQuantity),
         categoryId: parseInt(formData.categoryId),
-        imageUrl: finalMainImage || (uniqueImageUrls[0] || ''),
-        images: uniqueImageUrls.map(url => ({ imageUrl: url })),
+        imageUrl: uniqueImages[0] || '',
+        images: uniqueImages.map(url => ({ imageUrl: url })),
         height: formData.height ? parseFloat(formData.height) : 0,
         width: formData.width ? parseFloat(formData.width) : 0,
         length: formData.length ? parseFloat(formData.length) : 0,
@@ -383,15 +394,24 @@ const ProductForm = () => {
                 Main Image (Thumbnail)
               </label>
               <div className="flex items-start space-x-6">
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 relative group">
                   <div className="w-32 h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
                     {mainImage ? (
-                      <img 
-                        src={mainImage} 
-                        alt="Main" 
-                        className="w-full h-full object-cover"
-                        onError={handleImageError}
-                      />
+                      <>
+                        <img 
+                          src={mainImage.url} 
+                          alt="Main" 
+                          className="w-full h-full object-cover"
+                          onError={handleImageError}
+                        />
+                        <button
+                          type="button"
+                          onClick={removeMainImage}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
                     ) : (
                       <div className="text-center">
                         <ImageIcon className="w-8 h-8 text-gray-400 mx-auto" />
@@ -404,7 +424,7 @@ const ProductForm = () => {
                   <label className="cursor-pointer">
                     <span className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadingImages ? 'Uploading...' : mainImageFile ? 'Change Image' : 'Upload Main Image'}
+                      {uploadingImages ? 'Uploading...' : mainImage ? 'Change Image' : 'Upload Main Image'}
                     </span>
                     <input
                       type="file"
@@ -429,10 +449,10 @@ const ProductForm = () => {
               
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
                 {additionalImages.map((img, index) => (
-                  <div key={index} className="relative group">
+                  <div key={img.id} className="relative group">
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
                       <img 
-                        src={img} 
+                        src={img.url} 
                         alt={`Product ${index + 1}`} 
                         className="w-full h-full object-cover"
                         onError={handleImageError}
