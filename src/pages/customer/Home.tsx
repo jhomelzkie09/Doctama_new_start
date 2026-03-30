@@ -233,63 +233,141 @@ const Home = () => {
     </div>
   );
 
+  // Hero images array for variety
+  const heroImages = [
+    {
+      url: "https://images.unsplash.com/photo-1618221195710-dd0b2e9bd5f4?auto=format&fit=crop&w=1200&q=90",
+      alt: "Modern Scandinavian Living Room",
+      title: "Scandinavian Elegance",
+      description: "Minimalist design meets comfort"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=1200&q=90",
+      alt: "Contemporary Interior Design",
+      title: "Contemporary Comfort",
+      description: "Modern aesthetics for modern living"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=90",
+      alt: "Minimalist Home Decor",
+      title: "Minimalist Harmony",
+      description: "Less is more, beautifully executed"
+    }
+  ];
+
+  const [currentHeroImage, setCurrentHeroImage] = useState(0);
+
+  // Auto-rotate hero images
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentHeroImage((prev) => (prev + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
-      {/* Hero Section */}
+      {/* Hero Section with Carousel */}
       <section className="relative min-h-[90vh] flex items-center bg-[#F9F8F6] overflow-hidden">
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-950/5 hidden lg:block" />
+        {/* Background Image Carousel */}
+        <div className="absolute inset-0">
+          {heroImages.map((image, index) => (
+            <div
+              key={index}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                currentHeroImage === index ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <img
+                src={image.url}
+                alt={image.alt}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+            </div>
+          ))}
+        </div>
+        
+        {/* Decorative Elements */}
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-950/20 hidden lg:block" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-200/20 rounded-full blur-[100px]" />
         
         <div className="container mx-auto px-6 relative z-10">
           <div className="grid lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-6 space-y-8">
-              <div className="inline-flex items-center space-x-2 bg-rose-50 border border-rose-100 px-3 py-1 rounded-full text-rose-700 text-sm font-medium">
+            <div className="lg:col-span-6 space-y-8 text-white">
+              <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-full text-white text-sm font-medium">
                 <Sparkles className="w-4 h-4" />
                 <span>The 2026 Spring Collection is here</span>
               </div>
               
-              <h1 className="text-6xl lg:text-8xl font-serif text-slate-900 leading-[1.1] tracking-tight">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif text-white leading-[1.1] tracking-tight drop-shadow-lg">
                 Design for <br />
-                <span className="italic text-rose-800">Better Living.</span>
+                <span className="italic text-rose-200">Better Living.</span>
               </h1>
               
-              <p className="text-lg text-slate-600 max-w-md leading-relaxed">
+              <p className="text-lg text-white/90 max-w-md leading-relaxed drop-shadow-md">
                 Experience the harmony of Filipino craftsmanship and modern Scandinavian aesthetics. Elevate your space with pieces that tell a story.
               </p>
               
               <div className="flex flex-wrap gap-5 pt-4">
-                <Link to="/shop" className="px-8 py-4 bg-rose-950 text-white rounded-full font-medium hover:bg-rose-900 transition-all transform hover:-translate-y-1 flex items-center shadow-xl shadow-rose-950/20">
+                <Link to="/shop" className="px-8 py-4 bg-rose-600 text-white rounded-full font-medium hover:bg-rose-700 transition-all transform hover:-translate-y-1 flex items-center shadow-xl shadow-black/20">
                   Shop Collection <MoveRight className="w-5 h-5 ml-2" />
                 </Link>
-                <button className="flex items-center space-x-3 text-slate-900 font-semibold group">
-                  <div className="p-3 rounded-full border border-slate-200 group-hover:bg-white group-hover:shadow-md transition-all">
-                    <PlayCircle className="w-6 h-6 text-rose-800" />
+                <button className="flex items-center space-x-3 text-white font-semibold group">
+                  <div className="p-3 rounded-full border border-white/30 group-hover:bg-white/10 transition-all">
+                    <PlayCircle className="w-6 h-6" />
                   </div>
                   <span>Watch Lookbook</span>
                 </button>
               </div>
 
-              <div className="flex items-center space-x-12 pt-10 border-t border-slate-200">
+              <div className="flex items-center space-x-12 pt-10 border-t border-white/20">
                 <div>
-                  <div className="text-2xl font-bold text-slate-900">12k+</div>
-                  <div className="text-sm text-slate-500 uppercase tracking-widest font-medium">Installs</div>
+                  <div className="text-2xl font-bold text-white">12k+</div>
+                  <div className="text-sm text-white/70 uppercase tracking-widest font-medium">Installs</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-900">4.9/5</div>
-                  <div className="text-sm text-slate-500 uppercase tracking-widest font-medium">Rating</div>
+                  <div className="text-2xl font-bold text-white">4.9/5</div>
+                  <div className="text-sm text-white/70 uppercase tracking-widest font-medium">Rating</div>
                 </div>
               </div>
             </div>
             
             <div className="lg:col-span-6 relative">
+              {/* Hero Image Carousel Indicators */}
+              <div className="absolute bottom-4 right-4 z-20 flex gap-2">
+                {heroImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentHeroImage(index)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      currentHeroImage === index 
+                        ? 'w-6 bg-white' 
+                        : 'bg-white/50 hover:bg-white/70'
+                    }`}
+                  />
+                ))}
+              </div>
+              
               <div className="relative z-10 rounded-[2rem] overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-700">
                 <img 
-                  src="https://images.unsplash.com/photo-1618221195710-dd0b2e9bd5f4?auto=format&fit=crop&w=1000&q=90" 
-                  alt="Modern Interior"
-                  className="w-full h-[600px] object-cover"
+                  src={heroImages[currentHeroImage].url}
+                  alt={heroImages[currentHeroImage].alt}
+                  className="w-full h-[500px] lg:h-[600px] object-cover"
                 />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
+                  <p className="text-white text-sm font-medium">{heroImages[currentHeroImage].description}</p>
+                </div>
               </div>
-              <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-rose-200 rounded-full blur-[100px] opacity-50 -z-10" />
+              <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-rose-300 rounded-full blur-[100px] opacity-30 -z-10" />
             </div>
+          </div>
+        </div>
+        
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 border-2 border-white/40 rounded-full flex justify-center">
+            <div className="w-1 h-2 bg-white/60 rounded-full mt-2 animate-pulse" />
           </div>
         </div>
       </section>
@@ -472,7 +550,6 @@ const Home = () => {
                       />
                     </Link>
                     <div className="absolute top-4 right-4 flex flex-col gap-2">
-                      {/* Add to Cart Button - Navigates to Shop */}
                       <button 
                         onClick={(e) => handleAddToCart(e, product)}
                         className="p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0"
