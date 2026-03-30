@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Package, TrendingUp, AlertCircle, DollarSign, Printer, Download } from 'lucide-react';
+import { Package, TrendingUp, AlertCircle, DollarSign, Eye } from 'lucide-react';
 import reportService from '../../services/report.service';
 import productService from '../../services/product.service';
-import { useOrders } from '../../contexts/OrderContext';
-import logo from '../../assets/logo.png';
+import PDFReportModal from '../../components/admin/PDFReportModal';
 
 const ProductsReport: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [productStats, setProductStats] = useState<any[]>([]);
+  const [showPDFModal, setShowPDFModal] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -45,9 +45,10 @@ const ProductsReport: React.FC = () => {
     const totalProducts = productStats.length;
     const totalStock = productStats.reduce((sum, p) => sum + p.stock, 0);
     const totalRevenue = productStats.reduce((sum, p) => sum + p.revenue, 0);
+    const totalSold = productStats.reduce((sum, p) => sum + p.sold, 0);
     const lowStock = productStats.filter(p => p.stock < 10).length;
     
-    return { totalProducts, totalStock, totalRevenue, lowStock };
+    return { totalProducts, totalStock, totalRevenue, totalSold, lowStock };
   };
 
   const stats = getTotalStats();
@@ -82,7 +83,11 @@ const ProductsReport: React.FC = () => {
   };
 
   const handlePrint = () => {
-    reportService.printReport('products-report-content');
+    window.print();
+  };
+
+  const handlePreviewPDF = () => {
+    setShowPDFModal(true);
   };
 
   if (loading) {
@@ -96,6 +101,106 @@ const ProductsReport: React.FC = () => {
     );
   }
 
+  const ReportContent = () => (
+    <>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Total Products</p>
+          <p className="text-lg font-bold text-gray-900">{stats.totalProducts}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Total Stock</p>
+          <p className="text-lg font-bold text-gray-900">{stats.totalStock}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Total Revenue</p>
+          <p className="text-lg font-bold text-gray-900">₱{stats.totalRevenue.toLocaleString()}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Total Sold</p>
+          <p className="text-lg font-bold text-gray-900">{stats.totalSold}</p>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        {productStats.length === 0 ? (
+          <div className="text-center py-12">
+            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No products found</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Product Name</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Category</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Price</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Stock</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Sold</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Revenue</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {productStats.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 font-medium text-gray-900">{product.name}</td>
+                  <td className="px-4 py-2 text-gray-600">{product.category}</td>
+                  <td className="px-4 py-2 text-gray-900">₱{product.price.toLocaleString()}</td>
+                  <td className="px-4 py-2">
+                    <span className={product.stock < 10 ? 'text-red-600 font-medium' : 'text-gray-900'}>
+                      {product.stock}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">{product.sold}</td>
+                  <td className="px-4 py-2 text-gray-900">₱{product.revenue.toLocaleString()}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      product.stock === 0 ? 'bg-red-100 text-red-800' :
+                      product.stock < 10 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {product.stock === 0 ? 'Out of Stock' :
+                       product.stock < 10 ? 'Low Stock' : 'In Stock'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50">
+              <tr>
+                <td colSpan={2} className="px-4 py-2 text-right font-semibold">TOTALS:</td>
+                <td className="px-4 py-2 font-bold text-gray-900">-</td>
+                <td className="px-4 py-2 font-bold text-gray-900">{stats.totalStock}</td>
+                <td className="px-4 py-2 font-bold text-gray-900">{stats.totalSold}</td>
+                <td className="px-4 py-2 font-bold text-gray-900">₱{stats.totalRevenue.toLocaleString()}</td>
+                <td className="px-4 py-2 text-gray-600">{stats.lowStock} Low Stock</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+    </>
+  );
+
+  const summaryContent = (
+    <div className="flex justify-between items-center">
+      <div>
+        <p className="text-sm font-semibold text-gray-800">Inventory Summary</p>
+        <p className="text-xs text-gray-600">Total Products: {stats.totalProducts}</p>
+        <p className="text-xs text-gray-600">Total Stock: {stats.totalStock}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-semibold text-gray-800">Sales Summary</p>
+        <p className="text-xs text-gray-600">Units Sold: {stats.totalSold}</p>
+        <p className="text-xs text-gray-600">Total Revenue: ₱{stats.totalRevenue.toLocaleString()}</p>
+        <p className="text-xs text-red-600">Low Stock Items: {stats.lowStock}</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -103,30 +208,14 @@ const ProductsReport: React.FC = () => {
         <p className="text-gray-600 mt-1">View and export product inventory and sales data</p>
       </div>
 
-      <div className="flex justify-end mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleExport('excel')}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export to Excel
-          </button>
-          <button
-            onClick={() => handleExport('csv')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export to CSV
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
-          >
-            <Printer className="w-4 h-4" />
-            Print Report
-          </button>
-        </div>
+      <div className="flex justify-end mb-6 gap-2">
+        <button
+          onClick={handlePreviewPDF}
+          className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
+        >
+          <Eye className="w-4 h-4" />
+          Preview Report
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -172,177 +261,18 @@ const ProductsReport: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Content for Printing - UPDATED with Logo, Company Name and Address */}
-      <div id="products-report-content" className="bg-white rounded-lg shadow-sm overflow-hidden">
-        {/* Company Header for Print */}
-        <div className="p-6 border-b bg-gray-50 print:bg-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* Logo */}
-              <div className="w-16 h-16 rounded-lg flex items-center justify-center">
-                <img 
-                  src={logo} 
-                  alt="Doctama's Logo" 
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              {/* Company Info */}
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Doctama's Marketing</h1>
-                <p className="text-sm text-gray-600 mt-1">
-                  Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Tel: +63 998 586 8888 | Email: support@doctama.com
-                </p>
-              </div>
-            </div>
-            {/* Report Title and Date */}
-            <div className="text-right">
-              <div className="bg-rose-50 px-4 py-2 rounded-lg">
-                <p className="text-xs text-rose-600 font-medium">PRODUCTS REPORT</p>
-                <p className="text-sm font-bold text-gray-800 mt-1">
-                  {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Report Summary */}
-        <div className="p-6 border-b bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Report Type</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">Inventory & Sales Analysis</p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Generated On</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">
-                {new Date().toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Generated By</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">
-                Administrator
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Report Header */}
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">Products Inventory Report</h2>
-          <p className="text-gray-600 mt-1">
-            Generated on: {new Date().toLocaleString()}
-          </p>
-          <div className="mt-2 flex gap-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Total Products:</span> {stats.totalProducts}
-            </p>
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Total Stock:</span> {stats.totalStock}
-            </p>
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Total Revenue:</span> ₱{stats.totalRevenue.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          {productStats.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No products found</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {productStats.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {product.name}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {product.category}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      ₱{product.price.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={product.stock < 10 ? 'text-red-600 font-medium' : 'text-gray-900'}>
-                        {product.stock}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {product.sold}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      ₱{product.revenue.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        product.stock === 0 ? 'bg-red-100 text-red-800' :
-                        product.stock < 10 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {product.stock === 0 ? 'Out of Stock' :
-                         product.stock < 10 ? 'Low Stock' : 'In Stock'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {/* Footer Summary Row */}
-              <tfoot className="bg-gray-50">
-                <tr>
-                  <td colSpan={2} className="px-6 py-3 text-right text-sm font-semibold text-gray-900">
-                    TOTALS:
-                  </td>
-                  <td className="px-6 py-3 text-sm font-bold text-gray-900">
-                    -
-                  </td>
-                  <td className="px-6 py-3 text-sm font-bold text-gray-900">
-                    {stats.totalStock}
-                  </td>
-                  <td className="px-6 py-3 text-sm font-bold text-gray-900">
-                    {productStats.reduce((sum, p) => sum + p.sold, 0)}
-                  </td>
-                  <td className="px-6 py-3 text-sm font-bold text-gray-900">
-                    ₱{stats.totalRevenue.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-3 text-sm text-gray-600">
-                    {stats.lowStock} Low Stock
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </div>
-
-        {/* Footer for Printing */}
-        <div className="p-6 border-t bg-gray-50 print:bg-white">
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <p>Doctama's Marketing - Gabao, Bacon, Sorsogon City, Sorsogon, Philippines</p>
-            <p>Generated: {new Date().toLocaleString()}</p>
-          </div>
-          <div className="mt-2 text-center text-xs text-gray-400">
-            <p>This is a computer-generated document. No signature required.</p>
-          </div>
-        </div>
-      </div>
+      {/* PDF Report Modal */}
+      <PDFReportModal
+        isOpen={showPDFModal}
+        onClose={() => setShowPDFModal(false)}
+        title="Products Report"
+        onPrint={handlePrint}
+        onExport={() => handleExport('excel')}
+        period="Current Inventory"
+        summary={summaryContent}
+      >
+        <ReportContent />
+      </PDFReportModal>
     </div>
   );
 };

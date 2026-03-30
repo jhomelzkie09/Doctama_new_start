@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, DollarSign, ShoppingBag, Users } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Users, Eye } from 'lucide-react';
 import ReportFilters from '../../components/admin/ReportFilters';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
-import logo from '../../assets/logo.png';
+import PDFReportModal from '../../components/admin/PDFReportModal';
 
 const SalesReport: React.FC = () => {
   const { state, getAllOrders } = useOrders();
@@ -14,6 +14,7 @@ const SalesReport: React.FC = () => {
     end: new Date().toISOString().split('T')[0]
   });
   const [exportLoading, setExportLoading] = useState(false);
+  const [showPDFModal, setShowPDFModal] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -27,7 +28,6 @@ const SalesReport: React.FC = () => {
     filterOrders();
   }, [orders, dateRange]);
 
-  // Helper function to safely format date for comparison
   const formatDateForComparison = (dateValue: string | Date | undefined): string => {
     if (!dateValue) return '';
     try {
@@ -39,7 +39,6 @@ const SalesReport: React.FC = () => {
     }
   };
 
-  // Helper function to get display date
   const getDisplayDate = (dateValue: string | Date | undefined): string => {
     if (!dateValue) return 'N/A';
     try {
@@ -101,7 +100,11 @@ const SalesReport: React.FC = () => {
   };
 
   const handlePrint = () => {
-    reportService.printReport('sales-report-content');
+    window.print();
+  };
+
+  const handlePreviewPDF = () => {
+    setShowPDFModal(true);
   };
 
   if (loading) {
@@ -114,6 +117,95 @@ const SalesReport: React.FC = () => {
       </div>
     );
   }
+
+  const ReportContent = () => (
+    <>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Total Sales</p>
+          <p className="text-lg font-bold text-gray-900">₱{stats.totalSales.toLocaleString()}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Total Orders</p>
+          <p className="text-lg font-bold text-gray-900">{stats.totalOrders}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Average Order</p>
+          <p className="text-lg font-bold text-gray-900">₱{stats.averageOrderValue.toLocaleString()}</p>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500">Unique Customers</p>
+          <p className="text-lg font-bold text-gray-900">{stats.uniqueCustomers}</p>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-12">
+            <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No sales found in this date range</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Order ID</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Date</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Customer</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Total</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Status</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500">Items</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredOrders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 text-gray-900">#{order.id?.toString().slice(-6) || 'N/A'}</td>
+                  <td className="px-4 py-2 text-gray-600">{getDisplayDate(order.createdAt)}</td>
+                  <td className="px-4 py-2 text-gray-900">{order.user?.fullName || order.user?.name || 'Guest'}</td>
+                  <td className="px-4 py-2 font-medium text-gray-900">₱{(order.total || 0).toLocaleString()}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                      order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {order.status || 'N/A'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">{order.items?.length || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50">
+              <tr>
+                <td colSpan={3} className="px-4 py-2 text-right font-semibold">TOTAL:</td>
+                <td className="px-4 py-2 font-bold text-gray-900">₱{stats.totalSales.toLocaleString()}</td>
+                <td colSpan={2} className="px-4 py-2 text-gray-600">{filteredOrders.length} Orders</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+    </>
+  );
+
+  const summaryContent = (
+    <div className="flex justify-between items-center">
+      <div>
+        <p className="text-sm font-semibold text-gray-800">Sales Summary</p>
+        <p className="text-xs text-gray-600">Total Revenue: ₱{stats.totalSales.toLocaleString()}</p>
+        <p className="text-xs text-gray-600">Total Orders: {stats.totalOrders}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-semibold text-gray-800">Average Order Value</p>
+        <p className="text-xs text-gray-600">₱{stats.averageOrderValue.toLocaleString()}</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-6">
@@ -129,6 +221,16 @@ const SalesReport: React.FC = () => {
         onPrint={handlePrint}
         loading={exportLoading}
       />
+
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={handlePreviewPDF}
+          className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
+        >
+          <Eye className="w-4 h-4" />
+          Preview Report
+        </button>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -181,164 +283,18 @@ const SalesReport: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Content for Printing - UPDATED with Logo, Company Name and Address */}
-      <div id="sales-report-content" className="bg-white rounded-lg shadow-sm overflow-hidden">
-        {/* Company Header for Print */}
-        <div className="p-6 border-b bg-gray-50 print:bg-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* Logo */}
-              <div className="w-16 h-16 rounded-lg flex items-center justify-center">
-                <img 
-                  src={logo} 
-                  alt="Doctama's Logo" 
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              {/* Company Info */}
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Doctama's Marketing</h1>
-                <p className="text-sm text-gray-600 mt-1">
-                  Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Tel: +63 998 586 8888 | Email: support@doctama.com
-                </p>
-              </div>
-            </div>
-            {/* Report Title and Date */}
-            <div className="text-right">
-              <div className="bg-rose-50 px-4 py-2 rounded-lg">
-                <p className="text-xs text-rose-600 font-medium">SALES REPORT</p>
-                <p className="text-sm font-bold text-gray-800 mt-1">
-                  {new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Report Summary */}
-        <div className="p-6 border-b bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Report Period</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">
-                {new Date(dateRange.start).toLocaleDateString()} - {new Date(dateRange.end).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Generated On</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">
-                {new Date().toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Generated By</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">
-                Administrator
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Report Header */}
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">Sales Report Details</h2>
-          <p className="text-gray-600 mt-1">
-            Period: {dateRange.start} - {dateRange.end}
-          </p>
-          <div className="mt-2 flex gap-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Total Orders:</span> {filteredOrders.length}
-            </p>
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Total Sales:</span> ₱{stats.totalSales.toLocaleString()}
-            </p>
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold">Average Order:</span> ₱{stats.averageOrderValue.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          {filteredOrders.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No sales found in this date range</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      #{order.id?.toString().slice(-6) || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {getDisplayDate(order.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {order.user?.fullName || order.user?.name || order.customerName || 'Guest'}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      ₱{(order.total || 0).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        order.status === 'completed' || order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                        order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {order.status || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {order.items?.length || 0}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {/* Footer Summary Row */}
-              <tfoot className="bg-gray-50">
-                <tr>
-                  <td colSpan={3} className="px-6 py-3 text-right text-sm font-semibold text-gray-900">
-                    TOTAL:
-                  </td>
-                  <td className="px-6 py-3 text-sm font-bold text-gray-900">
-                    ₱{stats.totalSales.toLocaleString()}
-                  </td>
-                  <td colSpan={2} className="px-6 py-3 text-sm text-gray-600">
-                    {filteredOrders.length} Orders
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </div>
-
-        {/* Footer for Printing */}
-        <div className="p-6 border-t bg-gray-50 print:bg-white">
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <p>Doctama's Marketing - Gabao, Bacon, Sorsogon City, Sorsogon, Philippines</p>
-            <p>Generated: {new Date().toLocaleString()}</p>
-          </div>
-          <div className="mt-2 text-center text-xs text-gray-400">
-            <p>This is a computer-generated document. No signature required.</p>
-          </div>
-        </div>
-      </div>
+      {/* PDF Report Modal */}
+      <PDFReportModal
+        isOpen={showPDFModal}
+        onClose={() => setShowPDFModal(false)}
+        title="Sales Report"
+        onPrint={handlePrint}
+        onExport={() => handleExport('excel')}
+        period={`${new Date(dateRange.start).toLocaleDateString()} - ${new Date(dateRange.end).toLocaleDateString()}`}
+        summary={summaryContent}
+      >
+        <ReportContent />
+      </PDFReportModal>
     </div>
   );
 };
