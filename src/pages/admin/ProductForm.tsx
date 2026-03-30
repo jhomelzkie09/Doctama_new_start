@@ -97,18 +97,30 @@ const ProductForm = () => {
       console.log('✅ Product data loaded:', product);
       
       if (product) {
+        // Set main image
         setMainImage(product.imageUrl || '');
+        setMainImageFile(null); // Clear any pending file upload
         
-        // Handle images - extract URLs
+        // Handle images - extract URLs from the product
+        let imageUrls: string[] = [];
         if (product.images && Array.isArray(product.images)) {
-          const imageUrls = product.images.map(img => 
+          imageUrls = product.images.map(img => 
             typeof img === 'string' ? img : img.imageUrl
-          );
-          setAdditionalImages(imageUrls);
+          ).filter(url => url && url.trim() !== '');
         }
-
+        
+        // Set additional images (all images except the main image if it's in the list)
+        const mainImageUrl = product.imageUrl || '';
+        const additional = imageUrls.filter(url => url !== mainImageUrl);
+        setAdditionalImages(additional);
+        
+        // CRITICAL: Clear additionalImageFiles when editing (these are for new uploads only)
+        setAdditionalImageFiles([]);
+        
+        // Set colors
         setSelectedColors(product.colorsVariant || []);
         
+        // Set form data
         setFormData({
           name: product.name || '',
           description: product.description || '',
@@ -210,38 +222,71 @@ const ProductForm = () => {
       let finalMainImage = mainImage;
       let finalImageUrls: string[] = [];
 
-      // Upload new images if any
+      // Separate existing images from new blob images
+      const existingImageUrls = additionalImages.filter(url => !url.startsWith('blob:') && url !== '');
+      const newBlobImages = additionalImages.filter(url => url.startsWith('blob:'));
+      
+      console.log('📸 Existing images from DB:', existingImageUrls);
+      console.log('🆕 New blob images to upload:', newBlobImages.length);
+
+      // Upload new images only (the blob URLs)
       const filesToUpload: File[] = [];
-      if (mainImageFile) filesToUpload.push(mainImageFile);
-      filesToUpload.push(...additionalImageFiles);
+      
+      // Add main image file if it's a new upload
+      if (mainImageFile) {
+        filesToUpload.push(mainImageFile);
+      }
+      
+      // Add additional image files (new ones only)
+      for (let i = 0; i < additionalImageFiles.length; i++) {
+        const file = additionalImageFiles[i];
+        const blobUrl = URL.createObjectURL(file);
+        if (newBlobImages.includes(blobUrl)) {
+          filesToUpload.push(file);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }
 
       if (filesToUpload.length > 0) {
-        console.log('📤 Uploading images...', filesToUpload.length);
+        console.log('📤 Uploading new images...', filesToUpload.length);
         
         const uploadedUrls = await uploadService.uploadImages(filesToUpload);
-        console.log('✅ Upload response:', uploadedUrls);
+        console.log('✅ Uploaded URLs:', uploadedUrls);
         setUploadProgress(100);
         
         if (Array.isArray(uploadedUrls) && uploadedUrls.length > 0) {
           let urlIndex = 0;
           
-          if (mainImageFile) {
+          // Main image
+          if (mainImageFile && urlIndex < uploadedUrls.length) {
             finalMainImage = uploadedUrls[urlIndex++];
           }
           
-          for (let i = 0; i < additionalImageFiles.length; i++) {
+          // Additional images
+          for (let i = 0; i < newBlobImages.length; i++) {
             if (urlIndex < uploadedUrls.length) {
               finalImageUrls.push(uploadedUrls[urlIndex++]);
             }
           }
         }
+      } else {
+        // No new images to upload
+        finalMainImage = mainImage;
+        finalImageUrls = existingImageUrls;
       }
 
-      // Combine existing and new image URLs
-      const allImageUrls = [
-        ...additionalImages.filter(url => !url.startsWith('blob:')), // Keep existing URLs
-        ...finalImageUrls // Add new ones
-      ];
+      // Combine existing images with new uploaded images
+      const allImageUrls = [...existingImageUrls, ...finalImageUrls];
+      
+      // Remove duplicates manually (fix for Set error)
+      const uniqueImageUrls: string[] = [];
+      allImageUrls.forEach(url => {
+        if (url && url.trim() !== '' && !uniqueImageUrls.includes(url)) {
+          uniqueImageUrls.push(url);
+        }
+      });
+      
+      console.log('🖼️ Final image URLs:', uniqueImageUrls);
 
       const productData = {
         name: formData.name.trim(),
@@ -249,8 +294,8 @@ const ProductForm = () => {
         price: parseFloat(formData.price),
         stockQuantity: parseInt(formData.stockQuantity),
         categoryId: parseInt(formData.categoryId),
-        imageUrl: finalMainImage,
-        images: allImageUrls,
+        imageUrl: finalMainImage || (uniqueImageUrls[0] || ''),
+        images: uniqueImageUrls.map(url => ({ imageUrl: url })),
         height: formData.height ? parseFloat(formData.height) : 0,
         width: formData.width ? parseFloat(formData.width) : 0,
         length: formData.length ? parseFloat(formData.length) : 0,
@@ -510,7 +555,7 @@ const ProductForm = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price ($) *
+                  Price (₱) *
                 </label>
                 <input
                   type="number"
