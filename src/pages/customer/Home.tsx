@@ -234,27 +234,40 @@ const Home = () => {
   );
 
   // Hero images array for variety
+  // Hero images array with reliable URLs
   const heroImages = [
     {
-      url: "https://images.unsplash.com/photo-1618221195710-dd0b2e9bd5f4?auto=format&fit=crop&w=1200&q=90",
+      url: "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200",
       alt: "Modern Scandinavian Living Room",
       title: "Scandinavian Elegance",
       description: "Minimalist design meets comfort"
     },
     {
-      url: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=1200&q=90",
+      url: "https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=1200",
       alt: "Contemporary Interior Design",
       title: "Contemporary Comfort",
       description: "Modern aesthetics for modern living"
     },
     {
-      url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=90",
+      url: "https://images.pexels.com/photos/1571463/pexels-photo-1571463.jpeg?auto=compress&cs=tinysrgb&w=1200",
       alt: "Minimalist Home Decor",
       title: "Minimalist Harmony",
       description: "Less is more, beautifully executed"
+    },
+    {
+      url: "https://images.pexels.com/photos/1571468/pexels-photo-1571468.jpeg?auto=compress&cs=tinysrgb&w=1200",
+      alt: "Cozy Living Room",
+      title: "Warm & Cozy",
+      description: "Create your perfect sanctuary"
+    },
+    {
+      url: "https://images.pexels.com/photos/1571465/pexels-photo-1571465.jpeg?auto=compress&cs=tinysrgb&w=1200",
+      alt: "Modern Furniture",
+      title: "Modern Luxury",
+      description: "Elevate your space"
     }
   ];
-
+  
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
 
   // Auto-rotate hero images
