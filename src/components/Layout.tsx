@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
+import userService from '../services/user.service';
 import { 
   Menu, 
   X, 
@@ -50,12 +51,36 @@ const Layout = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Load profile picture when user changes
+  useEffect(() => {
+    const loadProfilePicture = async () => {
+      if (user) {
+        try {
+          const profile = await userService.getCurrentUserProfile();
+          if (profile?.profilePicture) {
+            setProfilePicture(profile.profilePicture);
+          } else {
+            setProfilePicture(null);
+          }
+        } catch (error) {
+          console.error('Failed to load profile picture:', error);
+          setProfilePicture(null);
+        }
+      } else {
+        setProfilePicture(null);
+      }
+    };
+
+    loadProfilePicture();
+  }, [user]);
 
   const handleAuthRequired = (mode: 'login' | 'register' = 'login') => {
     setAuthMode(mode);
@@ -86,7 +111,6 @@ const Layout = () => {
 
   const handleConfirmLogout = async () => {
     setLoggingOut(true);
-    // Small delay to show loading state
     await new Promise(resolve => setTimeout(resolve, 500));
     logout();
     setShowLogoutModal(false);
@@ -157,15 +181,15 @@ const Layout = () => {
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex justify-between items-center">
             
-            {/* Elegant Logo Design - Mobile Optimized */}
+            {/* Elegant Logo Design */}
             <Link to="/" className="group flex items-center gap-2 md:gap-3">
               <div className="w-20 h-20 md:w-16 md:h-16 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
-  <img 
-    src={logo} 
-    alt="Doctama Logo" 
-    className="w-full h-full object-contain"
-  />
-</div>
+                <img 
+                  src={logo} 
+                  alt="Doctama Logo" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
               <div className="flex flex-col leading-none">
                 <span className="font-black text-sm md:text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
                 <span className="text-[8px] md:text-[10px] font-bold text-rose-600 tracking-[0.1em] md:tracking-[0.2em] uppercase">Marketing</span>
@@ -189,7 +213,7 @@ const Layout = () => {
               ))}
             </div>
 
-            {/* Utility Icons - Mobile Optimized */}
+            {/* Utility Icons */}
             <div className="flex items-center gap-1 md:gap-2">
               {/* Search Icon - Mobile */}
               <button 
@@ -226,7 +250,7 @@ const Layout = () => {
                 )}
               </Link>
 
-              {/* User Menu - Mobile & Desktop */}
+              {/* User Menu - With Profile Picture */}
               {user ? (
                 <div className="relative">
                   <button 
@@ -234,19 +258,46 @@ const Layout = () => {
                     className="flex items-center gap-1 md:gap-2 group p-1"
                   >
                     <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center overflow-hidden transition-all group-hover:border-rose-300">
-                      {user.fullName ? (
-                        <span className="text-sm font-bold text-slate-700">{user.fullName.charAt(0).toUpperCase()}</span>
-                      ) : <User className="w-4 h-4 text-slate-400" />}
+                      {profilePicture ? (
+                        <img 
+                          src={profilePicture} 
+                          alt={user.fullName || user.email}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm font-bold text-slate-700">
+                          {user.fullName ? user.fullName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || 'U'}
+                        </span>
+                      )}
                     </div>
                     <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 text-slate-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
-                  {/* Dropdown Menu - Mobile & Desktop */}
+                  {/* Dropdown Menu */}
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 animate-in fade-in zoom-in-95 duration-200 z-50">
-                      <div className="px-4 py-3 border-b border-slate-50">
-                        <p className="text-xs text-slate-400 font-medium">Signed in as</p>
-                        <p className="text-sm font-bold text-slate-900 truncate">{user.email}</p>
+                      <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                          {profilePicture ? (
+                            <img 
+                              src={profilePicture} 
+                              alt={user.fullName || user.email}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-rose-100">
+                              <span className="text-sm font-bold text-rose-600">
+                                {user.fullName ? user.fullName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-900 truncate">
+                            {user.fullName || user.email?.split('@')[0] || 'User'}
+                          </p>
+                          <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                        </div>
                       </div>
                       <Link to="/account" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
                         <UserCircle className="w-4 h-4" /> My Profile
@@ -268,7 +319,7 @@ const Layout = () => {
                   )}
                 </div>
               ) : (
-                // Sign In Button - Mobile Optimized
+                // Sign In Button
                 <button
                   onClick={() => handleAuthRequired('login')}
                   className="ml-1 md:ml-2 flex items-center gap-1 md:gap-2 px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-900 text-white text-xs md:text-sm font-bold rounded-full hover:bg-rose-600 transition-all shadow-md shadow-slate-200 active:scale-95"
@@ -305,13 +356,13 @@ const Layout = () => {
         </div>
       </nav>
 
-      {/* 3. Mobile Navigation Menu - Enhanced */}
+      {/* 3. Mobile Navigation Menu */}
       <div className={`fixed inset-0 z-[60] bg-white transition-transform duration-500 lg:hidden ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-5 h-full flex flex-col">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-rose-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-black text-lg italic">D</span>
+                <img src={logo} alt="Doctama Logo" className="w-6 h-6 object-contain" />
               </div>
               <div className="flex flex-col">
                 <span className="font-black text-sm text-slate-900 uppercase">Doctama's</span>
@@ -341,17 +392,27 @@ const Layout = () => {
             ))}
           </div>
 
-          {/* User Section in Mobile Menu */}
+          {/* User Section in Mobile Menu with Profile Picture */}
           {user && (
             <div className="mt-8 pt-6 border-t border-slate-100">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center">
-                  <span className="text-lg font-bold text-rose-600">
-                    {user.fullName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
-                  </span>
+                <div className="w-12 h-12 bg-rose-100 rounded-full overflow-hidden flex-shrink-0">
+                  {profilePicture ? (
+                    <img 
+                      src={profilePicture} 
+                      alt={user.fullName || user.email}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-rose-100">
+                      <span className="text-lg font-bold text-rose-600">
+                        {user.fullName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <p className="font-bold text-slate-900">{user.fullName || 'User'}</p>
+                  <p className="font-bold text-slate-900">{user.fullName || user.email?.split('@')[0] || 'User'}</p>
                   <p className="text-xs text-slate-500">{user.email}</p>
                 </div>
               </div>
@@ -410,7 +471,7 @@ const Layout = () => {
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 bg-rose-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">D</span>
+                  <img src={logo} alt="Doctama Logo" className="w-6 h-6 object-contain" />
                 </div>
                 <span className="font-black text-lg tracking-tight uppercase">Doctama's</span>
               </div>
