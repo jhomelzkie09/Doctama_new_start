@@ -1,8 +1,114 @@
 import api from '../api/config';
 import { User, UserUpdateDto, ToggleUserStatusDto } from '../types';
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  profilePicture?: string;
+  roles: string[];
+  isActive: boolean;
+  emailConfirmed: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface UpdateProfileData {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+}
+
 class UserService {
   private readonly baseUrl = '/users';
+  private readonly adminUrl = '/adminusers';
+
+  // ==================== PROFILE METHODS (Current User) ====================
+
+  /**
+   * Get current user's profile
+   */
+  async getCurrentUserProfile(): Promise<UserProfile | null> {
+    try {
+      console.log('📤 Fetching current user profile...');
+      const response = await api.get(`${this.baseUrl}/profile`);
+      console.log('✅ Profile fetched:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error fetching profile:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Update current user's profile
+   */
+  async updateProfile(data: UpdateProfileData): Promise<UserProfile> {
+    try {
+      console.log('📤 Updating profile...', data);
+      const response = await api.put(`${this.baseUrl}/profile`, data);
+      console.log('✅ Profile updated:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error updating profile:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload profile picture
+   */
+  async uploadProfilePicture(file: File): Promise<{ profilePicture: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      console.log('📤 Uploading profile picture...');
+      const response = await api.post(`${this.baseUrl}/profile/picture`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log('✅ Profile picture uploaded:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error uploading profile picture:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Change password
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      console.log('📤 Changing password...');
+      await api.post(`${this.baseUrl}/change-password`, {
+        currentPassword,
+        newPassword,
+      });
+      console.log('✅ Password changed successfully');
+    } catch (error: any) {
+      console.error('❌ Error changing password:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  // ==================== ADMIN METHODS ====================
 
   /**
    * Get all users (Admin only)
@@ -10,11 +116,9 @@ class UserService {
   async getAllUsers(): Promise<User[]> {
     try {
       console.log('📤 Fetching all users from admin endpoint...');
-      // Note: The controller is named AdminUsers, so the route is /api/adminusers/all
-      const response = await api.get('/adminusers/all');
+      const response = await api.get(`${this.adminUrl}/all`);
       console.log('✅ Users fetched:', response.data);
       
-      // The endpoint returns the array directly
       if (Array.isArray(response.data)) {
         return response.data;
       }
@@ -32,9 +136,8 @@ class UserService {
   async getUserById(id: string): Promise<User | null> {
     try {
       console.log(`📤 Fetching user ${id}...`);
-      const response = await api.get(`/adminusers/${id}`);
+      const response = await api.get(`${this.adminUrl}/${id}`);
       console.log('✅ User fetched:', response.data);
-      
       return response.data;
     } catch (error: any) {
       console.error(`❌ Error fetching user ${id}:`, error.response?.data || error.message);
@@ -42,32 +145,35 @@ class UserService {
     }
   }
 
-  // Add this new method to user.service.ts
-async toggleAdminRole(id: string, makeAdmin: boolean): Promise<any> {
-  try {
-    console.log(`📤 Toggling admin role for user ${id} to ${makeAdmin}...`);
-    const response = await api.post(`/adminusers/${id}/toggle-admin`, { makeAdmin });
-    console.log('✅ Admin role toggled:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Error toggling admin role:', error.response?.data || error.message);
-    throw error;
+  /**
+   * Update user (Admin only)
+   */
+  async updateUser(id: string, userData: Partial<User>): Promise<User> {
+    try {
+      console.log(`📤 Updating user ${id}...`);
+      const response = await api.put(`${this.adminUrl}/${id}`, userData);
+      console.log('✅ User updated:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`❌ Error updating user ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
   }
-}
 
-// Keep updateUser but use PUT instead of PATCH
-async updateUser(id: string, userData: Partial<User>): Promise<User> {
-  try {
-    console.log(`📤 Updating user ${id}...`);
-    // Use PUT for full updates
-    const response = await api.put(`/adminusers/${id}`, userData);
-    console.log('✅ User updated:', response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error(`❌ Error updating user ${id}:`, error.response?.data || error.message);
-    throw error;
+  /**
+   * Toggle admin role (Admin only)
+   */
+  async toggleAdminRole(id: string, makeAdmin: boolean): Promise<any> {
+    try {
+      console.log(`📤 Toggling admin role for user ${id} to ${makeAdmin}...`);
+      const response = await api.post(`${this.adminUrl}/${id}/toggle-admin`, { makeAdmin });
+      console.log('✅ Admin role toggled:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error toggling admin role:', error.response?.data || error.message);
+      throw error;
+    }
   }
-}
 
   /**
    * Delete user (Admin only)
@@ -75,7 +181,7 @@ async updateUser(id: string, userData: Partial<User>): Promise<User> {
   async deleteUser(id: string): Promise<void> {
     try {
       console.log(`📤 Deleting user ${id}...`);
-      await api.delete(`/adminusers/${id}`);
+      await api.delete(`${this.adminUrl}/${id}`);
       console.log('✅ User deleted');
     } catch (error: any) {
       console.error(`❌ Error deleting user ${id}:`, error.response?.data || error.message);
@@ -89,7 +195,7 @@ async updateUser(id: string, userData: Partial<User>): Promise<User> {
   async toggleUserStatus(id: string, isActive: boolean): Promise<void> {
     try {
       console.log(`📤 Toggling status for user ${id} to ${isActive ? 'active' : 'inactive'}...`);
-      await api.patch(`/adminusers/${id}/toggle-status`, { isActive });
+      await api.patch(`${this.adminUrl}/${id}/toggle-status`, { isActive });
       console.log('✅ User status toggled');
     } catch (error: any) {
       console.error(`❌ Error toggling user status ${id}:`, error.response?.data || error.message);
@@ -187,7 +293,6 @@ async updateUser(id: string, userData: Partial<User>): Promise<User> {
         managers: 0
       };
 
-      // Count by role
       users.forEach(user => {
         const roles = Array.isArray(user.roles) ? user.roles : [user.roles];
         
@@ -211,8 +316,6 @@ async updateUser(id: string, userData: Partial<User>): Promise<User> {
       };
     }
   }
-
-
 }
 
 const userService = new UserService();

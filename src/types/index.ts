@@ -646,3 +646,35 @@ export interface PromoCodeValidation {
   discountAmount?: number;
   newTotal?: number;
 }
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  profilePicture?: string;
+  roles: string[];
+  isActive: boolean;
+  emailConfirmed: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface UpdateProfileData {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+}

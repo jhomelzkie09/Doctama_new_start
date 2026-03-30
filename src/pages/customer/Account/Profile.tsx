@@ -1,40 +1,166 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import userService, { UpdateProfileData, UserProfile } from '../../../services/user.service';
 import { 
   User, Mail, Phone, MapPin, Save, Loader, Camera, 
   Check, AlertCircle, Edit2, Globe, Calendar, Award,
   ShoppingBag, Heart, Package, Clock, TrendingUp,
   ChevronRight, CreditCard, Shield, Bell, Moon, Sun,
-  Lock, Key, LogOut
+  Lock, Key, LogOut, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { showSuccess, showError, showLoading, dismissToast } from '../../../utils/toast';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [success, setSuccess] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    fullName: user?.fullName || '',
-    email: user?.email || '',
-    phoneNumber: user?.phoneNumber || '',
-    address: user?.address || '',
-    city: user?.city || '',
-    state: user?.state || '',
-    zipCode: user?.zipCode || '',
-    country: user?.country || 'Philippines'
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   });
+  
+  const [formData, setFormData] = useState<UpdateProfileData>({
+    fullName: '',
+    phoneNumber: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'Philippines'
+  });
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    setFetching(true);
+    try {
+      const profile = await userService.getCurrentUserProfile();
+      if (profile) {
+        setFormData({
+          fullName: profile.fullName || '',
+          phoneNumber: profile.phoneNumber || '',
+          address: profile.address || '',
+          city: profile.city || '',
+          state: profile.state || '',
+          zipCode: profile.zipCode || '',
+          country: profile.country || 'Philippines'
+        });
+        
+        if (profile.profilePicture) {
+          setAvatarPreview(profile.profilePicture);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+      showError('Failed to load profile');
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showError('Only JPEG, PNG, and WEBP images are allowed');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('File size must be less than 5MB');
+      return;
+    }
+
+    const loadingToast = showLoading('Uploading profile picture...');
+    
+    try {
+      const result = await userService.uploadProfilePicture(file);
+      setAvatarPreview(result.profilePicture);
+      showSuccess('Profile picture updated successfully!');
+      await refreshUser();
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Failed to upload profile picture');
+    } finally {
+      dismissToast(loadingToast);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    const loadingToast = showLoading('Saving changes...');
+    
+    try {
+      await userService.updateProfile(formData);
+      setSuccess(true);
+      showSuccess('Profile updated successfully!');
+      await refreshUser();
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Failed to update profile');
+    } finally {
+      dismissToast(loadingToast);
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      showError('New passwords do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      showError('Password must be at least 6 characters');
+      return;
+    }
+    
+    const loadingToast = showLoading('Changing password...');
+    
+    try {
+      await userService.changePassword(passwordData.currentPassword, passwordData.newPassword);
+      showSuccess('Password changed successfully!');
+      setShowChangePassword(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      dismissToast(loadingToast);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const stats = [
     { label: 'Total Orders', value: '12', icon: ShoppingBag, color: 'bg-blue-500' },
     { label: 'Wishlist', value: '8', icon: Heart, color: 'bg-red-500' },
     { label: 'Reviews', value: '24', icon: Award, color: 'bg-amber-500' },
-    { label: 'Member Since', value: '2024', icon: Calendar, color: 'bg-green-500' },
+    { label: 'Member Since', value: user?.createdAt ? new Date(user.createdAt).getFullYear().toString() : '2024', icon: Calendar, color: 'bg-green-500' },
   ];
 
   const recentActivity = [
@@ -43,38 +169,13 @@ const Profile = () => {
     { action: 'Reviewed Wooden Table', date: '1 week ago', status: 'review' },
   ];
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setSuccess(false);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    }, 1000);
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  if (fetching) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="w-8 h-8 animate-spin text-rose-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 py-8">
@@ -118,7 +219,7 @@ const Profile = () => {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/jpg,image/webp"
                       onChange={handleAvatarChange}
                       className="hidden"
                     />
@@ -128,9 +229,9 @@ const Profile = () => {
                 {/* User Info */}
                 <div className="text-center mt-4">
                   <h2 className="text-xl font-bold text-gray-900">
-                    {formData.fullName || 'Your Name'}
+                    {formData.fullName || user?.email?.split('@')[0] || 'Your Name'}
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">{formData.email}</p>
+                  <p className="text-sm text-gray-500 mt-1">{user?.email}</p>
                   <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 rounded-full mt-3">
                     <Check className="w-3 h-3 text-green-600" />
                     <span className="text-xs text-green-600 font-medium">Verified Account</span>
@@ -153,10 +254,13 @@ const Profile = () => {
 
               {/* Quick Actions */}
               <div className="border-t p-4 space-y-2">
-                <button className="w-full flex items-center justify-between px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition">
+                <button 
+                  onClick={() => setShowChangePassword(true)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition"
+                >
                   <div className="flex items-center gap-3">
-                    <Shield className="w-4 h-4" />
-                    <span className="text-sm">Privacy & Security</span>
+                    <Key className="w-4 h-4" />
+                    <span className="text-sm">Change Password</span>
                   </div>
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -205,7 +309,7 @@ const Profile = () => {
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="text"
-                        value={formData.fullName}
+                        value={formData.fullName || ''}
                         onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                         placeholder="Enter your full name"
@@ -218,7 +322,7 @@ const Profile = () => {
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="email"
-                        value={formData.email}
+                        value={user?.email || ''}
                         disabled
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-gray-500"
                       />
@@ -230,7 +334,7 @@ const Profile = () => {
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="tel"
-                        value={formData.phoneNumber}
+                        value={formData.phoneNumber || ''}
                         onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                         placeholder="+63 XXX XXX XXXX"
@@ -253,7 +357,7 @@ const Profile = () => {
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="text"
-                        value={formData.address}
+                        value={formData.address || ''}
                         onChange={(e) => setFormData({...formData, address: e.target.value})}
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                         placeholder="123 Main St"
@@ -264,7 +368,7 @@ const Profile = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                     <input
                       type="text"
-                      value={formData.city}
+                      value={formData.city || ''}
                       onChange={(e) => setFormData({...formData, city: e.target.value})}
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                       placeholder="Manila"
@@ -274,7 +378,7 @@ const Profile = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
                     <input
                       type="text"
-                      value={formData.state}
+                      value={formData.state || ''}
                       onChange={(e) => setFormData({...formData, state: e.target.value})}
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                       placeholder="Metro Manila"
@@ -284,7 +388,7 @@ const Profile = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">ZIP Code</label>
                     <input
                       type="text"
-                      value={formData.zipCode}
+                      value={formData.zipCode || ''}
                       onChange={(e) => setFormData({...formData, zipCode: e.target.value})}
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                       placeholder="1000"
@@ -296,7 +400,7 @@ const Profile = () => {
                       <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="text"
-                        value={formData.country}
+                        value={formData.country || 'Philippines'}
                         onChange={(e) => setFormData({...formData, country: e.target.value})}
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
                         placeholder="Philippines"
@@ -384,6 +488,80 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
+              <button
+                onClick={() => setShowChangePassword(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-rose-600 text-white py-2 rounded-lg hover:bg-rose-700 transition"
+                >
+                  Change Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowChangePassword(false)}
+                  className="flex-1 border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

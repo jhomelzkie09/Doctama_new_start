@@ -13,6 +13,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (data: RegisterData) => Promise<void>;
+  refreshUser: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -114,6 +115,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Add this function inside the AuthProvider component
+const refreshUser = async () => {
+  const currentUser = authService.getCurrentUser();
+  if (currentUser) {
+    setUser(currentUser);
+  }
+};
+
   return (
     <AuthContext.Provider
       value={{
@@ -125,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         register,
+        refreshUser,
         loading,
         error
       }}
