@@ -35,7 +35,7 @@ const ProductsReport: React.FC = () => {
       category: product.categoryId,
       price: product.price,
       stock: product.stockQuantity,
-      sold: Math.floor(Math.random() * 100), // Replace with actual sales data
+      sold: Math.floor(Math.random() * 100),
       revenue: product.price * Math.floor(Math.random() * 100)
     }));
     setProductStats(stats);
@@ -83,7 +83,38 @@ const ProductsReport: React.FC = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    const printContent = document.getElementById('report-print-content');
+    if (printContent) {
+      const originalTitle = document.title;
+      document.title = 'Products Report';
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Products Report</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                @media print {
+                  body { margin: 0; }
+                  .no-print { display: none; }
+                }
+              </style>
+            </head>
+            <body>
+              ${printContent.innerHTML}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.onafterprint = () => printWindow.close();
+      }
+      document.title = originalTitle;
+    }
   };
 
   const handlePreviewPDF = () => {

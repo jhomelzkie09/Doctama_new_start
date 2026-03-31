@@ -28,7 +28,6 @@ const OrdersReport: React.FC = () => {
     filterOrders();
   }, [orders, dateRange]);
 
-  // Helper function to safely format date
   const formatDate = (dateValue: string | Date | undefined): string => {
     if (!dateValue) return 'N/A';
     try {
@@ -40,7 +39,6 @@ const OrdersReport: React.FC = () => {
     }
   };
 
-  // Helper function to get display date
   const getDisplayDate = (dateValue: string | Date | undefined): string => {
     if (!dateValue) return 'N/A';
     try {
@@ -127,7 +125,38 @@ const OrdersReport: React.FC = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    const printContent = document.getElementById('report-print-content');
+    if (printContent) {
+      const originalTitle = document.title;
+      document.title = 'Orders Report';
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Orders Report</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                @media print {
+                  body { margin: 0; }
+                  .no-print { display: none; }
+                }
+              </style>
+            </head>
+            <body>
+              ${printContent.innerHTML}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.onafterprint = () => printWindow.close();
+      }
+      document.title = originalTitle;
+    }
   };
 
   const handlePreviewPDF = () => {
@@ -213,7 +242,7 @@ const OrdersReport: React.FC = () => {
             </tbody>
             <tfoot className="bg-gray-50">
               <tr>
-                <td colSpan={3} className="px-4 py-2 text-right font-semibold">TOTAL: </td>
+                <td colSpan={3} className="px-4 py-2 text-right font-semibold">TOTAL:</td>
                 <td className="px-4 py-2 font-bold text-gray-900">₱{totalSales.toLocaleString()}</td>
                 <td colSpan={3} className="px-4 py-2 text-gray-600">{filteredOrders.length} Orders</td>
               </tr>
