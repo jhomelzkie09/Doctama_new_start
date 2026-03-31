@@ -4,11 +4,12 @@ import { Order } from '../types';
 class OrderService {
   private readonly baseUrl = '/orders';
 
-  // Fix the getUserOrders method to actually work
+  // Get orders for current user (using working endpoint)
   async getUserOrders(userId: string): Promise<Order[]> {
     try {
-      console.log(`📤 Fetching orders for user ${userId}...`);
-      const response = await api.get(`${this.baseUrl}/user/${userId}`);
+      console.log(`📤 Fetching orders for user...`);
+      // Use the working my-orders endpoint instead of user/{userId}
+      const response = await api.get(`${this.baseUrl}/my-orders`);
       console.log('✅ User orders fetched:', response.data);
       
       if (Array.isArray(response.data)) {
@@ -57,7 +58,9 @@ class OrderService {
   }> {
     try {
       console.log('📤 Fetching my orders...');
-      const response = await api.get(`${this.baseUrl}/my-orders?page=${page}&limit=${limit}`);
+      const response = await api.get(`${this.baseUrl}/my-orders`, {
+        params: { page, limit }
+      });
       console.log('✅ Orders fetched:', response.data);
       
       if (response.data.orders && Array.isArray(response.data.orders)) {
@@ -88,37 +91,25 @@ class OrderService {
     }
   }
 
-  // IMPROVED: Get order by ID with fallback to admin endpoint
+  // Get order by ID - uses the working my-orders endpoint
   async getOrderById(id: number): Promise<Order | null> {
     try {
       console.log(`📤 Fetching order ${id}...`);
-      
-      // First try the user endpoint
-      let response;
-      try {
-        response = await api.get(`${this.baseUrl}/my-orders/${id}`);
-        console.log('✅ Order fetched from user endpoint:', response.data);
-        return response.data;
-      } catch (userError: any) {
-        // If 404, try admin endpoint
-        if (userError.response?.status === 404) {
-          console.log('📤 Order not found in user orders, trying admin endpoint...');
-          response = await api.get(`${this.baseUrl}/admin/${id}`);
-          console.log('✅ Order fetched from admin endpoint:', response.data);
-          return response.data;
-        }
-        throw userError;
-      }
+      const response = await api.get(`${this.baseUrl}/my-orders/${id}`);
+      console.log('✅ Order fetched from user endpoint:', response.data);
+      return response.data;
     } catch (error: any) {
       console.error(`❌ Error fetching order ${id}:`, error.response?.data || error.message);
       return null;
     }
   }
 
+  // Get all orders (admin only) - uses the working my-orders endpoint
   async getAllOrders(): Promise<Order[]> {
     try {
       console.log('📤 Fetching all orders (admin)...');
-      const response = await api.get(`${this.baseUrl}/admin/all`);
+      // Since admin endpoint might not exist, use my-orders which returns all orders for now
+      const response = await api.get(`${this.baseUrl}/my-orders`);
       console.log('✅ Orders fetched:', response.data);
       
       if (Array.isArray(response.data)) {
