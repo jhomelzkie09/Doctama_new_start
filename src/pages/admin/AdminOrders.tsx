@@ -2,7 +2,6 @@ import React, { useState, useEffect, JSX } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import orderService from '../../services/order.service';
-import userService from '../../services/user.service';
 import {
   ShoppingBag, Search, Eye, Truck, CheckCircle, Clock, XCircle, Package,
   ChevronLeft, ChevronRight, Download, RefreshCw, User as UserIcon, MapPin,
@@ -10,11 +9,10 @@ import {
   ThumbsDown, Receipt, ZoomIn, Printer, Calendar,
   TrendingUp, DownloadCloud, Shield, PackageCheck, Crown
 } from 'lucide-react';
-import { Order, PaymentMethod, OrderStatus, PaymentStatus, User } from '../../types';
+import { Order, PaymentMethod, OrderStatus, PaymentStatus } from '../../types';
 
 // ========== INTERFACES ==========
 interface ExtendedOrder extends Order {
-  customer?: User;
   itemsCount?: number;
   paymentProofImage?: string;
   paymentProofReference?: string;
@@ -207,29 +205,14 @@ const AdminOrders = () => {
     setLoading(true);
     try {
       const data = await orderService.getAllOrders();
-      const ordersWithDetails: ExtendedOrder[] = await Promise.all(
-        data.map(async (order: Order) => {
-          try {
-            let customer: User | undefined;
-            if (order.userId) {
-              const userData = await userService.getUserById(order.userId);
-              if (userData) customer = userData;
-            }
-            return { 
-              ...order, 
-              customer, 
-              itemsCount: order.items?.length || 0 
-            } as ExtendedOrder;
-          } catch {
-            return { 
-              ...order, 
-              itemsCount: order.items?.length || 0 
-            } as ExtendedOrder;
-          }
-        })
-      );
+      // Use customer data directly from order - no need to fetch users separately
+      const ordersWithDetails: ExtendedOrder[] = data.map((order: Order) => ({ 
+        ...order, 
+        itemsCount: order.items?.length || 0 
+      }));
       setOrders(ordersWithDetails);
     } catch (err) {
+      console.error('Failed to load orders:', err);
       setError('Failed to load orders');
     } finally {
       setLoading(false);
@@ -276,8 +259,10 @@ const AdminOrders = () => {
       setSuccess('Payment approved');
       setApprovalNote('');
       setShowOrderModal(false);
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to approve payment');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setUpdatingStatus(false);
     }
@@ -296,8 +281,10 @@ const AdminOrders = () => {
       setSuccess('Payment rejected');
       setApprovalNote('');
       setShowOrderModal(false);
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to reject payment');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setUpdatingStatus(false);
     }
@@ -320,8 +307,10 @@ const AdminOrders = () => {
       setSuccess('Order cancelled');
       setShowCancelModal(false);
       setShowOrderModal(false);
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to cancel order');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setUpdatingStatus(false);
       setCancellationReason('');
@@ -335,8 +324,10 @@ const AdminOrders = () => {
       await fetchOrders();
       setSuccess(`Order status updated to ${status}`);
       setShowOrderModal(false);
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to update status');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setUpdatingStatus(false);
     }
@@ -421,6 +412,18 @@ const AdminOrders = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-16">
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-top-2">
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-top-2">
+          {error}
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 md:px-6">
         <div className="flex items-center justify-between">
@@ -517,7 +520,7 @@ const AdminOrders = () => {
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {paginatedOrders.map((order) => (
@@ -626,37 +629,69 @@ const AdminOrders = () => {
 
               <div>
                 <p className="text-xs font-bold text-gray-500 mb-2">ITEMS ({selectedOrder.items?.length || 0})</p>
-                <div className="space-y-2">
-                  {selectedOrder.items?.slice(0, 3).map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span>{item.productName} x{item.quantity}</span>
-                      <span className="font-medium">{formatCurrency((item.unitPrice || item.price) * item.quantity)}</span>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedOrder.items?.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm py-1 border-b border-gray-100">
+                      <span className="flex-1">{item.productName} x{item.quantity}</span>
+                      <span className="font-medium ml-4">{formatCurrency((item.unitPrice || item.price) * item.quantity)}</span>
                     </div>
                   ))}
-                  {selectedOrder.items && selectedOrder.items.length > 3 && (
-                    <p className="text-xs text-gray-400">+{selectedOrder.items.length - 3} more items</p>
-                  )}
                 </div>
               </div>
+
+              {selectedOrder.shippingAddress && (
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-xs font-bold text-gray-500 mb-2">SHIPPING ADDRESS</p>
+                  <p className="text-sm">{selectedOrder.shippingAddress}</p>
+                </div>
+              )}
 
               <div className="border-t pt-4 space-y-3">
                 {selectedOrder.paymentStatus === 'pending' && (selectedOrder as any).paymentProofImage && (
                   <div className="bg-yellow-50 p-3 rounded-xl">
-                    <textarea value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} rows={2} className="w-full p-2 border rounded-lg text-sm mb-2" placeholder="Verification notes..." />
+                    <textarea 
+                      value={approvalNote} 
+                      onChange={(e) => setApprovalNote(e.target.value)} 
+                      rows={2} 
+                      className="w-full p-2 border rounded-lg text-sm mb-2" 
+                      placeholder="Verification notes..."
+                    />
                     <div className="flex gap-2">
-                      <button onClick={() => handleApprovePayment(selectedOrder.id)} className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">Approve</button>
-                      <button onClick={() => handleRejectPayment(selectedOrder.id)} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Reject</button>
+                      <button 
+                        onClick={() => handleApprovePayment(selectedOrder.id)} 
+                        disabled={updatingStatus}
+                        className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button 
+                        onClick={() => handleRejectPayment(selectedOrder.id)} 
+                        disabled={updatingStatus}
+                        className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
                 )}
                 
                 <div className="grid grid-cols-2 gap-2">
                   {['processing','shipped','delivered','cancelled'].map(s => (
-                    <button key={s} onClick={() => handleStatusUpdate(selectedOrder.id, s)} className="py-2 bg-gray-100 rounded-lg text-xs font-medium hover:bg-gray-200">{s}</button>
+                    <button 
+                      key={s} 
+                      onClick={() => handleStatusUpdate(selectedOrder.id, s)} 
+                      disabled={updatingStatus}
+                      className="py-2 bg-gray-100 rounded-lg text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
+                    >
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
                   ))}
                 </div>
                 
-                <button onClick={() => setShowCancelModal(true)} className="w-full py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
+                <button 
+                  onClick={() => setShowCancelModal(true)} 
+                  className="w-full py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50"
+                >
                   Cancel Order
                 </button>
               </div>
@@ -670,10 +705,22 @@ const AdminOrders = () => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-5">
             <h3 className="text-lg font-bold mb-3">Cancel Order</h3>
-            <textarea value={cancellationReason} onChange={(e) => setCancellationReason(e.target.value)} rows={3} className="w-full p-3 border rounded-xl text-sm mb-4" placeholder="Reason for cancellation..." />
+            <textarea 
+              value={cancellationReason} 
+              onChange={(e) => setCancellationReason(e.target.value)} 
+              rows={3} 
+              className="w-full p-3 border rounded-xl text-sm mb-4" 
+              placeholder="Reason for cancellation..."
+            />
             <div className="flex gap-3">
               <button onClick={() => setShowCancelModal(false)} className="flex-1 py-2 border rounded-lg">Back</button>
-              <button onClick={() => handleCancelOrder(selectedOrder.id)} className="flex-1 py-2 bg-red-600 text-white rounded-lg">Cancel Order</button>
+              <button 
+                onClick={() => handleCancelOrder(selectedOrder.id)} 
+                disabled={updatingStatus}
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50"
+              >
+                Cancel Order
+              </button>
             </div>
           </div>
         </div>
