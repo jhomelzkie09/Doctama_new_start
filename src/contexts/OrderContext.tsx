@@ -26,18 +26,13 @@ type OrderAction =
 
 interface OrderContextType {
   state: OrderState;
-  // User methods
   getUserOrders: (userId: string) => Promise<Order[]>;
   getMyOrders: (page?: number, limit?: number) => Promise<void>;
   getOrderById: (id: number) => Promise<Order | null>;
   createOrder: (orderData: any) => Promise<Order>;
-  
-  // Admin methods
   getAllOrders: () => Promise<Order[]>;
   updateOrderStatus: (id: number, status: string) => Promise<Order>;
   updateOrderPayment: (id: number, status: string, details?: any) => Promise<Order>;
-  
-  // Utility
   clearOrders: () => void;
   refreshOrders: () => Promise<void>;
 }
@@ -59,10 +54,8 @@ const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
-    
     case 'SET_ERROR':
       return { ...state, error: action.payload };
-    
     case 'SET_ORDERS':
       return {
         ...state,
@@ -73,7 +66,6 @@ const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
         loading: false,
         error: null
       };
-    
     case 'SET_USER_ORDERS':
       return {
         ...state,
@@ -81,10 +73,8 @@ const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
         loading: false,
         error: null
       };
-    
     case 'SET_CURRENT_ORDER':
       return { ...state, currentOrder: action.payload, loading: false };
-    
     case 'UPDATE_ORDER':
       return {
         ...state,
@@ -96,17 +86,14 @@ const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
         ),
         currentOrder: state.currentOrder?.id === action.payload.id ? action.payload : state.currentOrder
       };
-    
     case 'ADD_ORDER':
       return {
         ...state,
         orders: [action.payload, ...state.orders],
         userOrders: [action.payload, ...state.userOrders]
       };
-    
     case 'CLEAR_ORDERS':
       return initialState;
-    
     default:
       return state;
   }
@@ -133,6 +120,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'SET_USER_ORDERS', payload: orders });
       return orders;
     } catch (error: any) {
+      console.error('Error fetching user orders:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to fetch user orders' });
       return [];
     } finally {
@@ -155,6 +143,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       });
     } catch (error: any) {
+      console.error('Error fetching orders:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to fetch orders' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -169,6 +158,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'SET_CURRENT_ORDER', payload: order });
       return order;
     } catch (error: any) {
+      console.error('Error fetching order:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to fetch order' });
       return null;
     } finally {
@@ -184,6 +174,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'ADD_ORDER', payload: newOrder });
       return newOrder;
     } catch (error: any) {
+      console.error('Error creating order:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to create order' });
       throw error;
     } finally {
@@ -199,6 +190,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'SET_ORDERS', payload: { orders, total: orders.length, page: 1, pages: 1 } });
       return orders;
     } catch (error: any) {
+      console.error('Error fetching all orders:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to fetch all orders' });
       return [];
     } finally {
@@ -214,6 +206,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'UPDATE_ORDER', payload: updatedOrder });
       return updatedOrder;
     } catch (error: any) {
+      console.error('Error updating order status:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to update order status' });
       throw error;
     } finally {
@@ -229,6 +222,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'UPDATE_ORDER', payload: updatedOrder });
       return updatedOrder;
     } catch (error: any) {
+      console.error('Error updating payment:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to update payment status' });
       throw error;
     } finally {
