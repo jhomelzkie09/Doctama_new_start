@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import orderService from '../../../services/order.service';
-import { ApiOrder, Order } from '../../../types';
 import {
   Package,
   ChevronLeft,
@@ -30,46 +29,45 @@ import {
   ThumbsDown
 } from 'lucide-react';
 
-// Helper function to convert Order (string id) to ApiOrder (number id)
-const convertToApiOrder = (order: Order): ApiOrder => {
-  return {
-    id: parseInt(order.id),
-    orderNumber: order.orderNumber,
-    orderDate: order.orderDate,
-    totalAmount: order.totalAmount,
-    status: order.status,
-    paymentMethod: order.paymentMethod,
-    paymentStatus: order.paymentStatus,
-    shippingAddress: order.shippingAddress || '',
-    customerName: order.customerName,
-    customerEmail: order.customerEmail,
-    customerPhone: order.customerPhone,
-    items: order.items?.map(item => ({
-      id: item.id ? parseInt(item.id) : 0,
-      productId: parseInt(item.productId),
-      productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice || item.price,
-      price: item.price,
-      imageUrl: item.imageUrl
-    })),
-    trackingNumber: (order as any).trackingNumber,
-    paymentProofImage: (order as any).paymentProofImage,
-    paymentProofReference: (order as any).paymentProofReference,
-    paymentProofSender: (order as any).paymentProofSender,
-    paymentProofDate: (order as any).paymentProofDate,
-    paymentProofNotes: (order as any).paymentProofNotes,
-    approvedBy: (order as any).approvedBy,
-    approvedAt: (order as any).approvedAt,
-    rejectedBy: (order as any).rejectedBy,
-    rejectionReason: (order as any).rejectionReason
-  };
-};
+interface OrderItemDisplay {
+  id: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  price: number;
+  imageUrl: string;
+}
+
+interface OrderDisplay {
+  id: number;
+  orderNumber: string;
+  orderDate: string;
+  totalAmount: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  shippingAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  items: OrderItemDisplay[];
+  trackingNumber?: string;
+  paymentProofImage?: string;
+  paymentProofReference?: string;
+  paymentProofSender?: string;
+  paymentProofDate?: string;
+  paymentProofNotes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
+}
 
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<ApiOrder | null>(null);
+  const [order, setOrder] = useState<OrderDisplay | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -100,9 +98,50 @@ const OrderDetail = () => {
       if (!data) {
         setError('Order not found');
       } else {
-        const convertedOrder = convertToApiOrder(data as Order);
-        console.log('📦 Converted order:', convertedOrder);
-        setOrder(convertedOrder);
+        // Use the data directly - it already has the correct format
+        const displayOrder: OrderDisplay = {
+          id: typeof data.id === 'string' ? parseInt(data.id) : data.id,
+          orderNumber: data.orderNumber,
+          orderDate: data.orderDate,
+          totalAmount: data.totalAmount,
+          status: data.status,
+          paymentMethod: data.paymentMethod,
+          paymentStatus: data.paymentStatus,
+          shippingAddress: data.shippingAddress || '',
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          items: data.items?.map(item => ({
+            id: typeof item.id === 'string' ? parseInt(item.id) : (item.id || 0),
+            productId: typeof item.productId === 'string' ? parseInt(item.productId) : (item.productId || 0),
+            productName: item.productName || '',
+            quantity: item.quantity || 0,
+            unitPrice: item.unitPrice || item.price || 0,
+            price: item.price || item.unitPrice || 0,
+            imageUrl: item.imageUrl || ''
+          })) || [],
+          trackingNumber: (data as any).trackingNumber,
+          paymentProofImage: (data as any).paymentProofImage,
+          paymentProofReference: (data as any).paymentProofReference,
+          paymentProofSender: (data as any).paymentProofSender,
+          paymentProofDate: (data as any).paymentProofDate,
+          paymentProofNotes: (data as any).paymentProofNotes,
+          approvedBy: (data as any).approvedBy,
+          approvedAt: (data as any).approvedAt,
+          rejectedBy: (data as any).rejectedBy,
+          rejectionReason: (data as any).rejectionReason
+        };
+        
+        console.log('📦 Display order:', displayOrder);
+        console.log(`📦 Items count: ${displayOrder.items?.length || 0}`);
+        
+        if (displayOrder.items && displayOrder.items.length > 0) {
+          displayOrder.items.forEach((item, idx) => {
+            console.log(`  Item ${idx + 1}: ${item.productName} - Qty: ${item.quantity} - Price: ₱${item.unitPrice}`);
+          });
+        }
+        
+        setOrder(displayOrder);
       }
     } catch (error: any) {
       console.error('❌ Failed to load order:', error);
@@ -112,25 +151,20 @@ const OrderDetail = () => {
     }
   };
 
-  // Get the display status (shows payment status for rejected/approved, otherwise order status)
   const getDisplayStatus = () => {
     if (!order) return '';
     
-    // If payment is rejected/failed
     if (order.rejectedBy && order.paymentStatus === 'failed') {
       return 'PAYMENT FAILED';
     }
     
-    // If payment is approved
     if (order.approvedBy && order.paymentStatus === 'paid') {
       return 'PAYMENT APPROVED';
     }
     
-    // Otherwise show order status
     return order.status.replace('_', ' ').toUpperCase();
   };
 
-  // Get status color based on the actual state
   const getDisplayStatusColor = () => {
     if (!order) return '';
     
@@ -162,18 +196,6 @@ const OrderDetail = () => {
       case 'awaiting_payment': return <Clock className="w-6 h-6 text-orange-500" />;
       case 'cancelled': return <XCircle className="w-6 h-6 text-red-500" />;
       default: return <Package className="w-6 h-6 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
-      case 'shipped': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'processing': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'pending': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'awaiting_payment': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -232,7 +254,6 @@ const OrderDetail = () => {
     return currentIndex >= 0 ? currentIndex + 1 : 0;
   };
 
-  // Get simplified notification message
   const getNotification = () => {
     if (!order) return null;
     
@@ -377,7 +398,7 @@ const OrderDetail = () => {
           </div>
         )}
 
-        {/* Order Header Card - FIXED STATUS DISPLAY */}
+        {/* Order Header Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex flex-wrap justify-between items-start gap-4">
             <div>
@@ -392,7 +413,6 @@ const OrderDetail = () => {
                 <span>Placed on {formatDate(order.orderDate)}</span>
               </div>
             </div>
-            {/* This now shows the correct status based on payment approval/rejection */}
             <span className={`px-4 py-2 rounded-full text-sm font-semibold border ${displayStatusColor}`}>
               {displayStatus}
             </span>
@@ -402,7 +422,6 @@ const OrderDetail = () => {
           <div className="mt-8">
             <div className="flex items-center justify-between">
               {['Pending', 'Payment', 'Processing', 'Shipped', 'Delivered'].map((step, index) => {
-                // For rejected payments, the payment step should be marked as failed
                 const isPaymentFailed = order.rejectedBy && order.paymentStatus === 'failed';
                 const stepStatus = isPaymentFailed && step === 'Payment' 
                   ? false 
@@ -444,7 +463,6 @@ const OrderDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Order Items */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Order Items Card */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <Package className="w-5 h-5 mr-2 text-red-600" />
@@ -476,7 +494,6 @@ const OrderDetail = () => {
                 ))}
               </div>
 
-              {/* Order Summary */}
               <div className="mt-6 pt-6 border-t border-gray-100">
                 <div className="space-y-2">
                   <div className="flex justify-between">
@@ -498,7 +515,6 @@ const OrderDetail = () => {
 
           {/* Right Column - Order Details */}
           <div className="space-y-6">
-            {/* Payment Information */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
                 <CreditCard className="w-5 h-5 mr-2 text-red-600" />
@@ -520,7 +536,6 @@ const OrderDetail = () => {
                 </div>
               </div>
 
-              {/* Payment Proof */}
               {order.paymentProofImage && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <p className="text-sm text-gray-500 mb-2">Payment Proof</p>
@@ -546,7 +561,6 @@ const OrderDetail = () => {
               )}
             </div>
 
-            {/* Shipping Information */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
                 <MapPin className="w-5 h-5 mr-2 text-red-600" />
@@ -561,7 +575,6 @@ const OrderDetail = () => {
               )}
             </div>
 
-            {/* Customer Information */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
                 <User className="w-5 h-5 mr-2 text-red-600" />
@@ -585,7 +598,6 @@ const OrderDetail = () => {
               </div>
             </div>
 
-            {/* Actions */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4">Need Help?</h3>
               <div className="space-y-3">
