@@ -209,7 +209,7 @@ class OrderService {
   async getAllOrders(): Promise<Order[]> {
     try {
       console.log('📤 Fetching all orders (admin)...');
-      const response = await api.get(`${this.baseUrl}/admin/all`);
+      const response = await api.get(`${this.baseUrl}/admin/orders`);
       console.log('✅ Orders fetched:', response.data);
       
       let ordersData: any[] = [];
