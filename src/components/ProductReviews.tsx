@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Star, StarHalf, ThumbsUp, Flag, User, Calendar, CheckCircle, Camera, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Star, StarHalf, ThumbsUp, User, Calendar, CheckCircle, Camera, X, Loader } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../api/config';
 import reviewService from '../services/review.service';
 import { ProductReview, ReviewStats } from '../types';
 import { showSuccess, showError, showLoading, dismissToast } from '../utils/toast';
@@ -8,9 +9,10 @@ import { showSuccess, showError, showLoading, dismissToast } from '../utils/toas
 interface ProductReviewsProps {
   productId: number;
   productName: string;
+  onAuthRequired?: (mode: 'login' | 'register') => void;
 }
 
-const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName }) => {
+const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName, onAuthRequired }) => {
   const { user } = useAuth();
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [stats, setStats] = useState<ReviewStats>({
@@ -22,17 +24,28 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [sortBy, setSortBy] = useState<'recent' | 'helpful' | 'highest' | 'lowest'>('recent');
   const [filterRating, setFilterRating] = useState<number | null>(null);
+  const [canReview, setCanReview] = useState<{ canReview: boolean; reason?: string; message?: string } | null>(null);
+  const [checkingEligibility, setCheckingEligibility] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [newReview, setNewReview] = useState({
     rating: 5,
     title: '',
     comment: '',
     images: [] as string[]
   });
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadReviews();
   }, [productId]);
+
+  useEffect(() => {
+    if (user) {
+      checkReviewEligibility();
+    } else {
+      setCanReview(null);
+      setCheckingEligibility(false);
+    }
+  }, [user, productId]);
 
   const loadReviews = async () => {
     setLoading(true);
@@ -47,6 +60,23 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
       console.error('Failed to load reviews:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkReviewEligibility = async () => {
+    setCheckingEligibility(true);
+    try {
+      const response = await api.get(`/reviews/can-review/${productId}`);
+      setCanReview(response.data);
+    } catch (error) {
+      console.error('Failed to check review eligibility:', error);
+      setCanReview({ 
+        canReview: false, 
+        reason: 'error', 
+        message: 'Unable to check eligibility' 
+      });
+    } finally {
+      setCheckingEligibility(false);
     }
   };
 
@@ -74,6 +104,9 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
     e.preventDefault();
     if (!user) {
       showError('Please login to leave a review');
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      }
       return;
     }
 
@@ -98,9 +131,12 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
       setShowReviewForm(false);
       setNewReview({ rating: 5, title: '', comment: '', images: [] });
       loadReviews();
-    } catch (error) {
+      // Re-check eligibility after submitting
+      checkReviewEligibility();
+    } catch (error: any) {
       dismissToast(loadingToast);
-      showError('Failed to submit review');
+      const errorMessage = error.response?.data?.message || 'Failed to submit review';
+      showError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -109,6 +145,9 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
   const handleMarkHelpful = async (reviewId: number) => {
     if (!user) {
       showError('Please login to mark as helpful');
+      if (onAuthRequired) {
+        onAuthRequired('login');
+      }
       return;
     }
     
@@ -198,12 +237,47 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
               );
             })}
           </div>
-          <button
-            onClick={() => setShowReviewForm(true)}
-            className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition shadow-md shadow-red-200"
-          >
-            Write a Review
-          </button>
+          
+          {/* Review Button with Eligibility Check */}
+          {user ? (
+            checkingEligibility ? (
+              <div className="px-6 py-2.5 bg-gray-100 text-gray-500 rounded-xl">
+                <Loader className="w-4 h-4 animate-spin inline mr-2" />
+                Checking...
+              </div>
+            ) : canReview?.canReview ? (
+              <button
+                onClick={() => setShowReviewForm(true)}
+                className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition shadow-md shadow-red-200"
+              >
+                Write a Review
+              </button>
+            ) : (
+              <div className="text-center">
+                <div className="px-6 py-2.5 bg-gray-100 text-gray-500 rounded-xl cursor-not-allowed">
+                  {canReview?.reason === 'already_reviewed' ? 'You already reviewed this product' : 
+                   canReview?.reason === 'not_delivered' ? 'Available after delivery' : 
+                   'Cannot review this product'}
+                </div>
+                {canReview?.reason === 'not_delivered' && (
+                  <p className="text-xs text-gray-400 mt-2 max-w-[200px]">
+                    You can only review products after they have been delivered
+                  </p>
+                )}
+              </div>
+            )
+          ) : (
+            <button
+              onClick={() => {
+                if (onAuthRequired) {
+                  onAuthRequired('login');
+                }
+              }}
+              className="px-6 py-2.5 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition"
+            >
+              Login to Review
+            </button>
+          )}
         </div>
       </div>
 
@@ -346,7 +420,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
                   placeholder="Summarize your experience"
                 />
               </div>
-              
+  
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Your Review *</label>
                 <textarea
@@ -357,6 +431,12 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId, productName 
                   placeholder="Share your thoughts about this product..."
                   required
                 />
+              </div>
+              
+              <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
+                <p className="text-xs text-amber-700">
+                  ⚠️ Note: You can only review products after they have been delivered. Your review helps other customers make informed decisions.
+                </p>
               </div>
               
               <div className="flex gap-3 pt-2">
