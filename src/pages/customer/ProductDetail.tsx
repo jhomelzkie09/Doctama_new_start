@@ -9,6 +9,7 @@ import productService from '../../services/product.service';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
+import ProductReviews from '../../components/ProductReviews';
 
 interface ProductDetailProps {
   isModal?: boolean;
@@ -361,6 +362,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
                   </div>
                 </div>
               )}
+
+              <ProductReviews productId={product.id} productName={product.name} />
 
               {activeTab === 'specs' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-2">

@@ -678,3 +678,34 @@ export interface UpdateProfileData {
   zipCode?: string;
   country?: string;
 }
+
+
+// Product Review types
+export interface ProductReview {
+  id: number;
+  productId: number;
+  userId: string;
+  userName: string;
+  rating: number;
+  title?: string;
+  comment: string;
+  images?: string[];
+  isVerifiedPurchase: boolean;
+  helpfulCount: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateReviewData {
+  productId: number;
+  rating: number;
+  title?: string;
+  comment: string;
+  images?: string[];
+}
+
+export interface ReviewStats {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: number[]; // [5stars, 4stars, 3stars, 2stars, 1star]
+}
