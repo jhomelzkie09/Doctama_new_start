@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import orderService from '../../../services/order.service';
 import { ApiOrder, Order } from '../../../types';
 import {
@@ -20,19 +20,22 @@ import {
   DollarSign,
   ThumbsUp,
   ThumbsDown,
-  Info
+  Info,
+  RefreshCw
 } from 'lucide-react';
+import { showSuccess, showError } from '../../../utils/toast';
 
 // Helper function to convert Order (string id) to ApiOrder (number id)
 const convertToApiOrder = (order: Order): ApiOrder => {
+  console.log(`Converting order ${order.id}: status=${order.status}, paymentStatus=${order.paymentStatus}`);
   return {
     id: parseInt(order.id),
     orderNumber: order.orderNumber,
     orderDate: order.orderDate,
     totalAmount: order.totalAmount,
-    status: order.status,
+    status: order.status,  // Make sure this is passed
     paymentMethod: order.paymentMethod,
-    paymentStatus: order.paymentStatus,
+    paymentStatus: order.paymentStatus,  // Make sure this is passed
     shippingAddress: order.shippingAddress || '',
     customerName: order.customerName,
     customerEmail: order.customerEmail,
@@ -61,39 +64,89 @@ const convertToApiOrder = (order: Order): ApiOrder => {
 
 const Orders = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
+  // Check for success param on page load (when coming back from order detail)
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('success') === 'true') {
+      showSuccess('Order placed successfully!');
+      // Remove the success param from URL
+      navigate('/account/orders', { replace: true });
+    }
     loadOrders();
+  }, []);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadOrders(true);
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     filterOrders();
   }, [orders, searchQuery, statusFilter, dateFilter]);
 
-  const loadOrders = async () => {
-    setLoading(true);
+  const loadOrders = async (silent: boolean = false) => {
+    if (!silent) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     try {
       const response = await orderService.getMyOrders(1, 50);
-      console.log('📦 Orders response:', response);
+      console.log('📦 Orders API Response:', response);
       
       const ordersData = response.orders || [];
-      console.log('📦 Orders data from API:', ordersData);
+      console.log('📦 Raw orders from API:', ordersData);
+      
+      // Log each order's status from the raw API response
+      ordersData.forEach((order: Order) => {
+        console.log(`Raw order ${order.id}: status = "${order.status}", paymentStatus = "${order.paymentStatus}"`);
+      });
       
       const convertedOrders = ordersData.map(convertToApiOrder);
       console.log('📦 Converted orders:', convertedOrders);
       
+      // Log each converted order's status
+      convertedOrders.forEach(order => {
+        console.log(`Converted order ${order.id}: status = "${order.status}", paymentStatus = "${order.paymentStatus}"`);
+      });
+      
       setOrders(convertedOrders);
+      setLastUpdated(new Date());
+      
+      if (silent) {
+        // Check if any order status changed
+        const oldStatuses = orders.map(o => `${o.id}:${o.status}`);
+        const newStatuses = convertedOrders.map(o => `${o.id}:${o.status}`);
+        if (JSON.stringify(oldStatuses) !== JSON.stringify(newStatuses)) {
+          showSuccess('Order status updated!');
+        }
+      }
     } catch (error) {
       console.error('Failed to load orders:', error);
+      if (!silent) {
+        showError('Failed to load orders');
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleManualRefresh = () => {
+    loadOrders(false);
   };
 
   const filterOrders = () => {
@@ -134,8 +187,8 @@ const Orders = () => {
     navigate(`/account/orders/${orderId}`);
   };
 
+  // Rest of your component remains the same...
   const getStatusIcon = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
-    // Priority: Check for approval/rejection status first
     if (approvedBy && paymentStatus === 'paid') {
       return <ThumbsUp className="w-5 h-5 text-green-500" />;
     }
@@ -143,7 +196,6 @@ const Orders = () => {
       return <ThumbsDown className="w-5 h-5 text-red-500" />;
     }
     
-    // Then check order status
     switch(status) {
       case 'delivered': return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'shipped': return <Truck className="w-5 h-5 text-blue-500" />;
@@ -156,7 +208,6 @@ const Orders = () => {
   };
 
   const getStatusColor = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
-    // Priority for approval/rejection
     if (approvedBy && paymentStatus === 'paid') {
       return 'bg-green-100 text-green-800 border-green-200';
     }
@@ -164,7 +215,6 @@ const Orders = () => {
       return 'bg-red-100 text-red-800 border-red-200';
     }
     
-    // Then order status
     switch(status) {
       case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
       case 'shipped': return 'bg-blue-100 text-blue-800 border-blue-200';
@@ -224,13 +274,28 @@ const Orders = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8 md:py-12">
       <div className="container mx-auto px-4 max-w-6xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-gray-600 mt-1">Track and manage your orders</p>
+        {/* Header with Refresh Button */}
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Orders</h1>
+            <p className="text-gray-600 mt-1">Track and manage your orders</p>
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm">Refresh</span>
+          </button>
         </div>
 
-        {/* Filters */}
+        {/* Last updated time */}
+        <div className="text-right text-xs text-gray-400 mb-2">
+          Last updated: {lastUpdated.toLocaleTimeString()}
+        </div>
+
+        {/* Filters - same as before */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
@@ -329,14 +394,6 @@ const Orders = () => {
                     <div className="mt-3 flex items-start gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
                       <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                       <span className="flex-1">{order.rejectionReason}</span>
-                    </div>
-                  )}
-                  
-                  {/* Tracking info for shipped orders */}
-                  {order.trackingNumber && order.status === 'shipped' && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
-                      <Truck className="w-3 h-3" />
-                      <span>Tracking: {order.trackingNumber}</span>
                     </div>
                   )}
                 </div>
