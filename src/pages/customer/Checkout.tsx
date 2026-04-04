@@ -45,6 +45,7 @@ import {
 import orderService from '../../services/order.service';
 import uploadService from '../../services/upload.service';
 import { PaymentMethod } from '../../types';
+import { showError, showSuccess, showLoading, dismissToast } from '../../utils/toast';
 
 // Shop payment details
 const SHOP_PAYMENT_DETAILS = {
@@ -301,11 +302,43 @@ const Checkout = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const isShippingValid = (): boolean => {
+    return !!(
+      shippingInfo.fullName.trim() &&
+      shippingInfo.address.trim() &&
+      shippingInfo.barangay.trim() &&
+      shippingInfo.city.trim() &&
+      shippingInfo.province.trim() &&
+      shippingInfo.zipCode.trim() &&
+      shippingInfo.phone.trim() &&
+      shippingInfo.email.trim()
+    );
+  };
+
+  const isPaymentValid = (): boolean => {
+    if (paymentMethod === 'cod') {
+      return true;
+    }
+    return !!(
+      receiptFile &&
+      referenceNumber.trim() &&
+      senderName.trim() &&
+      paymentDate &&
+      agreedToPay
+    );
+  };
+
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateShipping()) {
       setStep(2);
       window.scrollTo(0, 0);
+    } else {
+      // Scroll to first error
+      const firstError = document.querySelector('.border-rose-500');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   };
 
@@ -341,6 +374,10 @@ const Checkout = () => {
     reader.onloadend = () => {
       setReceiptPreview(reader.result as string);
       setUploadStatus('success');
+      // Clear receipt error when file is uploaded
+      if (errors.receipt) {
+        setErrors({ ...errors, receipt: '' });
+      }
     };
     reader.readAsDataURL(file);
     
@@ -365,11 +402,20 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = async () => {
-    if (!validatePaymentDetails()) return;
+    if (!validatePaymentDetails()) {
+      // Scroll to payment section
+      const paymentSection = document.querySelector('.border-t.border-gray-200');
+      if (paymentSection) {
+        paymentSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
 
     setLoading(true);
     setUploadProgress(0);
     setUploadStatus('uploading');
+
+    const loadingToast = showLoading('Placing your order...');
 
     try {
       let receiptImageUrl = '';
@@ -382,7 +428,6 @@ const Checkout = () => {
         setUploadStatus('success');
       }
 
-      // FIXED: Include all item details in the order data
       const orderData: any = {
         totalAmount: state.total,
         shippingAddress: `${shippingInfo.address}, ${shippingInfo.barangay}, ${shippingInfo.city}, ${shippingInfo.province} ${shippingInfo.zipCode}`,
@@ -417,15 +462,19 @@ const Checkout = () => {
       const order = await orderService.createOrder(orderData);
       console.log('✅ Order created:', order);
       
+      dismissToast(loadingToast);
+      showSuccess('Order placed successfully!');
+      
       localStorage.removeItem('checkout_shipping');
       
       clearCart();
       navigate(`/account/orders/${order.id}?success=true`);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Order failed:', error);
+      dismissToast(loadingToast);
+      showError(error.response?.data?.message || 'Failed to place order. Please try again.');
       setUploadStatus('error');
-      alert('Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -982,12 +1031,27 @@ const Checkout = () => {
                     </button>
                     <button
                       onClick={() => setStep(3)}
-                      className="flex-1 px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white rounded-xl hover:from-rose-700 hover:to-rose-800 transition font-semibold flex items-center justify-center group shadow-lg shadow-rose-200"
+                      disabled={!isPaymentValid()}
+                      className={`flex-1 px-6 py-3 rounded-xl font-semibold flex items-center justify-center group transition ${
+                        isPaymentValid()
+                          ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white hover:from-rose-700 hover:to-rose-800 shadow-lg shadow-rose-200'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
                     >
                       Review Order
                       <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
                     </button>
                   </div>
+                  
+                  {/* Validation Summary for Payment */}
+                  {!isPaymentValid() && paymentMethod !== 'cod' && (
+                    <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
+                      <p className="text-xs text-amber-700 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        Please complete all required payment details before proceeding
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

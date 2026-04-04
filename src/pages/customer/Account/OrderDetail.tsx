@@ -703,12 +703,6 @@ const OrderDetail = () => {
                     <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
                   </div>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-500">Payment Status</p>
-                  <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-1 ${paymentStatusDisplay.color}`}>
-                    {paymentStatusDisplay.text}
-                  </span>
-                </div>
               </div>
 
               {order.paymentProofImage && (
