@@ -149,6 +149,16 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   paymentProof?: PaymentProof;
+  // ADD THESE DIRECT FIELDS
+  paymentProofImage?: string;
+  paymentProofReference?: string;
+  paymentProofSender?: string;
+  paymentProofDate?: string;
+  paymentProofNotes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;

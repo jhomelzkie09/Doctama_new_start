@@ -43,6 +43,7 @@ class OrderService {
       customerName: apiOrder.customerName || apiOrder.CustomerName,
       customerEmail: apiOrder.customerEmail || apiOrder.CustomerEmail,
       customerPhone: apiOrder.customerPhone || apiOrder.CustomerPhone,
+      // Keep the paymentProof object for backward compatibility
       paymentProof: apiOrder.paymentProofImage ? {
         receiptImage: apiOrder.paymentProofImage,
         referenceNumber: apiOrder.paymentProofReference || '',
@@ -50,6 +51,16 @@ class OrderService {
         paymentDate: apiOrder.paymentProofDate || '',
         notes: apiOrder.paymentProofNotes
       } : undefined,
+      // ADD DIRECT PAYMENT PROOF FIELDS for easier access
+      paymentProofImage: apiOrder.paymentProofImage || null,
+      paymentProofReference: apiOrder.paymentProofReference || null,
+      paymentProofSender: apiOrder.paymentProofSender || null,
+      paymentProofDate: apiOrder.paymentProofDate || null,
+      paymentProofNotes: apiOrder.paymentProofNotes || null,
+      approvedBy: apiOrder.approvedBy,
+      approvedAt: apiOrder.approvedAt,
+      rejectedBy: apiOrder.rejectedBy,
+      rejectionReason: apiOrder.rejectionReason,
       notes: apiOrder.notes,
       createdAt: apiOrder.createdAt,
       updatedAt: apiOrder.updatedAt
@@ -227,6 +238,10 @@ class OrderService {
       // Log summary
       const totalItems = convertedOrders.reduce((sum, order) => sum + order.items.length, 0);
       console.log(`📊 Total items across ${convertedOrders.length} orders: ${totalItems}`);
+      
+      // Log payment proof info for debugging
+      const ordersWithPaymentProof = convertedOrders.filter(o => o.paymentProofImage);
+      console.log(`📸 Orders with payment proof: ${ordersWithPaymentProof.length}`);
       
       return convertedOrders;
     } catch (error: any) {

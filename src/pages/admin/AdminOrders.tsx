@@ -205,7 +205,19 @@ const AdminOrders = () => {
     setLoading(true);
     try {
       const data = await orderService.getAllOrders();
-      console.log('📦 Orders from API:', data);
+      console.log('📦 Orders from API (RAW):', data);
+      
+      // Log orders with payment proof
+      const ordersWithProof = data.filter((order: any) => order.paymentProofImage);
+      console.log(`📸 Orders with payment proof: ${ordersWithProof.length}`);
+      if (ordersWithProof.length > 0) {
+        console.log('📸 First order with proof:', {
+          id: ordersWithProof[0].id,
+          paymentMethod: ordersWithProof[0].paymentMethod,
+          paymentProofImage: ordersWithProof[0].paymentProofImage?.substring(0, 100) + '...',
+          paymentProofReference: ordersWithProof[0].paymentProofReference
+        });
+      }
       
       // Map the data to include payment proof fields
       const ordersWithDetails: ExtendedOrder[] = data.map((order: any) => ({ 
@@ -223,7 +235,6 @@ const AdminOrders = () => {
         trackingNumber: order.trackingNumber || null
       }));
       
-      console.log('📦 Orders with payment proof:', ordersWithDetails);
       setOrders(ordersWithDetails);
     } catch (err) {
       console.error('Failed to load orders:', err);
@@ -627,6 +638,7 @@ const AdminOrders = () => {
                 {selectedOrder.customerPhone && <p className="text-xs text-gray-500">{selectedOrder.customerPhone}</p>}
               </div>
 
+              {/* PAYMENT SECTION WITH DEBUG */}
               <div className="bg-gray-50 p-3 rounded-xl">
                 <p className="text-xs font-bold text-gray-500 mb-2">PAYMENT</p>
                 <div className="flex items-center gap-2 mb-2">
@@ -634,14 +646,40 @@ const AdminOrders = () => {
                   <span className="text-sm capitalize">{selectedOrder.paymentMethod}</span>
                   {getPaymentStatusBadge(selectedOrder.paymentStatus)}
                 </div>
-                {/* Show receipt for non-COD orders with payment proof */}
-                {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentProofImage && (
+                
+                {/* DEBUG: Log payment proof data */}
+                {(() => {
+                  console.log('🔍 DEBUG - Selected Order Payment:', {
+                    id: selectedOrder.id,
+                    paymentMethod: selectedOrder.paymentMethod,
+                    paymentMethodType: typeof selectedOrder.paymentMethod,
+                    isNotCOD: selectedOrder.paymentMethod !== 'cod',
+                    paymentProofImage: selectedOrder.paymentProofImage,
+                    hasPaymentProof: !!selectedOrder.paymentProofImage,
+                    paymentProofReference: selectedOrder.paymentProofReference
+                  });
+                  return null;
+                })()}
+                
+                {/* Show receipt for non-COD orders with payment proof - using case-insensitive check */}
+                {selectedOrder.paymentMethod?.toLowerCase() !== 'cod' && selectedOrder.paymentProofImage && (
                   <div className="mt-2 pt-2 border-t border-gray-200">
+                    {/* Debug: Show small preview of the receipt */}
+                    <div className="mb-2">
+                      <img 
+                        src={selectedOrder.paymentProofImage} 
+                        alt="Payment Proof" 
+                        className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80"
+                        onClick={() => setShowReceiptModal(true)}
+                        onError={(e) => console.error('❌ Image failed to load:', selectedOrder.paymentProofImage)}
+                        onLoad={() => console.log('✅ Image loaded successfully')}
+                      />
+                    </div>
                     <button 
                       onClick={() => setShowReceiptModal(true)} 
                       className="text-xs text-blue-600 flex items-center gap-1 hover:text-blue-700"
                     >
-                      <Receipt className="w-3 h-3" /> View Payment Receipt
+                      <Receipt className="w-3 h-3" /> View Full Receipt
                     </button>
                     {selectedOrder.paymentProofReference && (
                       <p className="text-xs text-gray-500 mt-1">
@@ -672,7 +710,7 @@ const AdminOrders = () => {
               )}
 
               <div className="border-t pt-4 space-y-3">
-                {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && selectedOrder.paymentMethod !== 'cod' && (
+                {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && selectedOrder.paymentMethod?.toLowerCase() !== 'cod' && (
                   <div className="bg-yellow-50 p-3 rounded-xl">
                     <textarea 
                       value={approvalNote} 
