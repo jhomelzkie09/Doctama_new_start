@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import orderService from '../../../services/order.service';
+import reviewService from '../../../services/review.service';
 import {
   Package,
   ChevronLeft,
@@ -26,8 +27,13 @@ import {
   Info,
   MessageCircle,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Star,
+  Edit,
+  Check,
+  X
 } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '../../../utils/toast';
 
 interface OrderItemDisplay {
   id: number;
@@ -64,6 +70,12 @@ interface OrderDisplay {
   rejectionReason?: string;
 }
 
+interface RatedProduct {
+  productId: number;
+  rating: number;
+  reviewId?: number;
+}
+
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -71,6 +83,15 @@ const OrderDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [ratedProducts, setRatedProducts] = useState<Map<number, RatedProduct>>(new Map());
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<OrderItemDisplay | null>(null);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingTitle, setRatingTitle] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [existingReviews, setExistingReviews] = useState<Map<number, any>>(new Map());
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -80,6 +101,12 @@ const OrderDetail = () => {
       setLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (order?.status === 'delivered' && order.items?.length > 0) {
+      checkExistingReviews();
+    }
+  }, [order]);
 
   const loadOrder = async () => {
     setLoading(true);
@@ -98,7 +125,6 @@ const OrderDetail = () => {
       if (!data) {
         setError('Order not found');
       } else {
-        // Use the data directly - it already has the correct format
         const displayOrder: OrderDisplay = {
           id: typeof data.id === 'string' ? parseInt(data.id) : data.id,
           orderNumber: data.orderNumber,
@@ -149,6 +175,126 @@ const OrderDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkExistingReviews = async () => {
+    if (!order?.items) return;
+    
+    setLoadingReviews(true);
+    const reviewsMap = new Map();
+    
+    try {
+      for (const item of order.items) {
+        const stats = await reviewService.getReviewStats(item.productId);
+        // Check if user has already reviewed this product
+        const reviews = await reviewService.getProductReviews(item.productId);
+        const userReview = reviews.find(r => r.userName === order.customerName);
+        
+        if (userReview) {
+          reviewsMap.set(item.productId, userReview);
+          ratedProducts.set(item.productId, {
+            productId: item.productId,
+            rating: userReview.rating,
+            reviewId: userReview.id
+          });
+        }
+      }
+      setExistingReviews(reviewsMap);
+      setRatedProducts(new Map(ratedProducts));
+    } catch (error) {
+      console.error('Failed to check existing reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const handleRateProduct = (product: OrderItemDisplay) => {
+    const existing = existingReviews.get(product.productId);
+    if (existing) {
+      // Already reviewed, show message
+      showError(`You already reviewed ${product.productName}`);
+      return;
+    }
+    
+    setSelectedProduct(product);
+    setSelectedRating(ratedProducts.get(product.productId)?.rating || 0);
+    setRatingComment('');
+    setRatingTitle('');
+    setShowRatingModal(true);
+  };
+
+  const handleSubmitRating = async () => {
+    if (!selectedProduct) return;
+    
+    if (selectedRating === 0) {
+      showError('Please select a rating');
+      return;
+    }
+    
+    if (!ratingComment.trim()) {
+      showError('Please write a review comment');
+      return;
+    }
+    
+    setSubmittingRating(true);
+    const loadingToast = showLoading('Submitting review...');
+    
+    try {
+      await reviewService.createReview({
+        productId: selectedProduct.productId,
+        rating: selectedRating,
+        title: ratingTitle,
+        comment: ratingComment,
+        images: []
+      });
+      
+      dismissToast(loadingToast);
+      showSuccess(`Thank you for reviewing ${selectedProduct.productName}!`);
+      
+      // Update local state
+      ratedProducts.set(selectedProduct.productId, {
+        productId: selectedProduct.productId,
+        rating: selectedRating
+      });
+      setRatedProducts(new Map(ratedProducts));
+      
+      setShowRatingModal(false);
+      setSelectedProduct(null);
+      setSelectedRating(0);
+      setRatingComment('');
+      setRatingTitle('');
+      
+      // Refresh to show the review
+      checkExistingReviews();
+    } catch (error: any) {
+      dismissToast(loadingToast);
+      const errorMessage = error.response?.data?.message || 'Failed to submit review';
+      showError(errorMessage);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const renderStars = (rating: number, size: number = 5, interactive: boolean = false, onStarClick?: (rating: number) => void) => {
+    return (
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map(star => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => interactive && onStarClick?.(star)}
+            disabled={!interactive}
+            className={`${interactive ? 'cursor-pointer hover:scale-110 transition' : 'cursor-default'}`}
+          >
+            <Star
+              className={`w-${size} h-${size} ${
+                star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+    );
   };
 
   const getDisplayStatus = () => {
@@ -324,7 +470,7 @@ const OrderDetail = () => {
         type: 'delivered',
         icon: <CheckCircle className="w-6 h-6 text-green-600" />,
         title: 'Order Delivered!',
-        message: 'Your order has been delivered. Thank you for shopping with us!',
+        message: 'Your order has been delivered. We hope you love your items! Please take a moment to rate your products.',
         color: 'bg-green-50 border-green-200 text-green-800'
       };
     }
@@ -370,6 +516,7 @@ const OrderDetail = () => {
   }
 
   const statusStep = getStatusStep(order.status);
+  const isDelivered = order.status === 'delivered';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 md:py-12">
@@ -469,29 +616,57 @@ const OrderDetail = () => {
                 Order Items ({order.items?.length || 0})
               </h2>
               <div className="space-y-4">
-                {order.items?.map((item, idx) => (
-                  <div key={idx} className="flex gap-4 py-4 border-b last:border-0">
-                    <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
-                      ) : (
-                        <Package className="w-8 h-8 text-gray-400 m-4" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{item.productName}</h3>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                        <span>Qty: {item.quantity}</span>
-                        <span>₱{(item.unitPrice || item.price || 0).toLocaleString()} each</span>
+                {order.items?.map((item, idx) => {
+                  const hasRated = existingReviews.has(item.productId);
+                  const userRating = ratedProducts.get(item.productId);
+                  
+                  return (
+                    <div key={idx} className="flex gap-4 py-4 border-b last:border-0">
+                      <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-8 h-8 text-gray-400 m-4" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{item.productName}</h3>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <span>Qty: {item.quantity}</span>
+                          <span>₱{(item.unitPrice || item.price || 0).toLocaleString()} each</span>
+                        </div>
+                        
+                        {/* Rating Stars for Delivered Orders */}
+                        {isDelivered && (
+                          <div className="mt-3">
+                            {hasRated ? (
+                              <div className="flex items-center gap-2">
+                                {renderStars(userRating?.rating || 0, 4)}
+                                <span className="text-xs text-green-600 flex items-center gap-1">
+                                  <Check className="w-3 h-3" />
+                                  Rated
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleRateProduct(item)}
+                                className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 transition group"
+                              >
+                                <Star className="w-4 h-4 group-hover:fill-yellow-400 group-hover:text-yellow-400" />
+                                Rate this product
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-red-600">
+                          {formatCurrency((item.unitPrice || item.price || 0) * item.quantity)}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-red-600">
-                        {formatCurrency((item.unitPrice || item.price || 0) * item.quantity)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-100">
@@ -634,6 +809,104 @@ const OrderDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Rating Modal */}
+      {showRatingModal && selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-900">Rate Product</h3>
+              <button
+                onClick={() => setShowRatingModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+                  {selectedProduct.imageUrl ? (
+                    <img src={selectedProduct.imageUrl} alt={selectedProduct.productName} className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="w-8 h-8 text-gray-400 m-4" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">{selectedProduct.productName}</h4>
+                  <p className="text-sm text-gray-500">Quantity: {selectedProduct.quantity}</p>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your Rating *</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(rating => (
+                    <button
+                      key={rating}
+                      type="button"
+                      onClick={() => setSelectedRating(rating)}
+                      className="focus:outline-none transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-8 h-8 ${
+                          rating <= selectedRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Review Title (Optional)</label>
+                <input
+                  type="text"
+                  value={ratingTitle}
+                  onChange={(e) => setRatingTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition"
+                  placeholder="Summarize your experience"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your Review *</label>
+                <textarea
+                  rows={4}
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition resize-none"
+                  placeholder="Share your thoughts about this product..."
+                  required
+                />
+              </div>
+              
+              <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
+                <p className="text-xs text-amber-700">
+                  Your feedback helps other customers make informed decisions. Thank you for sharing your experience!
+                </p>
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleSubmitRating}
+                  disabled={submittingRating}
+                  className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-medium hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {submittingRating ? 'Submitting...' : 'Submit Review'}
+                </button>
+                <button
+                  onClick={() => setShowRatingModal(false)}
+                  className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Receipt Modal */}
       {showReceiptModal && order.paymentProofImage && (
