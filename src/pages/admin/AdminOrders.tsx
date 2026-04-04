@@ -205,11 +205,25 @@ const AdminOrders = () => {
     setLoading(true);
     try {
       const data = await orderService.getAllOrders();
-      // Use customer data directly from order - no need to fetch users separately
-      const ordersWithDetails: ExtendedOrder[] = data.map((order: Order) => ({ 
+      console.log('📦 Orders from API:', data);
+      
+      // Map the data to include payment proof fields
+      const ordersWithDetails: ExtendedOrder[] = data.map((order: any) => ({ 
         ...order, 
-        itemsCount: order.items?.length || 0 
+        itemsCount: order.items?.length || 0,
+        paymentProofImage: order.paymentProofImage || null,
+        paymentProofReference: order.paymentProofReference || null,
+        paymentProofSender: order.paymentProofSender || null,
+        paymentProofDate: order.paymentProofDate || null,
+        paymentProofNotes: order.paymentProofNotes || null,
+        approvedBy: order.approvedBy || null,
+        approvedAt: order.approvedAt || null,
+        rejectedBy: order.rejectedBy || null,
+        rejectionReason: order.rejectionReason || null,
+        trackingNumber: order.trackingNumber || null
       }));
+      
+      console.log('📦 Orders with payment proof:', ordersWithDetails);
       setOrders(ordersWithDetails);
     } catch (err) {
       console.error('Failed to load orders:', err);
@@ -520,7 +534,7 @@ const AdminOrders = () => {
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
-                   </tr>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {paginatedOrders.map((order) => (
@@ -620,10 +634,21 @@ const AdminOrders = () => {
                   <span className="text-sm capitalize">{selectedOrder.paymentMethod}</span>
                   {getPaymentStatusBadge(selectedOrder.paymentStatus)}
                 </div>
-                {(selectedOrder as any).paymentProofImage && (
-                  <button onClick={() => setShowReceiptModal(true)} className="text-xs text-blue-600 flex items-center gap-1">
-                    <Receipt className="w-3 h-3" /> View Receipt
-                  </button>
+                {/* Show receipt for non-COD orders with payment proof */}
+                {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentProofImage && (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <button 
+                      onClick={() => setShowReceiptModal(true)} 
+                      className="text-xs text-blue-600 flex items-center gap-1 hover:text-blue-700"
+                    >
+                      <Receipt className="w-3 h-3" /> View Payment Receipt
+                    </button>
+                    {selectedOrder.paymentProofReference && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Ref: {selectedOrder.paymentProofReference}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -647,7 +672,7 @@ const AdminOrders = () => {
               )}
 
               <div className="border-t pt-4 space-y-3">
-                {selectedOrder.paymentStatus === 'pending' && (selectedOrder as any).paymentProofImage && (
+                {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && selectedOrder.paymentMethod !== 'cod' && (
                   <div className="bg-yellow-50 p-3 rounded-xl">
                     <textarea 
                       value={approvalNote} 
@@ -727,10 +752,10 @@ const AdminOrders = () => {
       )}
 
       {/* Receipt Modal */}
-      {showReceiptModal && selectedOrder && (selectedOrder as any).paymentProofImage && (
+      {showReceiptModal && selectedOrder && selectedOrder.paymentProofImage && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setShowReceiptModal(false)}>
           <button className="absolute top-4 right-4 text-white"><X className="w-8 h-8" /></button>
-          <img src={(selectedOrder as any).paymentProofImage} alt="Receipt" className="max-w-full max-h-full object-contain" />
+          <img src={selectedOrder.paymentProofImage} alt="Receipt" className="max-w-full max-h-full object-contain" />
         </div>
       )}
     </div>
