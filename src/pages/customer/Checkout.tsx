@@ -79,6 +79,47 @@ const SHOP_PAYMENT_DETAILS = {
   }
 };
 
+// Shipping fee calculation based on location
+const calculateShippingFee = (city: string, barangay: string): number => {
+  const freeShippingAreas = [
+    'Sorsogon City',
+    'Sorsogon',
+    'Bacon',
+    'Sorsogon City Capital'
+  ];
+  
+  // Check if the location qualifies for free shipping
+  const isFreeShipping = freeShippingAreas.some(area => 
+    city.toLowerCase().includes(area.toLowerCase()) || 
+    barangay.toLowerCase().includes(area.toLowerCase())
+  );
+  
+  if (isFreeShipping) {
+    return 0;
+  }
+  
+  // Other municipalities in Sorsogon province
+  const municipalities = [
+    'Casiguran', 'Magallanes', 'Bulan', 'Barcelona', 'Bulusan', 
+    'Castilla', 'Donsol', 'Gubat', 'Irosin', 'Juban', 'Matnog', 
+    'Pilar', 'Prieto Diaz', 'Santa Magdalena'
+  ];
+  
+  // Check if the location is in Sorsogon province but outside free areas
+  const isSorsogonMunicipality = municipalities.some(muni => 
+    city.toLowerCase().includes(muni.toLowerCase())
+  );
+  
+  if (isSorsogonMunicipality) {
+    return 1500; // ₱1,500 for other municipalities
+  }
+  
+  // For locations outside Sorsogon province (e.g., Metro Manila, etc.)
+  // This would require a more complex calculation based on distance
+  // For now, set a base rate
+  return 2000;
+};
+
 // Payment Details Modal Component
 const PaymentDetailsModal = ({ 
   isOpen, 
@@ -230,6 +271,9 @@ const Checkout = () => {
     deliveryInstructions: ''
   });
   
+  // Shipping fee state
+  const [shippingFee, setShippingFee] = useState(0);
+  
   // Payment Method
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -258,6 +302,18 @@ const Checkout = () => {
   useEffect(() => {
     localStorage.setItem('checkout_shipping', JSON.stringify(shippingInfo));
   }, [shippingInfo]);
+
+  // Calculate shipping fee when city or barangay changes
+  useEffect(() => {
+    if (shippingInfo.city || shippingInfo.barangay) {
+      const fee = calculateShippingFee(shippingInfo.city, shippingInfo.barangay);
+      setShippingFee(fee);
+    }
+  }, [shippingInfo.city, shippingInfo.barangay]);
+
+  const getTotalWithShipping = () => {
+    return state.total + shippingFee;
+  };
 
   const validateShipping = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -429,7 +485,7 @@ const Checkout = () => {
       }
 
       const orderData: any = {
-        totalAmount: state.total,
+        totalAmount: getTotalWithShipping(),
         shippingAddress: `${shippingInfo.address}, ${shippingInfo.barangay}, ${shippingInfo.city}, ${shippingInfo.province} ${shippingInfo.zipCode}`,
         paymentMethod: paymentMethod,
         paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
@@ -442,7 +498,8 @@ const Checkout = () => {
           quantity: item.quantity,
           unitPrice: item.price,
           imageUrl: item.imageUrl || ''
-        }))
+        })),
+        shippingFee: shippingFee
       };
 
       if (shippingInfo.deliveryInstructions) {
@@ -1151,7 +1208,7 @@ const Checkout = () => {
                     )}
                   </div>
 
-                  {/* Order Summary */}
+                  {/* Order Summary with Shipping Fee */}
                   <div className="border-t pt-4">
                     <div className="space-y-2">
                       <div className="flex justify-between py-2">
@@ -1159,15 +1216,26 @@ const Checkout = () => {
                         <span className="font-medium">{formatCurrency(state.total)}</span>
                       </div>
                       <div className="flex justify-between py-2">
-                        <span className="text-gray-600">Shipping</span>
-                        <span className="text-green-600 font-medium">Free</span>
+                        <span className="text-gray-600">Shipping Fee</span>
+                        {shippingFee === 0 ? (
+                          <span className="text-green-600 font-medium">Free</span>
+                        ) : (
+                          <span className="font-medium">{formatCurrency(shippingFee)}</span>
+                        )}
                       </div>
                       <div className="flex justify-between py-3 border-t text-lg">
                         <span className="font-bold">Total</span>
-                        <span className="font-bold text-rose-600 text-2xl">{formatCurrency(state.total)}</span>
+                        <span className="font-bold text-rose-600 text-2xl">{formatCurrency(getTotalWithShipping())}</span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Shipping Fee Note */}
+                  {shippingFee > 0 && (
+                    <div className="mt-3 text-xs text-gray-500 text-center">
+                      <p>Shipping fee applied based on your location</p>
+                    </div>
+                  )}
 
                   {/* Status Note */}
                   {paymentMethod !== 'cod' && (
@@ -1234,23 +1302,28 @@ const Checkout = () => {
                     <span className="text-gray-600">Subtotal</span>
                     <span>{formatCurrency(state.total)}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b">
+                  <div className="flex justify-between py-2">
                     <span className="text-gray-600">Shipping</span>
-                    <span className="text-green-600">Free</span>
+                    {shippingFee === 0 ? (
+                      <span className="text-green-600">Free</span>
+                    ) : (
+                      <span>{formatCurrency(shippingFee)}</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between py-2 border-t border-b">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-rose-600">{formatCurrency(getTotalWithShipping())}</span>
                   </div>
                 </div>
 
-                <div className="pt-4 mb-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">Total</span>
-                    <span className="text-2xl font-bold text-rose-600">
-                      {formatCurrency(state.total)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">VAT included</p>
+                <div className="pt-2">
+                  <p className="text-xs text-gray-400">VAT included</p>
+                  {shippingFee > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">Shipping fee calculated based on location</p>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 text-sm text-gray-500 p-3 bg-green-50 rounded-xl">
+                <div className="flex items-center gap-2 text-sm text-gray-500 p-3 bg-green-50 rounded-xl mt-4">
                   <Lock className="w-4 h-4 text-green-600" />
                   <span className="text-green-700">Secure checkout</span>
                 </div>
