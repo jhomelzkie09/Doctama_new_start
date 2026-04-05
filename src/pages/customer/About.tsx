@@ -20,7 +20,7 @@ import {
 
 const About = () => {
   const stats = [
-    { label: 'Years of Excellence', value: '15+', icon: Award },
+    { label: 'Years of Excellence', value: '26', icon: Award },
     { label: 'Happy Customers', value: '5,000+', icon: Users },
     { label: 'Products Sold', value: '25,000+', icon: Star },
     { label: 'Showrooms', value: '8', icon: MapPin }
@@ -63,7 +63,7 @@ const About = () => {
 
   const timeline = [
     {
-      year: '2009',
+      year: '2000',
       title: 'The Beginning',
       description: 'Doctama started as a small family workshop, hand-crafting custom furniture for local homes in Sorsogon.'
     },
@@ -73,14 +73,14 @@ const About = () => {
       description: 'Opened our first physical showroom, bringing our pieces directly into the hands — and hearts — of our customers.'
     },
     {
-      year: '2020',
+      year: '2026',
       title: 'Online Store Launch',
       description: 'Expanded nationwide with our e-commerce platform, making Doctama accessible to every Filipino home.'
     },
     {
-      year: '2024',
-      title: '15th Anniversary',
-      description: 'Celebrating 15 years of creating beautiful, lasting spaces — and thousands of memories — for Filipino families.'
+      year: '2026',
+      title: '26th Anniversary',
+      description: 'Celebrating 26 years of creating beautiful, lasting spaces — and thousands of memories — for Filipino families.'
     }
   ];
 
