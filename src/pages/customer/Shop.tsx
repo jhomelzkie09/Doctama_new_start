@@ -427,7 +427,7 @@ const Shop: React.FC = () => {
           </div>
 
           <div className="container mx-auto px-6 relative z-10">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
               <div>
                 <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-rose-200 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full mb-5">
                   <Sparkles className="w-3.5 h-3.5" />

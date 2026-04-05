@@ -297,7 +297,7 @@ const Contact = () => {
                 </div>
                 <div className="aspect-video w-full">
                   <iframe
-                    src="https://www.google.com/maps/place/Doctama+Marketing/@13.0074788,124.0210329,17z/data=!4m14!1m7!3m6!1s0x33a0ef653a20122b:0x3c7bbaaadbfb17db!2sDoctama+Marketing!8m2!3d13.0074736!4d124.0236078!16s%2Fg%2F1pzw9v0hm!3m5!1s0x33a0ef653a20122b:0x3c7bbaaadbfb17db!8m2!3d13.0074736!4d124.0236078!16s%2Fg%2F1pzw9v0hm?entry=ttu&g_ep=EgoyMDI2MDMwNS4wIKXMDSoASAFQAw%3D%3D"
+                    src="https://www.google.com/maps/place/DOCTAMA'S+MARKETING/@13.0073274,124.0235617,286m/data=!3m1!1e3!4m14!1m7!3m6!1s0x33a0ee344986b603:0xccf2019a343d0506!2sDOCTAMA'S+MARKETING!8m2!3d13.0074343!4d124.0236102!16s%2Fg%2F11tk5bjpjk!3m5!1s0x33a0ee344986b603:0xccf2019a343d0506!8m2!3d13.0074343!4d124.0236102!16s%2Fg%2F11tk5bjpjk?entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D"
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
