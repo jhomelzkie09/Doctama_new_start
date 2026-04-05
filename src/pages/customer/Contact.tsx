@@ -62,7 +62,7 @@ const Contact = () => {
     {
       icon: Mail,
       title: 'Email Us',
-      details: ['support@doctama.com', 'sales@doctama.com', 'careers@doctama.com'],
+      details: ['doctamasmarketing.com'],
       accent: 'bg-emerald-50 text-emerald-700',
       iconBg: 'bg-emerald-100'
     },
@@ -78,7 +78,7 @@ const Contact = () => {
   const faqs = [
     {
       question: 'How long does delivery take?',
-      answer: 'Delivery within Metro Manila takes 2–3 business days. Provincial deliveries may take 5–7 business days depending on your location.'
+      answer: 'Delivery within Sorsogon City takes 1 business days. Municipality deliveries may take 1–2 business days depending on your location.'
     },
     {
       question: 'What is your return policy?',
@@ -86,11 +86,11 @@ const Contact = () => {
     },
     {
       question: 'Do you offer installation services?',
-      answer: 'Yes, we offer professional white-glove installation for selected furniture items. Additional fees may apply based on location.'
+      answer: 'Yes, we offer professional white-glove installation for selected furniture items Using home credit. Additional fees may apply based on location. Just go to our store located in Gabao, Bacon, Sorsogon City to inquire about installation services and fees.'
     },
     {
       question: 'Can I track my order?',
-      answer: 'Absolutely. You can track your order through your account dashboard and we also send real-time SMS updates.'
+      answer: 'Absolutely. We will send real-time SMS updates.'
     },
     {
       question: 'Do you accept custom furniture orders?',
@@ -98,29 +98,6 @@ const Contact = () => {
     }
   ];
 
-  const supportOptions = [
-    {
-      icon: Headphones,
-      title: 'Live Chat',
-      desc: 'Get instant answers from our support team during store hours.',
-      cta: 'Start Chat',
-      action: () => {}
-    },
-    {
-      icon: Package,
-      title: 'Order Support',
-      desc: 'Track, modify, or inquire about an existing order.',
-      cta: 'View Orders',
-      isLink: '/account/orders'
-    },
-    {
-      icon: Calendar,
-      title: 'Book a Consultation',
-      desc: 'Schedule a free in-store or virtual design consultation.',
-      cta: 'Book Now',
-      action: () => {}
-    }
-  ];
 
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
@@ -349,49 +326,6 @@ const Contact = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Support Options ─── */}
-      <section className="py-20 bg-[#F9F8F6]">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-14">
-            <span className="text-rose-800 font-bold tracking-widest text-xs uppercase">We're Here for You</span>
-            <h2 className="text-4xl font-serif text-slate-900 mt-3 mb-3">Need Immediate Help?</h2>
-            <p className="text-slate-500 max-w-lg mx-auto text-sm leading-relaxed">
-              Our customer support team is ready to assist you with any questions or concerns.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {supportOptions.map((opt, i) => (
-              <div
-                key={i}
-                className="group bg-white border border-stone-100 rounded-2xl p-8 flex flex-col items-center text-center hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300"
-              >
-                <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mb-5 group-hover:bg-rose-950 transition-colors duration-300">
-                  <opt.icon className="w-7 h-7 text-rose-700 group-hover:text-white transition-colors duration-300" />
-                </div>
-                <h3 className="font-bold text-slate-900 mb-2">{opt.title}</h3>
-                <p className="text-sm text-slate-500 mb-5 leading-relaxed">{opt.desc}</p>
-                {opt.isLink ? (
-                  <Link
-                    to={opt.isLink}
-                    className="inline-flex items-center gap-1.5 text-sm font-bold text-rose-800 border-b-2 border-rose-200 pb-0.5 hover:border-rose-800 transition-colors"
-                  >
-                    {opt.cta} <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                ) : (
-                  <button
-                    onClick={opt.action}
-                    className="inline-flex items-center gap-1.5 text-sm font-bold text-rose-800 border-b-2 border-rose-200 pb-0.5 hover:border-rose-800 transition-colors"
-                  >
-                    {opt.cta} <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            ))}
           </div>
         </div>
       </section>
