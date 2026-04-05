@@ -666,25 +666,6 @@ const Home = () => {
 
         </div>
       </section>
-
-      {/* ─── Newsletter ─── */}
-      <section className="py-20 bg-stone-50 border-t border-stone-200">
-        <div className="container mx-auto px-6 max-w-4xl text-center">
-          <h2 className="text-4xl font-serif text-slate-900 mb-6">Join the Inner Circle</h2>
-          <p className="text-slate-500 mb-10 text-lg">Subscribe for early access to sales, interior design tips, and ₱500 off your first order.</p>
-          <form className="flex flex-col sm:flex-row gap-4 p-2 bg-white rounded-3xl shadow-xl shadow-stone-200/50 border border-stone-100">
-            <input 
-              type="email" 
-              placeholder="Your email address" 
-              className="flex-1 px-6 py-4 rounded-2xl focus:outline-none text-slate-900" 
-            />
-            <button className="px-10 py-4 bg-rose-950 text-white rounded-2xl font-bold hover:bg-rose-900 transition-colors">
-              Subscribe
-            </button>
-          </form>
-        </div>
-      </section>
-
     </div>
   );
 };
