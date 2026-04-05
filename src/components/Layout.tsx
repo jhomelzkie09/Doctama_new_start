@@ -504,7 +504,7 @@ const Layout = () => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 bg-white-600 rounded-lg flex items-center justify-center">
-                  <img src={logo} alt="Doctama Logo" className="w-8 h-8 object-contain" />
+                  <img src={logo} alt="Doctama Logo" className="w-13 h-13 object-contain" />
                 </div>
                 <span className="font-black text-lg tracking-tight uppercase">Doctama's</span>
               </div>
