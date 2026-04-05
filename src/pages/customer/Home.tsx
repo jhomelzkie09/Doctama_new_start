@@ -7,7 +7,8 @@ import {
   Folder, Home as HomeIcon, Coffee, Utensils, Monitor, Lightbulb, 
   Box, BookOpen, Ruler, Watch, Flower2, Library,
   Shirt, WashingMachine, Car, TreePalm, Music, Tv,
-  ChevronLeft, ChevronRight as ChevronRightIcon
+  ChevronLeft, ChevronRight as ChevronRightIcon,
+  PenLine, Palette, Maximize2, MessageCircle, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOutletContext } from 'react-router-dom';
@@ -57,24 +58,18 @@ const Home = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Continuous auto-scroll effect
   useEffect(() => {
     if (categories.length > itemsPerView && !isAnimating) {
       carouselIntervalRef.current = setInterval(() => {
         setCurrentCategoryIndex(prev => {
           const maxIndex = categories.length - itemsPerView;
-          if (prev >= maxIndex) {
-            return 0;
-          }
+          if (prev >= maxIndex) return 0;
           return prev + 1;
         });
       }, 3000);
     }
-
     return () => {
-      if (carouselIntervalRef.current) {
-        clearInterval(carouselIntervalRef.current);
-      }
+      if (carouselIntervalRef.current) clearInterval(carouselIntervalRef.current);
     };
   }, [categories.length, itemsPerView, isAnimating]);
 
@@ -93,10 +88,7 @@ const Home = () => {
       
       const categoriesWithCounts = categoriesData.map(category => {
         const productCount = productsData.filter(product => product.categoryId === category.id).length;
-        return {
-          ...category,
-          productCount
-        };
+        return { ...category, productCount };
       });
       
       setCategories(categoriesWithCounts);
@@ -107,26 +99,18 @@ const Home = () => {
     }
   };
 
-  // Handle Add to Cart - Navigate to shop page
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
-    
     if (!user) {
-      if (onAuthRequired) {
-        onAuthRequired('login');
-      }
+      if (onAuthRequired) onAuthRequired('login');
       return;
     }
-    
-    // Navigate to shop page with product selected to open modal
     navigate('/shop', { state: { selectedProduct: product, openModal: true } });
   };
 
-  // Enhanced icon mapping
   const getCategoryIcon = (categoryName: string) => {
     const name = categoryName.toLowerCase();
-    
     if (name.includes('living') || name.includes('sofa') || name.includes('couch')) return Sofa;
     if (name.includes('armchair') || name.includes('lounge')) return Armchair;
     if (name.includes('bed') || name.includes('bedroom')) return Bed;
@@ -147,7 +131,6 @@ const Home = () => {
     if (name.includes('audio') || name.includes('speaker')) return Music;
     if (name.includes('furniture')) return Sofa;
     if (name.includes('home')) return HomeIcon;
-    
     return Folder;
   };
 
@@ -165,23 +148,13 @@ const Home = () => {
     return colors[index % colors.length];
   };
 
-  const handlePrevCategory = () => {
-    if (carouselIntervalRef.current) {
-      clearInterval(carouselIntervalRef.current);
-      carouselIntervalRef.current = null;
-    }
-    setIsAnimating(true);
-    setCurrentCategoryIndex(prev => Math.max(0, prev - 1));
-    setTimeout(() => setIsAnimating(false), 500);
-    
+  const restartCarousel = () => {
     setTimeout(() => {
       if (!carouselIntervalRef.current && categories.length > itemsPerView) {
         carouselIntervalRef.current = setInterval(() => {
           setCurrentCategoryIndex(prev => {
             const maxIndex = categories.length - itemsPerView;
-            if (prev >= maxIndex) {
-              return 0;
-            }
+            if (prev >= maxIndex) return 0;
             return prev + 1;
           });
         }, 3000);
@@ -189,28 +162,20 @@ const Home = () => {
     }, 5000);
   };
 
+  const handlePrevCategory = () => {
+    if (carouselIntervalRef.current) { clearInterval(carouselIntervalRef.current); carouselIntervalRef.current = null; }
+    setIsAnimating(true);
+    setCurrentCategoryIndex(prev => Math.max(0, prev - 1));
+    setTimeout(() => setIsAnimating(false), 500);
+    restartCarousel();
+  };
+
   const handleNextCategory = () => {
-    if (carouselIntervalRef.current) {
-      clearInterval(carouselIntervalRef.current);
-      carouselIntervalRef.current = null;
-    }
+    if (carouselIntervalRef.current) { clearInterval(carouselIntervalRef.current); carouselIntervalRef.current = null; }
     setIsAnimating(true);
     setCurrentCategoryIndex(prev => Math.min(categories.length - itemsPerView, prev + 1));
     setTimeout(() => setIsAnimating(false), 500);
-    
-    setTimeout(() => {
-      if (!carouselIntervalRef.current && categories.length > itemsPerView) {
-        carouselIntervalRef.current = setInterval(() => {
-          setCurrentCategoryIndex(prev => {
-            const maxIndex = categories.length - itemsPerView;
-            if (prev >= maxIndex) {
-              return 0;
-            }
-            return prev + 1;
-          });
-        }, 3000);
-      }
-    }, 5000);
+    restartCarousel();
   };
 
   const visibleCategories = categories.slice(currentCategoryIndex, currentCategoryIndex + itemsPerView);
@@ -225,6 +190,13 @@ const Home = () => {
     { icon: CreditCard, title: 'Flexi-Payment', desc: 'Installments' },
   ];
 
+  const customSteps = [
+    { icon: MessageCircle, step: '01', title: 'Tell Us Your Vision', desc: 'Share your ideas — dimensions, style, materials, and any inspiration you have in mind.' },
+    { icon: Palette, step: '02', title: 'Choose Your Finish', desc: 'Pick from our range of premium wood stains, fabrics, and hardware finishes.' },
+    { icon: PenLine, step: '03', title: 'We Craft It for You', desc: 'Our Filipino artisans handcraft your piece with meticulous attention to every detail.' },
+    { icon: CheckCircle2, step: '04', title: 'Delivered to Your Door', desc: 'Your bespoke furniture arrives white-glove delivered and ready to love.' },
+  ];
+
   const renderStars = (rating: number) => (
     <div className="flex gap-0.5">
       {[...Array(5)].map((_, i) => (
@@ -233,8 +205,6 @@ const Home = () => {
     </div>
   );
 
-  // Hero images array for variety
-  // Hero images array with reliable URLs
   const heroImages = [
     {
       url: "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1200",
@@ -264,7 +234,6 @@ const Home = () => {
   
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
 
-  // Auto-rotate hero images
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentHeroImage((prev) => (prev + 1) % heroImages.length);
@@ -274,9 +243,9 @@ const Home = () => {
 
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
-      {/* Hero Section with Carousel */}
+
+      {/* ─── Hero Section ─── */}
       <section className="relative min-h-[90vh] flex items-center bg-[#F9F8F6] overflow-hidden">
-        {/* Background Image Carousel */}
         <div className="absolute inset-0">
           {heroImages.map((image, index) => (
             <div
@@ -285,17 +254,12 @@ const Home = () => {
                 currentHeroImage === index ? 'opacity-100' : 'opacity-0'
               }`}
             >
-              <img
-                src={image.url}
-                alt={image.alt}
-                className="w-full h-full object-cover"
-              />
+              <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
             </div>
           ))}
         </div>
         
-        {/* Decorative Elements */}
         <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-950/20 hidden lg:block" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-200/20 rounded-full blur-[100px]" />
         
@@ -341,16 +305,13 @@ const Home = () => {
             </div>
             
             <div className="lg:col-span-6 relative">
-              {/* Hero Image Carousel Indicators */}
               <div className="absolute bottom-4 right-4 z-20 flex gap-2">
                 {heroImages.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => setCurrentHeroImage(index)}
                     className={`w-2 h-2 rounded-full transition-all ${
-                      currentHeroImage === index 
-                        ? 'w-6 bg-white' 
-                        : 'bg-white/50 hover:bg-white/70'
+                      currentHeroImage === index ? 'w-6 bg-white' : 'bg-white/50 hover:bg-white/70'
                     }`}
                   />
                 ))}
@@ -371,7 +332,6 @@ const Home = () => {
           </div>
         </div>
         
-        {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/40 rounded-full flex justify-center">
             <div className="w-1 h-2 bg-white/60 rounded-full mt-2 animate-pulse" />
@@ -379,7 +339,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Trust Bar */}
+      {/* ─── Trust Bar ─── */}
       <div className="py-12 bg-white border-b border-stone-100">
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
@@ -398,7 +358,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories Carousel */}
+      {/* ─── Categories Carousel ─── */}
       <section className="py-24">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
@@ -410,7 +370,6 @@ const Home = () => {
               <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 flex items-center group">
                 Browse All <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition" />
               </Link>
-              
               {categories.length > itemsPerView && (
                 <div className="flex gap-2">
                   <button
@@ -449,7 +408,6 @@ const Home = () => {
                 {visibleCategories.map((category, index) => {
                   const IconComponent = getCategoryIcon(category.name);
                   const colorClass = getCategoryColor(category.name, currentCategoryIndex + index);
-                  
                   return (
                     <Link 
                       key={category.id} 
@@ -483,32 +441,14 @@ const Home = () => {
                   <button
                     key={idx}
                     onClick={() => {
-                      if (carouselIntervalRef.current) {
-                        clearInterval(carouselIntervalRef.current);
-                        carouselIntervalRef.current = null;
-                      }
+                      if (carouselIntervalRef.current) { clearInterval(carouselIntervalRef.current); carouselIntervalRef.current = null; }
                       setIsAnimating(true);
                       setCurrentCategoryIndex(startIndex);
                       setTimeout(() => setIsAnimating(false), 500);
-                      
-                      setTimeout(() => {
-                        if (!carouselIntervalRef.current && categories.length > itemsPerView) {
-                          carouselIntervalRef.current = setInterval(() => {
-                            setCurrentCategoryIndex(prev => {
-                              const maxIndex = categories.length - itemsPerView;
-                              if (prev >= maxIndex) {
-                                return 0;
-                              }
-                              return prev + 1;
-                            });
-                          }, 3000);
-                        }
-                      }, 5000);
+                      restartCarousel();
                     }}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      isActive 
-                        ? 'w-8 bg-rose-600' 
-                        : 'w-4 bg-stone-300 hover:bg-stone-400'
+                      isActive ? 'w-8 bg-rose-600' : 'w-4 bg-stone-300 hover:bg-stone-400'
                     }`}
                   />
                 );
@@ -518,13 +458,12 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Product Section - Trending Now */}
+      {/* ─── Trending Now ─── */}
       <section className="py-24 bg-[#FBFBFA]">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <span className="text-rose-800 font-bold tracking-widest text-xs uppercase">Our Catalog</span>
             <h2 className="text-5xl font-serif text-slate-900 mt-4 mb-10">Trending Now</h2>
-            
             <div className="inline-flex p-1 bg-stone-200/50 backdrop-blur rounded-2xl">
               {['featured', 'new', 'bestsellers'].map((tab) => (
                 <button
@@ -597,32 +536,138 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Bento Promo Section */}
-      <section className="py-24">
+      {/* ─── Customize Product Section ─── */}
+      <section className="py-24 bg-white overflow-hidden">
         <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-6 h-[500px]">
-            <div className="md:col-span-2 bg-rose-950 rounded-[3rem] p-12 relative overflow-hidden group">
-              <div className="relative z-10 h-full flex flex-col justify-end">
-                <span className="text-rose-300 font-bold mb-4 tracking-widest">LIMITED OFFER</span>
-                <h3 className="text-5xl font-serif text-white mb-6">Summer Refresh <br /> Up to 40% Off</h3>
-                <Link to="/shop" className="w-fit px-8 py-4 bg-white text-rose-950 rounded-full font-bold hover:bg-rose-50 transition-colors">
-                  Claim Discount
-                </Link>
-              </div>
-              <div className="absolute top-0 right-0 w-1/2 h-full opacity-40 group-hover:opacity-60 transition-opacity">
-                <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80" className="w-full h-full object-cover" alt="Promo" />
-              </div>
-            </div>
-            <div className="bg-stone-900 rounded-[3rem] p-12 relative overflow-hidden flex flex-col justify-end">
-              <h3 className="text-3xl font-serif text-white mb-4">Eco-Friendly Series</h3>
-              <p className="text-stone-400 mb-6">Sustainable teak wood collections.</p>
-              <Link to="/shop" className="text-white border-b border-white w-fit pb-1 font-bold">Explore</Link>
-            </div>
+
+          {/* Section Label */}
+          <div className="text-center mb-16">
+            <span className="text-rose-800 font-bold tracking-widest text-xs uppercase">Bespoke Service</span>
+            <h2 className="text-5xl font-serif text-slate-900 mt-3 mb-4">
+              Want a <span className="italic text-rose-700">Customized</span> Product?
+            </h2>
+            <p className="text-slate-500 max-w-xl mx-auto text-base leading-relaxed">
+              Every home is unique — and so should your furniture. Tell us exactly what you want, and our craftsmen will build it by hand, just for you.
+            </p>
           </div>
+
+          {/* Main Bento Grid */}
+          <div className="grid lg:grid-cols-5 gap-6">
+
+            {/* Left: Hero CTA Card */}
+            <div className="lg:col-span-3 relative bg-rose-950 rounded-[2.5rem] overflow-hidden min-h-[520px] flex flex-col justify-between p-10 group">
+              {/* Background image */}
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.pexels.com/photos/3932930/pexels-photo-3932930.jpeg?auto=compress&cs=tinysrgb&w=900"
+                  alt="Custom Furniture Workshop"
+                  className="w-full h-full object-cover opacity-30 group-hover:opacity-40 group-hover:scale-105 transition-all duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-rose-950 via-rose-950/80 to-rose-950/30" />
+              </div>
+
+              {/* Top badge */}
+              <div className="relative z-10">
+                <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 text-rose-200 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Made to Order
+                </span>
+              </div>
+
+              {/* Bottom content */}
+              <div className="relative z-10 space-y-6">
+                <div>
+                  <h3 className="text-4xl lg:text-5xl font-serif text-white leading-tight mb-3">
+                    Your Vision, <br />
+                    <span className="italic text-rose-200">Our Craft.</span>
+                  </h3>
+                  <p className="text-rose-100/70 text-sm leading-relaxed max-w-sm">
+                    From custom dimensions to bespoke finishes — we bring your dream piece to life using premium materials and traditional Filipino joinery.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/contact"
+                    className="inline-flex items-center gap-2 px-7 py-3.5 bg-white text-rose-950 rounded-full font-bold text-sm hover:bg-rose-50 transition-all hover:-translate-y-0.5"
+                  >
+                    Start Your Request <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    to="/shop"
+                    className="inline-flex items-center gap-2 px-7 py-3.5 border border-white/30 text-white rounded-full font-bold text-sm hover:bg-white/10 transition-all"
+                  >
+                    Browse Catalog
+                  </Link>
+                </div>
+
+                {/* Mini trust signals */}
+                <div className="flex items-center gap-6 pt-2 border-t border-white/10">
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-white">500+</div>
+                    <div className="text-rose-300/70 text-xs uppercase tracking-widest">Custom Pieces</div>
+                  </div>
+                  <div className="w-px h-8 bg-white/10" />
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-white">4–6 wks</div>
+                    <div className="text-rose-300/70 text-xs uppercase tracking-widest">Lead Time</div>
+                  </div>
+                  <div className="w-px h-8 bg-white/10" />
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-white">100%</div>
+                    <div className="text-rose-300/70 text-xs uppercase tracking-widest">Satisfaction</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Steps Cards */}
+            <div className="lg:col-span-2 flex flex-col gap-5">
+              {customSteps.map((step, i) => (
+                <div
+                  key={i}
+                  className="group flex items-start gap-5 bg-stone-50 hover:bg-rose-950 rounded-2xl p-6 border border-stone-100 hover:border-transparent transition-all duration-300 cursor-default"
+                >
+                  <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white group-hover:bg-white/10 border border-stone-200 group-hover:border-white/20 flex items-center justify-center transition-all duration-300">
+                    <step.icon className="w-5 h-5 text-rose-700 group-hover:text-rose-300 transition-colors duration-300" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold tracking-widest text-stone-400 group-hover:text-rose-400 uppercase mb-1 transition-colors duration-300">
+                      Step {step.step}
+                    </div>
+                    <h4 className="font-bold text-slate-900 group-hover:text-white text-sm mb-1 transition-colors duration-300">
+                      {step.title}
+                    </h4>
+                    <p className="text-xs text-slate-500 group-hover:text-rose-100/60 leading-relaxed transition-colors duration-300">
+                      {step.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* Bottom: Material Highlights Row */}
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-5">
+            {[
+              { label: 'Solid Teak Wood', sub: 'Sustainably sourced', color: 'bg-amber-50 border-amber-100', text: 'text-amber-800', sub_text: 'text-amber-600/70' },
+              { label: 'Premium Fabrics', sub: 'Linen, velvet & more', color: 'bg-rose-50 border-rose-100', text: 'text-rose-800', sub_text: 'text-rose-600/70' },
+              { label: 'Custom Dimensions', sub: 'Any size, any shape', color: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-800', sub_text: 'text-emerald-600/70' },
+              { label: 'Hardware Finishes', sub: 'Brass, matte black & more', color: 'bg-slate-50 border-slate-100', text: 'text-slate-800', sub_text: 'text-slate-500' },
+            ].map((item, i) => (
+              <div key={i} className={`${item.color} border rounded-2xl px-6 py-5 flex flex-col gap-1`}>
+                <Maximize2 className={`w-4 h-4 mb-2 ${item.text}`} />
+                <span className={`font-bold text-sm ${item.text}`}>{item.label}</span>
+                <span className={`text-xs ${item.sub_text}`}>{item.sub}</span>
+              </div>
+            ))}
+          </div>
+
         </div>
       </section>
 
-      {/* Newsletter */}
+      {/* ─── Newsletter ─── */}
       <section className="py-20 bg-stone-50 border-t border-stone-200">
         <div className="container mx-auto px-6 max-w-4xl text-center">
           <h2 className="text-4xl font-serif text-slate-900 mb-6">Join the Inner Circle</h2>
@@ -639,6 +684,7 @@ const Home = () => {
           </form>
         </div>
       </section>
+
     </div>
   );
 };
