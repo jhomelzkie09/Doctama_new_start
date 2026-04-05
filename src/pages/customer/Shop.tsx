@@ -3,7 +3,7 @@ import { Link, useSearchParams, useOutletContext } from 'react-router-dom';
 import { 
   Search, Grid, List, Package, SlidersHorizontal, X, 
   Star, Heart, ShoppingBag, ChevronLeft, ChevronRight, 
-  Truck, Shield, Clock, Check, Minus, Plus 
+  Truck, Shield, Clock, Check, Minus, Plus, TrendingUp 
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
@@ -288,8 +288,6 @@ const Shop: React.FC = () => {
 
   // Handle Add to Cart from Modal (only for logged-in users)
   const handleAddToCartWithOptions = (product: Product, quantity: number, color: string) => {
-    // This function is only called from modal, which only opens when user is logged in
-    // So we don't need to check auth again here
     for (let i = 0; i < quantity; i++) {
       addItem(product, color);
     }
@@ -300,16 +298,13 @@ const Shop: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Check if user is logged in
     if (!user) {
-      // Show auth sidebar instead of modal
       if (onAuthRequired) {
         onAuthRequired('login');
       }
       return;
     }
     
-    // User is logged in, show modal
     setSelectedProduct(product);
     setShowModal(true);
   };
@@ -593,9 +588,20 @@ const Shop: React.FC = () => {
   );
 };
 
-// Internal Product Card Component
+// Internal Product Card Component with Sales and Reviews
 const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpenModal, renderStars }: any) => {
   const isGrid = viewMode === 'grid';
+  
+  // Calculate discount if there's an original price
+  const hasDiscount = product.originalPrice && product.originalPrice > product.price;
+  const discountPercent = hasDiscount ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
+  
+  // Use real review data from product or fallback to defaults
+  const reviewCount = product.reviewCount || product.reviews?.length || 0;
+  const averageRating = product.rating || (reviewCount > 0 ? 4 : 0);
+  
+  // Sales count (you can add this to your product model)
+  const salesCount = product.salesCount || 0;
 
   return (
     <div className={`group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 ${!isGrid && 'flex'}`}>
@@ -607,12 +613,37 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
             className="w-full h-full object-cover group-hover:scale-110 transition duration-700" 
           />
         </Link>
+        
+        {/* Discount Badge */}
+        {hasDiscount && discountPercent > 0 && (
+          <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-md z-10">
+            -{discountPercent}%
+          </div>
+        )}
+        
+        {/* Sales Count Badge */}
+        {salesCount > 0 && (
+          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md text-white text-[10px] font-medium px-2 py-1 rounded-md z-10 flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            {salesCount}+ sold
+          </div>
+        )}
+        
+        {/* Best Seller / Top Rated Badge */}
+        {(salesCount > 100 || averageRating >= 4.5) && (
+          <div className="absolute top-3 right-3 bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-md z-10">
+            {salesCount > 100 ? 'Best Seller' : 'Top Rated'}
+          </div>
+        )}
+        
         <button 
           onClick={(e) => onToggleWishlist(e, product.id)} 
           className="absolute top-3 right-3 p-2.5 bg-white/90 backdrop-blur-md rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-all z-10"
+          style={{ top: (salesCount > 100 || averageRating >= 4.5) ? '48px' : '12px' }}
         >
           <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current text-red-500 group-hover:text-white' : 'text-gray-400'}`} />
         </button>
+        
         {product.stockQuantity === 0 ? (
           <div className="absolute top-3 left-3 bg-gray-900 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase">Sold Out</div>
         ) : product.stockQuantity < 5 && (
@@ -623,19 +654,33 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
       <div className="p-5 flex-1 flex flex-col">
         <div className="flex-1">
           <Link to={`/products/${product.id}`} className="block group-hover:text-red-600 transition-colors">
-            <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">{product.name}</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1">{product.name}</h3>
           </Link>
+          
+          {/* Rating and Reviews */}
           <div className="flex items-center gap-2 mb-3">
-            {renderStars(4)}
-            <span className="text-xs text-gray-400 font-medium">(24 reviews)</span>
+            {renderStars(Math.round(averageRating))}
+            {reviewCount > 0 ? (
+              <span className="text-xs text-gray-400 font-medium">({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
+            ) : (
+              <span className="text-xs text-gray-400 font-medium">No reviews yet</span>
+            )}
           </div>
+          
           {isGrid && <p className="text-gray-500 text-sm line-clamp-2 mb-4 leading-relaxed">{product.description}</p>}
         </div>
 
         <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-red-600">₱{product.price.toLocaleString()}</span>
-            {product.price > 15000 && <span className="text-xs text-gray-400 line-through">₱{(product.price * 1.2).toLocaleString()}</span>}
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-black text-red-600">₱{product.price.toLocaleString()}</span>
+              {hasDiscount && (
+                <span className="text-xs text-gray-400 line-through">₱{Math.round(product.originalPrice).toLocaleString()}</span>
+              )}
+            </div>
+            {hasDiscount && (
+              <span className="text-[10px] text-green-600 font-medium">Save ₱{(product.originalPrice - product.price).toLocaleString()}</span>
+            )}
           </div>
           <div className="flex gap-2">
             <button 
