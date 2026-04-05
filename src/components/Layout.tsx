@@ -463,9 +463,9 @@ const Layout = () => {
               <PhoneIcon className="w-5 h-5" />
               <span>+63 998 586 8888</span>
             </a>
-            <a href="mailto:support@doctama.com" className="flex items-center gap-3 p-3 text-slate-700 hover:bg-slate-50 rounded-xl transition">
+            <a href="mailto:doctamasmarketing@gmail.com" className="flex items-center gap-3 p-3 text-slate-700 hover:bg-slate-50 rounded-xl transition">
               <Mail className="w-5 h-5" />
-              <span>support@doctama.com</span>
+              <span>doctamasmarketing@gmail.com</span>
             </a>
             <div className="flex gap-4 justify-center mt-4">
               {socialLinks.map((social, idx) => (
@@ -569,13 +569,8 @@ const Layout = () => {
                 <div className="flex items-center gap-3">
                   <Mail className="w-4 h-4 text-rose-500 flex-shrink-0" />
                   <div>
-                    <p>support@doctama.com</p>
-                    <p className="text-xs text-slate-500">sales@doctama.com</p>
+                    <p>doctamasmarketing@gmail.com</p>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Globe className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                  <p>www.doctama.com</p>
                 </div>
               </div>
             </div>
