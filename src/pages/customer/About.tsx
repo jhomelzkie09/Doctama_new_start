@@ -23,7 +23,7 @@ const About = () => {
     { label: 'Years of Excellence', value: '26', icon: Award },
     { label: 'Happy Customers', value: '5,000+', icon: Users },
     { label: 'Products Sold', value: '25,000+', icon: Star },
-    { label: 'Showrooms', value: '8', icon: MapPin }
+    { label: 'Showrooms', value: '1', icon: MapPin }
   ];
 
   const values = [
@@ -111,13 +111,13 @@ const About = () => {
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 text-rose-200 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full mb-7">
               <Sparkles className="w-3.5 h-3.5" />
-              Est. 2009 · Sorsogon, Philippines
+              Est. 2000 · Sorsogon, Philippines
             </div>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif text-white leading-tight mb-6">
               Our <span className="italic text-rose-200">Story.</span>
             </h1>
             <p className="text-rose-100/70 text-lg leading-relaxed max-w-2xl mx-auto">
-              For over 15 years, Doctama has been transforming Filipino homes with furniture that marries timeless design and exceptional Filipino craftsmanship.
+              For over 26 years, Doctama has been transforming Filipino homes with furniture that marries timeless design and exceptional Filipino craftsmanship.
             </p>
           </div>
         </div>
