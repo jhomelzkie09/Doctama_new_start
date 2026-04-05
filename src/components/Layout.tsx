@@ -503,7 +503,7 @@ const Layout = () => {
             {/* Brand Column */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-rose-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center">
                   <img src={logo} alt="Doctama Logo" className="w-8 h-8 object-contain" />
                 </div>
                 <span className="font-black text-lg tracking-tight uppercase">Doctama's</span>
