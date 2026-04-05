@@ -274,14 +274,14 @@ const Contact = () => {
                 </div>
                 <div className="relative h-64 rounded-xl overflow-hidden">
                   <iframe
-                    src="https://www.google.com/maps/place/DOCTAMA'S+MARKETING/@13.007442,124.0236711,191m/data=!3m1!1e3!4m6!3m5!1s0x33a0ee344986b603:0xccf2019a343d0506!8m2!3d13.0074343!4d124.0236102!16s%2Fg%2F11tk5bjpjk?hl=en-US&entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3880.123456!2d124.0236711!3d13.007442!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33a0ee344986b603%3A0xccf2019a343d0506!2sDOCTAMA%27S%20MARKETING!5e0!3m2!1sen!2sph!4v1234567890"
                     width="100%"
-                    height="100%"
+                    height="450"
                     style={{ border: 0 }}
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Doctama Location"
+                    title="Doctama's Marketing Location"
                   />
                 </div>
               </div>
