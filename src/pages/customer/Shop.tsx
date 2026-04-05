@@ -78,7 +78,7 @@ const ProductQuickViewModal = ({
               <div className="aspect-square bg-stone-50 rounded-2xl overflow-hidden border border-stone-100">
                 <img src={mainImage} alt={product.name} className="w-full h-full object-cover" />
               </div>
-              {product.images?.length > 0 && (
+              {(product.images?.length ?? 0) > 0 && (
                 <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
                   <button
                     onClick={() => setMainImage(product.imageUrl || '')}
@@ -86,7 +86,7 @@ const ProductQuickViewModal = ({
                   >
                     <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
                   </button>
-                  {product.images.slice(0, 3).map((img: any, idx: number) => {
+                  {product.images?.slice(0, 3).map((img: any, idx: number) => {
                     const src = typeof img === 'string' ? img : img.imageUrl;
                     return (
                       <button key={idx} onClick={() => setMainImage(src)}
