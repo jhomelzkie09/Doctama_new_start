@@ -21,11 +21,33 @@ interface StatusStats {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const toDateStr = (value: string | Date | undefined): string => {
+/**
+ * order.service.ts maps the date field to `orderDate`.
+ * `createdAt` is also passed through raw as a fallback.
+ */
+const resolveOrderDate = (order: any): string | Date | undefined =>
+  order.orderDate ?? order.createdAt ?? order.updatedAt;
+
+/**
+ * order.service.ts maps the amount field to `totalAmount`.
+ * `total` is checked as a fallback for any direct API responses.
+ */
+const resolveOrderTotal = (order: any): number =>
+  order.totalAmount ?? order.total ?? 0;
+
+/**
+ * Converts any date to a LOCAL date string (YYYY-MM-DD).
+ * Avoids toISOString() which shifts dates by UTC offset (critical for UTC+8).
+ */
+const toLocalDateStr = (value: string | Date | undefined): string => {
   if (!value) return '';
   try {
     const d = new Date(value);
-    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   } catch {
     return '';
   }
@@ -83,6 +105,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
       <div className="flex flex-col items-center justify-center py-16 text-gray-400">
         <Package className="w-12 h-12 mb-3 opacity-40" />
         <p className="text-sm">No orders found in this date range</p>
+        <p className="text-xs mt-1 text-gray-300">Try widening the date range</p>
       </div>
     );
   }
@@ -106,11 +129,15 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
               <td className="px-4 py-3 font-mono text-xs text-gray-500">
                 #{order.id?.toString().slice(-6) ?? 'N/A'}
               </td>
-              <td className="px-4 py-3 text-gray-600">{toDisplayDate(order.createdAt)}</td>
-              <td className="px-4 py-3 text-gray-900">
-                {order.user?.fullName ?? order.user?.name ?? order.customerName ?? 'Guest'}
+              <td className="px-4 py-3 text-gray-600">
+                {toDisplayDate(resolveOrderDate(order))}
               </td>
-              <td className="px-4 py-3 font-medium text-gray-900">{peso(order.total ?? 0)}</td>
+              <td className="px-4 py-3 text-gray-900">
+                {order.customerName ?? order.user?.fullName ?? order.user?.name ?? 'Guest'}
+              </td>
+              <td className="px-4 py-3 font-medium text-gray-900">
+                {peso(resolveOrderTotal(order))}
+              </td>
               <td className="px-4 py-3">
                 <span className={`px-2.5 py-1 text-xs rounded-full font-medium ${statusBadge(order.status)}`}>
                   {order.status ?? 'N/A'}
@@ -154,25 +181,22 @@ const OrdersReport: React.FC = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
 
-  // ── Fetch once on mount ──────────────────────────────────────────────────
   useEffect(() => {
     getAllOrders();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Filter whenever orders or date range changes ─────────────────────────
   useEffect(() => {
     if (!orders?.length) {
       setFilteredOrders([]);
       return;
     }
     const filtered = orders.filter((order) => {
-      const d = toDateStr(order.createdAt);
-      return d && d >= dateRange.start && d <= dateRange.end;
+      const d = toLocalDateStr(resolveOrderDate(order));
+      return d ? d >= dateRange.start && d <= dateRange.end : false;
     });
     setFilteredOrders(filtered);
   }, [orders, dateRange]);
 
-  // ── Derived stats (memoised) ─────────────────────────────────────────────
   const statusStats = useCallback((): StatusStats => {
     const s = { pending: 0, processing: 0, completed: 0, cancelled: 0 };
     filteredOrders.forEach((order) => {
@@ -188,23 +212,19 @@ const OrdersReport: React.FC = () => {
     return s;
   }, [filteredOrders])();
 
-  const totalSales = filteredOrders.reduce((sum, o) => sum + (o.total ?? 0), 0);
+  const totalSales = filteredOrders.reduce((sum, o) => sum + resolveOrderTotal(o), 0);
 
-  // ── Export ───────────────────────────────────────────────────────────────
-  const buildRows = () =>
-    filteredOrders.map((order) => ({
+  const handleExport = async (format: 'excel' | 'csv' | 'json') => {
+    setExportLoading(true);
+    const rows = filteredOrders.map((order) => ({
       'Order ID': order.id ?? 'N/A',
-      Date: toDisplayDate(order.createdAt),
-      Customer: order.user?.fullName ?? order.user?.name ?? order.customerName ?? 'Guest',
-      Total: peso(order.total ?? 0),
+      Date: toDisplayDate(resolveOrderDate(order)),
+      Customer: order.customerName ?? order.user?.fullName ?? order.user?.name ?? 'Guest',
+      Total: peso(resolveOrderTotal(order)),
       Status: order.status ?? 'N/A',
       'Payment Method': order.paymentMethod ?? order.payment_method ?? 'N/A',
       Items: order.items?.length ?? 0,
     }));
-
-  const handleExport = async (format: 'excel' | 'csv' | 'json') => {
-    setExportLoading(true);
-    const rows = buildRows();
     const name = `orders_report_${dateRange.start}_to_${dateRange.end}`;
     if (format === 'excel') reportService.exportToExcel(rows, name);
     else if (format === 'csv') reportService.exportToCSV(rows, name);
@@ -212,7 +232,6 @@ const OrdersReport: React.FC = () => {
     setExportLoading(false);
   };
 
-  // ── Print ────────────────────────────────────────────────────────────────
   const handlePrint = () => {
     const content = document.getElementById('report-print-content');
     if (!content) return;
@@ -241,7 +260,6 @@ const OrdersReport: React.FC = () => {
     document.title = prev;
   };
 
-  // ── PDF modal summary ────────────────────────────────────────────────────
   const summaryContent = (
     <div className="flex justify-between items-center">
       <div>
@@ -261,7 +279,6 @@ const OrdersReport: React.FC = () => {
     </div>
   );
 
-  // ── Loading state ────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -277,13 +294,11 @@ const OrdersReport: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Orders report</h1>
         <p className="text-sm text-gray-500 mt-1">View and export order details</p>
       </div>
 
-      {/* Filters */}
       <ReportFilters
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
@@ -292,7 +307,6 @@ const OrdersReport: React.FC = () => {
         loading={exportLoading}
       />
 
-      {/* Status stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Pending orders"
@@ -320,9 +334,7 @@ const OrdersReport: React.FC = () => {
         />
       </div>
 
-      {/* Table card */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        {/* Toolbar */}
         <div className="px-5 py-3 border-b border-gray-100 flex justify-end">
           <button
             onClick={() => setShowPDFModal(true)}
@@ -333,13 +345,11 @@ const OrdersReport: React.FC = () => {
           </button>
         </div>
 
-        {/* Printable content */}
         <div id="report-print-content">
           <OrderTable orders={filteredOrders} totalSales={totalSales} />
         </div>
       </div>
 
-      {/* PDF modal */}
       <PDFReportModal
         isOpen={showPDFModal}
         onClose={() => setShowPDFModal(false)}
