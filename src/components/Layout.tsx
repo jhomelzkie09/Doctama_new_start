@@ -380,7 +380,7 @@ const Layout = () => {
         <div className="p-5 h-full flex flex-col">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-rose-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center">
                 <img src={logo} alt="Doctama Logo" className="w-8 h-8 object-contain" />
               </div>
               <div className="flex flex-col">
