@@ -41,7 +41,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
   const [showZoom, setShowZoom] = useState(false);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [wishlist, setWishlist] = useState<number[]>([]);
 
   useEffect(() => {
     loadProduct();
@@ -118,26 +117,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-  // Handle Wishlist with Auth Check
-  const handleToggleWishlist = () => {
-    // If user is not logged in, open the auth sidebar
-    if (!user) {
-      if (onAuthRequired) {
-        onAuthRequired('login');
-      } else {
-        console.warn('onAuthRequired not available, falling back to navigation');
-        navigate('/login', { state: { from: `/products/${id}` } });
-      }
-      return;
-    }
-
-    if (!product) return;
-    setWishlist(prev => 
-      prev.includes(product.id) 
-        ? prev.filter(pid => pid !== product.id) 
-        : [...prev, product.id]
-    );
-  };
 
   const handleShare = (platform: string) => {
     const url = window.location.href;
@@ -273,12 +252,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
               ) : (
                 <><ShoppingCart className="w-6 h-6" /> Add to Cart</>
               )}
-            </button>
-            <button 
-              onClick={handleToggleWishlist} 
-              className="p-5 border border-gray-200 rounded-2xl hover:bg-gray-50 transition active:scale-90"
-            >
-              <Heart className={`w-6 h-6 ${wishlist.includes(product.id) ? 'fill-red-600 text-red-600' : 'text-gray-400'}`} />
             </button>
             <div className="relative">
               <button onClick={() => setShowShareMenu(!showShareMenu)} className="p-5 border border-gray-200 rounded-2xl hover:bg-gray-50 transition">

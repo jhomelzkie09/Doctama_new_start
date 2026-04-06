@@ -158,14 +158,12 @@ const Profile = () => {
 
   const stats = [
     { label: 'Total Orders', value: '12', icon: ShoppingBag, color: 'bg-blue-500' },
-    { label: 'Wishlist', value: '8', icon: Heart, color: 'bg-red-500' },
     { label: 'Reviews', value: '24', icon: Award, color: 'bg-amber-500' },
     { label: 'Member Since', value: user?.createdAt ? new Date(user.createdAt).getFullYear().toString() : '2024', icon: Calendar, color: 'bg-green-500' },
   ];
 
   const recentActivity = [
     { action: 'Order #1234 delivered', date: '2 days ago', status: 'completed' },
-    { action: 'Added Modern Sofa to wishlist', date: '3 days ago', status: 'wishlist' },
     { action: 'Reviewed Wooden Table', date: '1 week ago', status: 'review' },
   ];
 

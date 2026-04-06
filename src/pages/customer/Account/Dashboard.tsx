@@ -24,7 +24,6 @@ const AccountDashboard = () => {
     totalOrders: 0,
     pendingOrders: 0,
     deliveredOrders: 0,
-    wishlistCount: 0
   });
 
   useEffect(() => {
@@ -43,7 +42,6 @@ const AccountDashboard = () => {
         totalOrders: orderList.length,
         pendingOrders: orderList.filter((o: any) => o.status === 'pending' || o.status === 'awaiting_payment').length,
         deliveredOrders: orderList.filter((o: any) => o.status === 'delivered').length,
-        wishlistCount: 0 // You'll implement wishlist later
       });
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -64,7 +62,6 @@ const AccountDashboard = () => {
   const quickActions = [
     { icon: ShoppingBag, label: 'Shop Again', path: '/shop', color: 'blue' },
     { icon: Package, label: 'Track Orders', path: '/account/orders', color: 'green' },
-    { icon: Heart, label: 'Wishlist', path: '/account/wishlist', color: 'red' },
     { icon: User, label: 'My Profile', path: '/account/profile', color: 'purple' },
   ];
 
@@ -77,7 +74,7 @@ const AccountDashboard = () => {
             Welcome back, {user?.fullName || user?.email}!
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage your account, track orders, and view your wishlist
+            Manage your account, track orders, and explore new products.
           </p>
         </div>
 
@@ -94,10 +91,6 @@ const AccountDashboard = () => {
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
             <p className="text-sm text-gray-600 mb-1">Delivered</p>
             <p className="text-2xl font-bold text-green-600">{stats.deliveredOrders}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
-            <p className="text-sm text-gray-600 mb-1">Wishlist</p>
-            <p className="text-2xl font-bold text-red-600">{stats.wishlistCount}</p>
           </div>
         </div>
 
@@ -196,13 +189,6 @@ const AccountDashboard = () => {
                   <div className="flex items-center">
                     <MapPin className="w-5 h-5 text-gray-400 mr-3" />
                     <span>Saved Addresses</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </Link>
-                <Link to="/account/wishlist" className="flex items-center justify-between p-4 hover:bg-gray-50">
-                  <div className="flex items-center">
-                    <Heart className="w-5 h-5 text-gray-400 mr-3" />
-                    <span>Wishlist</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>

@@ -254,11 +254,6 @@ const Layout = () => {
                 <Search className="absolute left-3.5 w-4 h-4 text-slate-400" />
               </form>
 
-              {/* Wishlist - Desktop Only */}
-              <Link to="/wishlist" className="hidden md:flex p-2 text-slate-500 hover:text-rose-600 transition-colors">
-                <Heart className="w-5 h-5" />
-              </Link>
-
               {/* Cart */}
               <Link to="/cart" onClick={handleAddToCartClick} className="relative p-2 text-slate-500 hover:text-rose-600 transition-colors">
                 <ShoppingCart className="w-5 h-5" />
@@ -323,9 +318,6 @@ const Layout = () => {
                       </Link>
                       <Link to="/account/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
                         <Package className="w-4 h-4" /> My Orders
-                      </Link>
-                      <Link to="/wishlist" onClick={() => setUserMenuOpen(false)} className="md:hidden flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
-                        <HeartIcon className="w-4 h-4" /> Wishlist
                       </Link>
                       <div className="border-t border-slate-100 my-1"></div>
                       <button 
@@ -443,10 +435,6 @@ const Layout = () => {
                 <Link to="/account/orders" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
                   <Package className="w-5 h-5" />
                   <span>My Orders</span>
-                </Link>
-                <Link to="/wishlist" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
-                  <HeartIcon className="w-5 h-5" />
-                  <span>Wishlist</span>
                 </Link>
                 <button onClick={handleLogoutClick} className="w-full flex items-center gap-3 p-3 rounded-xl text-red-600 hover:bg-red-50 transition">
                   <LogOut className="w-5 h-5" />
