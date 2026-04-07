@@ -205,7 +205,7 @@ const Shop: React.FC = () => {
 
   const itemsPerPage = 9;
 
-  // Calculate the highest product price for the slider max
+  // Add this after your state declarations:
   const highestPrice = useMemo(() => {
     if (products.length === 0) return 150000;
     return Math.max(...products.map(p => p.price), 150000);
@@ -515,18 +515,22 @@ const Shop: React.FC = () => {
                 </p>
               </div>
 
+              {/* Search bar in hero - Updated */}
               <div className="md:w-80">
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60 w-4 h-4" />
                   <input
                     type="text"
                     placeholder="Search furniture…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-white/30 transition"
+                    className="w-full pl-11 pr-4 py-3.5 bg-white/15 backdrop-blur border border-white/30 rounded-xl text-white placeholder-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-white/40 focus:bg-white/20 transition"
                   />
                   {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition">
+                    <button 
+                      onClick={() => setSearchQuery('')} 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition"
+                    >
                       <X className="w-4 h-4" />
                     </button>
                   )}
