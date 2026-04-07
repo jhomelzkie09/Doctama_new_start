@@ -566,7 +566,7 @@ const AdminOrders = () => {
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Approved By</th> {/* ADD THIS COLUMN */}
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Approved/Rejected By</th> {/* ADD THIS COLUMN */}
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
