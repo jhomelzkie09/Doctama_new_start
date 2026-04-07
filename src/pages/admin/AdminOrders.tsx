@@ -278,25 +278,31 @@ const AdminOrders = () => {
   };
 
   const handleApprovePayment = async (orderId: string) => {
-    setUpdatingStatus(true);
-    try {
-      await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
-        approvedBy: currentUser?.fullName || 'Admin',
-        approvedAt: new Date().toISOString(),
-        notes: approvalNote
-      });
-      await fetchOrders();
-      setSuccess('Payment approved');
-      setApprovalNote('');
-      setShowOrderModal(false);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Failed to approve payment');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
+  setUpdatingStatus(true);
+  try {
+    const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
+    console.log('✅ Approving payment with admin name:', adminName);
+    
+    await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
+      approvedBy: adminName,
+      approvedAt: new Date().toISOString(),
+      notes: approvalNote
+    });
+    
+    // Refresh orders
+    await fetchOrders();
+    setSuccess('Payment approved');
+    setApprovalNote('');
+    setShowOrderModal(false);
+    setTimeout(() => setSuccess(''), 3000);
+  } catch (err) {
+    console.error('Failed to approve payment:', err);
+    setError('Failed to approve payment');
+    setTimeout(() => setError(''), 3000);
+  } finally {
+    setUpdatingStatus(false);
+  }
+};
 
   const handleRejectPayment = async (orderId: string) => {
     if (!approvalNote) return setError('Please provide a reason'), setTimeout(() => setError(''), 3000);

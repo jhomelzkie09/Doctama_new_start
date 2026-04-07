@@ -104,16 +104,42 @@ class OrderService {
   }
 
   async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
-    try {
-      console.log(`📤 Updating order ${id} payment status to ${status}...`);
-      const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, { status, details });
-      console.log('✅ Order payment updated:', response.data);
-      return this.convertApiOrderToOrder(response.data);
-    } catch (error: any) {
-      console.error('❌ Error updating payment:', error.response?.data || error.message);
-      throw error;
+  try {
+    console.log(`📤 Updating order ${id} payment status to ${status}...`);
+    console.log('📤 Details received:', details);
+    
+    // Format the payload to match backend expectations (PascalCase)
+    const payload: any = { 
+      status: status 
+    };
+    
+    if (details) {
+      payload.details = {
+        ApprovedBy: details.approvedBy || details.ApprovedBy,
+        ApprovedAt: details.approvedAt || details.ApprovedAt || new Date().toISOString(),
+        ApprovedById: details.approvedById || details.ApprovedById,
+        Notes: details.notes || details.Notes,
+        RejectedBy: details.rejectedBy || details.RejectedBy,
+        RejectedAt: details.rejectedAt || details.RejectedAt,
+        Reason: details.reason || details.Reason,
+        Amount: details.amount || details.Amount
+      };
     }
+    
+    console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
+    
+    const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
+    console.log('✅ Order payment updated:', response.data);
+    console.log('✅ ApprovedBy in response:', response.data.order?.ApprovedBy || response.data.ApprovedBy);
+    
+    // Handle both response formats (with or without nested 'order' property)
+    const orderData = response.data.order || response.data;
+    return this.convertApiOrderToOrder(orderData);
+  } catch (error: any) {
+    console.error('❌ Error updating payment:', error.response?.data || error.message);
+    throw error;
   }
+}
 
   async createOrder(orderData: any): Promise<Order> {
     try {
