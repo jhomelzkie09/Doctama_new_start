@@ -206,6 +206,11 @@ const AdminOrders = () => {
     try {
       const data = await orderService.getAllOrders();
       console.log('📦 Orders from API (RAW):', data);
+
+      // LOG APPROVEDBY SPECIFICALLY
+    data.forEach((order: any) => {
+      console.log(`Order ${order.orderNumber}: approvedBy =`, order.approvedBy, 'approvedAt =', order.approvedAt);
+    });
       
       // Log orders with payment proof
       const ordersWithProof = data.filter((order: any) => order.paymentProofImage);
@@ -294,7 +299,7 @@ const AdminOrders = () => {
   };
 
   const handleRejectPayment = async (orderId: string) => {
-    if (!approvalNote) return setError('Please provide a reason');
+    if (!approvalNote) return setError('Please provide a reason'), setTimeout(() => setError(''), 3000);
     setUpdatingStatus(true);
     try {
       await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
@@ -588,9 +593,6 @@ const AdminOrders = () => {
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 bg-gray-50 rounded-lg hover:bg-blue-600 hover:text-white transition" title="Print Invoice">
-                            <Printer className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
