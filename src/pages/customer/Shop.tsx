@@ -661,20 +661,20 @@ const Shop: React.FC = () => {
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
-                      {[...Array(Math.min(totalPages, 5))].map((_, i) => {
-                        let pageNum;
+                      {(() => {
+                        const pageNumbers: number[] = [];
                         if (totalPages <= 5) {
-                          pageNum = i + 1;
+                          for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
                         } else if (currentPage <= 3) {
-                          pageNum = i + 1;
+                          for (let i = 1; i <= 5; i++) pageNumbers.push(i);
                         } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
+                          for (let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
                         } else {
-                          pageNum = currentPage - 2 + i;
+                          for (let i = currentPage - 2; i <= currentPage + 2; i++) pageNumbers.push(i);
                         }
-                        return (
+                        return pageNumbers.map((pageNum) => (
                           <button
-                            key={i}
+                            key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
                             className={`w-11 h-11 rounded-xl font-bold text-sm transition-all ${
                               currentPage === pageNum
@@ -684,8 +684,8 @@ const Shop: React.FC = () => {
                           >
                             {pageNum}
                           </button>
-                        );
-                      })}
+                        ));
+                      })()}
                       <button
                         disabled={currentPage === totalPages}
                         onClick={() => setCurrentPage(p => p + 1)}
