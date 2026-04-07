@@ -544,6 +544,7 @@ const AdminOrders = () => {
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Approved By</th> {/* ADD THIS COLUMN */}
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -564,10 +565,19 @@ const AdminOrders = () => {
                       </td>
                       <td className="px-5 py-3">
                         <StatusPill status={order.status} />
-                        {order.approvedBy && (
-                          <div className="flex items-center gap-1 mt-1 text-[10px] text-green-600">
-                            <CheckCircle className="w-3 h-3" /> Verified
+                      </td>
+                      <td className="px-5 py-3"> {/* ADD THIS CELL */}
+                        {order.approvedBy ? (
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium text-green-600">{order.approvedBy}</span>
+                            {order.approvedAt && (
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(order.approvedAt).toLocaleDateString()}
+                              </span>
+                            )}
                           </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
                       <td className="px-5 py-3">
