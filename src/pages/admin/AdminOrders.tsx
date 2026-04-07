@@ -292,8 +292,9 @@ const AdminOrders = () => {
   setUpdatingStatus(true);
   try {
     const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
-    console.log('✅ Approving payment with admin name:', adminName);
+    console.log('✅ Approving order with admin name:', adminName);
     
+    // This will work for both COD and online payments
     await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
       approvedBy: adminName,
       approvedAt: new Date().toISOString(),
@@ -302,40 +303,49 @@ const AdminOrders = () => {
     
     // Refresh orders
     await fetchOrders();
-    setSuccess('Payment approved');
+    setSuccess('Order approved successfully');
     setApprovalNote('');
     setShowOrderModal(false);
     setTimeout(() => setSuccess(''), 3000);
   } catch (err) {
-    console.error('Failed to approve payment:', err);
-    setError('Failed to approve payment');
+    console.error('Failed to approve order:', err);
+    setError('Failed to approve order');
     setTimeout(() => setError(''), 3000);
   } finally {
     setUpdatingStatus(false);
   }
 };
 
-  const handleRejectPayment = async (orderId: string) => {
-    if (!approvalNote) return setError('Please provide a reason'), setTimeout(() => setError(''), 3000);
-    setUpdatingStatus(true);
-    try {
-      await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
-        rejectedBy: currentUser?.fullName || 'Admin',
-        rejectedAt: new Date().toISOString(),
-        reason: approvalNote
-      });
-      await fetchOrders();
-      setSuccess('Payment rejected');
-      setApprovalNote('');
-      setShowOrderModal(false);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Failed to reject payment');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
+const handleRejectPayment = async (orderId: string) => {
+  if (!approvalNote) {
+    setError('Please provide a reason');
+    setTimeout(() => setError(''), 3000);
+    return;
+  }
+  
+  setUpdatingStatus(true);
+  try {
+    const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
+    
+    // This will work for both COD and online payments
+    await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
+      rejectedBy: adminName,
+      rejectedAt: new Date().toISOString(),
+      reason: approvalNote
+    });
+    
+    await fetchOrders();
+    setSuccess('Order rejected');
+    setApprovalNote('');
+    setShowOrderModal(false);
+    setTimeout(() => setSuccess(''), 3000);
+  } catch (err) {
+    setError('Failed to reject order');
+    setTimeout(() => setError(''), 3000);
+  } finally {
+    setUpdatingStatus(false);
+  }
+};
 
   const handleCancelOrder = async (orderId: string) => {
     if (!cancellationReason) return setError('Please provide a reason');
