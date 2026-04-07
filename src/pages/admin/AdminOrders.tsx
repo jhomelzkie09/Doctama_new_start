@@ -115,8 +115,19 @@ const OrderMobileCard: React.FC<OrderMobileCardProps> = ({
       
       {order.approvedBy && (
         <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-          <span className="text-xs text-gray-400">Verified by</span>
+          <span className="text-xs text-gray-400">Approved by</span>
           <span className="text-xs font-medium text-green-600">{order.approvedBy}</span>
+        </div>
+      )}
+      {order.rejectedBy && (
+        <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+          <span className="text-xs text-gray-400">Rejected by</span>
+          <div className="flex flex-col items-end">
+            <span className="text-xs font-medium text-red-600">{order.rejectedBy}</span>
+            {order.rejectionReason && (
+              <span className="text-[10px] text-gray-400">{order.rejectionReason}</span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -577,20 +588,35 @@ const AdminOrders = () => {
                       <td className="px-5 py-3">
                         <StatusPill status={order.status} />
                       </td>
-                      <td className="px-5 py-3"> {/* ADD THIS CELL */}
-                        {order.approvedBy ? (
-                          <div className="flex flex-col">
+                      <td className="px-5 py-3">
+                      {order.approvedBy ? (
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3 text-green-500" />
                             <span className="text-xs font-medium text-green-600">{order.approvedBy}</span>
-                            {order.approvedAt && (
-                              <span className="text-[10px] text-gray-400">
-                                {new Date(order.approvedAt).toLocaleDateString()}
-                              </span>
-                            )}
                           </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
-                      </td>
+                          {order.approvedAt && (
+                            <span className="text-[10px] text-gray-400 ml-4">
+                              {new Date(order.approvedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      ) : order.rejectedBy ? (
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1">
+                            <XCircle className="w-3 h-3 text-red-500" />
+                            <span className="text-xs font-medium text-red-600">{order.rejectedBy}</span>
+                          </div>
+                          {order.rejectionReason && (
+                            <span className="text-[10px] text-gray-400 ml-4">
+                              Reason: {order.rejectionReason}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button 

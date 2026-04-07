@@ -695,16 +695,69 @@ const OrderDetail = () => {
                 <CreditCard className="w-5 h-5 mr-2 text-red-600" />
                 Payment Information
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
-                  {getPaymentMethodIcon(order.paymentMethod)}
-                  <div>
-                    <p className="text-sm text-gray-500">Payment Method</p>
-                    <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
-                  </div>
+              
+              {/* Payment Method */}
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl mb-3">
+                {getPaymentMethodIcon(order.paymentMethod)}
+                <div>
+                  <p className="text-sm text-gray-500">Payment Method</p>
+                  <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
                 </div>
               </div>
 
+              {/* Payment Status Badge */}
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
+                <span className="text-sm text-gray-500">Payment Status</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${paymentStatusDisplay.color}`}>
+                  {paymentStatusDisplay.text}
+                </span>
+              </div>
+
+              {/* Approval/Rejection Information */}
+              {order.approvedBy && order.paymentStatus === 'paid' && (
+                <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-800">Payment Approved</p>
+                      <p className="text-xs text-green-700 mt-1">
+                        Approved by: <span className="font-medium">{order.approvedBy}</span>
+                      </p>
+                      {order.approvedAt && (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          Date: {new Date(order.approvedAt).toLocaleString()}
+                        </p>
+                      )}
+                      {order.paymentProofNotes && order.paymentProofNotes.includes('Approved') && (
+                        <p className="text-xs text-green-600 mt-1 italic">
+                          Note: {order.paymentProofNotes.split('\n')[0]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {order.rejectedBy && order.paymentStatus === 'failed' && (
+                <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-200">
+                  <div className="flex items-start gap-2">
+                    <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-800">Payment Rejected</p>
+                      <p className="text-xs text-red-700 mt-1">
+                        Rejected by: <span className="font-medium">{order.rejectedBy}</span>
+                      </p>
+                      {order.rejectionReason && (
+                        <p className="text-xs text-red-700 mt-1">
+                          Reason: {order.rejectionReason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Proof Image */}
               {order.paymentProofImage && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <p className="text-sm text-gray-500 mb-2">Payment Proof</p>
@@ -726,6 +779,45 @@ const OrderDetail = () => {
                       <span className="font-medium">Reference:</span> {order.paymentProofReference}
                     </div>
                   )}
+                  {order.paymentProofSender && (
+                    <div className="mt-1 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+                      <span className="font-medium">Sender:</span> {order.paymentProofSender}
+                    </div>
+                  )}
+                  {order.paymentProofDate && (
+                    <div className="mt-1 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+                      <span className="font-medium">Payment Date:</span> {order.paymentProofDate}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Payment Message */}
+              {order.paymentStatus === 'pending' && order.paymentMethod !== 'cod' && !order.paymentProofImage && (
+                <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+                  <div className="flex items-start gap-2">
+                    <Clock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-yellow-800">Awaiting Payment Proof</p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        Please upload your payment proof to complete the transaction.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {order.paymentStatus === 'pending' && order.paymentProofImage && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                  <div className="flex items-start gap-2">
+                    <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-800">Payment Under Review</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Your payment proof has been submitted and is awaiting admin verification.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
