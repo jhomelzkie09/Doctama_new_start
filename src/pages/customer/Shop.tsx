@@ -60,7 +60,6 @@ const ProductQuickViewModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-[2rem] max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        {/* Modal Header */}
         <div className="sticky top-0 bg-white border-b border-stone-100 px-8 py-5 flex justify-between items-center rounded-t-[2rem]">
           <div>
             <p className="text-xs font-bold tracking-widest text-rose-700 uppercase">Quick Add</p>
@@ -73,7 +72,6 @@ const ProductQuickViewModal = ({
 
         <div className="p-8">
           <div className="flex flex-col md:flex-row gap-8">
-            {/* Image */}
             <div className="md:w-1/2">
               <div className="aspect-square bg-stone-50 rounded-2xl overflow-hidden border border-stone-100">
                 <img src={mainImage} alt={product.name} className="w-full h-full object-cover" />
@@ -100,18 +98,14 @@ const ProductQuickViewModal = ({
               )}
             </div>
 
-            {/* Info */}
             <div className="md:w-1/2 space-y-5">
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  {renderStars(4)}
-                  <span className="text-xs text-slate-400">(24 reviews)</span>
+                  {renderStars(product.rating || 4)}
+                  <span className="text-xs text-slate-400">({product.reviewCount || 0} reviews)</span>
                 </div>
                 <div className="flex items-baseline gap-3">
                   <span className="text-3xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
-                  {product.price > 10000 && (
-                    <span className="text-sm text-slate-300 line-through">₱{(product.price * 1.2).toLocaleString()}</span>
-                  )}
                 </div>
                 {product.stockQuantity < 10 && product.stockQuantity > 0 && (
                   <p className="text-xs text-amber-600 font-semibold mt-1">Only {product.stockQuantity} left in stock</p>
@@ -120,7 +114,6 @@ const ProductQuickViewModal = ({
 
               <p className="text-slate-500 text-sm leading-relaxed">{product.description}</p>
 
-              {/* Colors */}
               {product.colorsVariant?.length > 0 && (
                 <div>
                   <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">
@@ -137,7 +130,6 @@ const ProductQuickViewModal = ({
                 </div>
               )}
 
-              {/* Quantity */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">Quantity</label>
                 <div className="flex items-center gap-3">
@@ -154,13 +146,11 @@ const ProductQuickViewModal = ({
                 </div>
               </div>
 
-              {/* Total */}
               <div className="bg-stone-50 rounded-xl px-5 py-4 flex justify-between items-center">
                 <span className="text-sm text-slate-500 font-medium">Subtotal</span>
                 <span className="text-2xl font-bold text-rose-900">₱{(product.price * quantity).toLocaleString()}</span>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3">
                 <button
                   onClick={handleAddToCart}
@@ -201,7 +191,11 @@ const Shop: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
-  const [priceRange, setPriceRange] = useState<number>(100000);
+  
+  // Price range using min and max
+  const [minPrice, setMinPrice] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(150000);
+  
   const [selectedCategory, setSelectedCategory] = useState<number | null>(
     searchParams.get('category') ? parseInt(searchParams.get('category')!) : null
   );
@@ -211,6 +205,12 @@ const Shop: React.FC = () => {
 
   const itemsPerPage = 9;
 
+  // Calculate the highest product price for the slider max
+  const highestPrice = useMemo(() => {
+    if (products.length === 0) return 150000;
+    return Math.max(...products.map(p => p.price), 150000);
+  }, [products]);
+
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
@@ -219,7 +219,7 @@ const Shop: React.FC = () => {
     if (searchQuery) params.set('q', searchQuery);
     setSearchParams(params);
     setCurrentPage(1);
-  }, [selectedCategory, searchQuery, priceRange, selectedRating, inStockOnly, setSearchParams]);
+  }, [selectedCategory, searchQuery, setSearchParams]);
 
   const loadData = async () => {
     try {
@@ -229,6 +229,12 @@ const Shop: React.FC = () => {
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
+      
+      // Set max price based on actual products
+      if (productsData.length > 0) {
+        const maxProdPrice = Math.max(...productsData.map(p => p.price));
+        setMaxPrice(maxProdPrice);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -255,14 +261,26 @@ const Shop: React.FC = () => {
     setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
 
+  // Filter logic with min and max price
   const filteredProducts = useMemo(() => {
     return products
       .filter(p => {
+        // Category filter
         if (selectedCategory && p.categoryId !== selectedCategory) return false;
-        if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-        if (p.price > priceRange) return false;
+        
+        // Search filter
+        if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
+            !p.description?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        
+        // Price range filter
+        if (p.price < minPrice || p.price > maxPrice) return false;
+        
+        // Rating filter
         if (selectedRating && (p.rating || 0) < selectedRating) return false;
+        
+        // Stock filter
         if (inStockOnly && p.stockQuantity === 0) return false;
+        
         return true;
       })
       .sort((a, b) => {
@@ -275,7 +293,7 @@ const Shop: React.FC = () => {
           default: return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
         }
       });
-  }, [products, selectedCategory, searchQuery, priceRange, selectedRating, inStockOnly, sortBy]);
+  }, [products, selectedCategory, searchQuery, minPrice, maxPrice, selectedRating, inStockOnly, sortBy]);
 
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -283,14 +301,14 @@ const Shop: React.FC = () => {
   const renderStars = (rating: number = 0) => (
     <div className="flex gap-0.5">
       {[...Array(5)].map((_, i) => (
-        <Star key={i} className={`w-3.5 h-3.5 ${i < rating ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
+        <Star key={i} className={`w-3.5 h-3.5 ${i < Math.floor(rating) ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
       ))}
     </div>
   );
 
   const activeFilterCount = [
     selectedCategory !== null,
-    priceRange < 100000,
+    minPrice > 0 || maxPrice < highestPrice,
     selectedRating !== null,
     inStockOnly
   ].filter(Boolean).length;
@@ -330,17 +348,54 @@ const Shop: React.FC = () => {
         </div>
       </div>
 
-      {/* Price Range */}
+      {/* Price Range - Dual Range Slider */}
       <div>
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Price Range</h3>
-        <input
-          type="range" min="1000" max="150000" step="1000" value={priceRange}
-          onChange={(e) => setPriceRange(parseInt(e.target.value))}
-          className="w-full accent-rose-700 mb-3"
-        />
-        <div className="flex justify-between">
-          <span className="text-xs text-slate-400 bg-stone-100 px-3 py-1 rounded-lg">₱1,000</span>
-          <span className="text-xs font-bold text-rose-800 bg-rose-50 px-3 py-1 rounded-lg">₱{priceRange.toLocaleString()}</span>
+        
+        {/* Min/Max Inputs */}
+        <div className="flex gap-3 mb-4">
+          <div className="flex-1">
+            <label className="text-xs text-slate-400 block mb-1">Min (₱)</label>
+            <input
+              type="number"
+              value={minPrice}
+              onChange={(e) => setMinPrice(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              min={0}
+              max={maxPrice}
+              step={1000}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-slate-400 block mb-1">Max (₱)</label>
+            <input
+              type="number"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(Math.min(highestPrice, parseInt(e.target.value) || highestPrice))}
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              min={minPrice}
+              max={highestPrice}
+              step={1000}
+            />
+          </div>
+        </div>
+
+        {/* Range Slider */}
+        <div className="relative pt-2">
+          <input
+            type="range"
+            min={0}
+            max={highestPrice}
+            step={1000}
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(parseInt(e.target.value))}
+            className="w-full accent-rose-700"
+          />
+          <div className="flex justify-between mt-2 text-xs">
+            <span className="text-slate-400">₱0</span>
+            <span className="text-rose-800 font-bold">Up to ₱{maxPrice.toLocaleString()}</span>
+            <span className="text-slate-400">₱{highestPrice.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
@@ -356,7 +411,11 @@ const Shop: React.FC = () => {
                 selectedRating === rating ? 'bg-rose-50 text-rose-800' : 'hover:bg-stone-100 text-slate-600'
               }`}
             >
-              {renderStars(rating)}
+              <div className="flex gap-0.5">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className={`w-3.5 h-3.5 ${i < rating ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
+                ))}
+              </div>
               <span className="text-xs font-medium">& Up</span>
               {selectedRating === rating && <Check className="w-3.5 h-3.5 text-rose-700 ml-auto" />}
             </button>
@@ -364,15 +423,25 @@ const Shop: React.FC = () => {
         </div>
       </div>
 
-      {/* In Stock */}
+      {/* In Stock Only */}
       <label className="flex items-center gap-3 cursor-pointer px-4 py-3 border border-stone-100 rounded-xl hover:bg-stone-50 transition">
         <input
-          type="checkbox" checked={inStockOnly}
+          type="checkbox" 
+          checked={inStockOnly}
           onChange={(e) => setInStockOnly(e.target.checked)}
           className="w-4 h-4 accent-rose-700 rounded"
         />
         <span className="text-sm font-medium text-slate-700">In Stock Only</span>
       </label>
+
+      {/* Price Range Display */}
+      {(minPrice > 0 || maxPrice < highestPrice) && (
+        <div className="bg-rose-50 rounded-xl p-3">
+          <p className="text-xs text-rose-800 font-medium">
+            Price: ₱{minPrice.toLocaleString()} - ₱{maxPrice.toLocaleString()}
+          </p>
+        </div>
+      )}
 
       {/* Trust Signals */}
       <div className="pt-6 border-t border-stone-100 space-y-3">
@@ -393,7 +462,13 @@ const Shop: React.FC = () => {
       {/* Clear Filters */}
       {activeFilterCount > 0 && (
         <button
-          onClick={() => { setSelectedCategory(null); setPriceRange(100000); setSelectedRating(null); setInStockOnly(false); }}
+          onClick={() => { 
+            setSelectedCategory(null); 
+            setMinPrice(0);
+            setMaxPrice(highestPrice);
+            setSelectedRating(null); 
+            setInStockOnly(false); 
+          }}
           className="w-full py-2.5 text-xs font-bold text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-50 transition"
         >
           Clear All Filters ({activeFilterCount})
@@ -414,8 +489,7 @@ const Shop: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-[#F9F8F6] pb-24 selection:bg-rose-100 selection:text-rose-900">
-
-        {/* ─── Hero ─── */}
+        {/* Hero Section */}
         <section className="relative bg-rose-950 py-24 overflow-hidden">
           <div className="absolute inset-0">
             <img
@@ -441,7 +515,6 @@ const Shop: React.FC = () => {
                 </p>
               </div>
 
-              {/* Search bar in hero */}
               <div className="md:w-80">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -463,12 +536,15 @@ const Shop: React.FC = () => {
           </div>
         </section>
 
-        {/* ─── Results Bar ─── */}
+        {/* Results Bar */}
         <div className="bg-white border-b border-stone-100 sticky top-0 z-30">
-          <div className="container mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="container mx-auto px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
             <p className="text-xs text-slate-400 font-medium">
               Showing <span className="text-slate-800 font-bold">{filteredProducts.length}</span> products
               {searchQuery && <> for "<span className="text-rose-700">{searchQuery}</span>"</>}
+              {(minPrice > 0 || maxPrice < highestPrice) && (
+                <> in <span className="text-rose-700">₱{minPrice.toLocaleString()} - ₱{maxPrice.toLocaleString()}</span></>
+              )}
             </p>
 
             <div className="flex items-center gap-3">
@@ -482,6 +558,7 @@ const Shop: React.FC = () => {
                 <option value="price-high">Price: High → Low</option>
                 <option value="rating">Top Rated</option>
                 <option value="name-asc">Name A–Z</option>
+                <option value="name-desc">Name Z–A</option>
               </select>
 
               <div className="flex bg-stone-100 p-1 rounded-xl">
@@ -515,10 +592,9 @@ const Shop: React.FC = () => {
           </div>
         </div>
 
-        {/* ─── Main Layout ─── */}
+        {/* Main Layout */}
         <div className="container mx-auto px-6 pt-8">
           <div className="flex flex-col lg:flex-row gap-8">
-
             {/* Desktop Sidebar */}
             <aside className="hidden lg:block w-64 flex-shrink-0">
               <div className="bg-white rounded-2xl border border-stone-100 p-6 sticky top-[73px]">
@@ -542,7 +618,14 @@ const Shop: React.FC = () => {
                   <h2 className="text-2xl font-serif text-slate-800 mb-2">No products found</h2>
                   <p className="text-slate-400 text-sm mb-6">Try adjusting your search or filters.</p>
                   <button
-                    onClick={() => { setSearchQuery(''); setSelectedCategory(null); setPriceRange(100000); setSelectedRating(null); setInStockOnly(false); }}
+                    onClick={() => { 
+                      setSearchQuery(''); 
+                      setSelectedCategory(null); 
+                      setMinPrice(0);
+                      setMaxPrice(highestPrice);
+                      setSelectedRating(null); 
+                      setInStockOnly(false); 
+                    }}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-rose-950 text-white rounded-xl text-sm font-bold hover:bg-rose-900 transition"
                   >
                     Clear All Filters
@@ -578,19 +661,31 @@ const Shop: React.FC = () => {
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
-                      {[...Array(totalPages)].map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={`w-11 h-11 rounded-xl font-bold text-sm transition-all ${
-                            currentPage === i + 1
-                              ? 'bg-rose-950 text-white shadow-lg'
-                              : 'bg-white text-slate-600 hover:bg-stone-50 border border-stone-100'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
+                      {[...Array(Math.min(totalPages, 5))].map((_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`w-11 h-11 rounded-xl font-bold text-sm transition-all ${
+                              currentPage === pageNum
+                                ? 'bg-rose-950 text-white shadow-lg'
+                                : 'bg-white text-slate-600 hover:bg-stone-50 border border-stone-100'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
                       <button
                         disabled={currentPage === totalPages}
                         onClick={() => setCurrentPage(p => p + 1)}
@@ -653,13 +748,11 @@ const Shop: React.FC = () => {
 const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpenModal, renderStars }: any) => {
   const isGrid = viewMode === 'grid';
 
-  const hasDiscount = product.originalPrice && product.originalPrice > product.price;
-  const discountPercent = hasDiscount ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
-  const reviewCount = product.reviewCount || product.reviews?.length || 0;
-  const averageRating = product.rating || (reviewCount > 0 ? 4 : 0);
+  const reviewCount = product.reviewCount || 0;
+  const averageRating = product.rating || 0;
   const salesCount = product.salesCount || 0;
   const isBestSeller = salesCount > 100;
-  const isTopRated = averageRating >= 4.5 && !isBestSeller;
+  const isTopRated = averageRating >= 4.5 && reviewCount > 10 && !isBestSeller;
 
   return (
     <div className={`group bg-white rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300 ${!isGrid && 'flex'}`}>
@@ -683,11 +776,6 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
         {isTopRated && (
           <div className="absolute top-3 left-3 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
             Top Rated
-          </div>
-        )}
-        {hasDiscount && discountPercent > 0 && !isBestSeller && !isTopRated && (
-          <div className="absolute top-3 left-3 bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-            -{discountPercent}%
           </div>
         )}
         {product.stockQuantity === 0 && (
@@ -739,7 +827,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
         </Link>
 
         <div className="flex items-center gap-2 mb-3">
-          {renderStars(Math.round(averageRating))}
+          {renderStars(averageRating)}
           <span className="text-xs text-slate-400">
             {reviewCount > 0 ? `(${reviewCount})` : 'No reviews'}
           </span>
@@ -753,16 +841,10 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
-              {hasDiscount && (
-                <span className="text-xs text-slate-300 line-through">₱{Math.round(product.originalPrice).toLocaleString()}</span>
-              )}
             </div>
-            {hasDiscount && (
-              <span className="text-[10px] text-emerald-600 font-bold">Save ₱{(product.originalPrice - product.price).toLocaleString()}</span>
-            )}
           </div>
 
-          {/* Mobile-visible cart button (hidden in grid since hover overlay handles it) */}
+          {/* Mobile-visible cart button */}
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
