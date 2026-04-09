@@ -309,13 +309,6 @@ const ProductsManagement = () => {
                   {/* Actions */}
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
                     <button
-                      onClick={() => navigate(`/admin/products/${product.id}`)}
-                      className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </button>
-                    <button
                       onClick={() => navigate(`/admin/products/edit/${product.id}`)}
                       className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
                     >
