@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { TrendingUp, DollarSign, ShoppingBag, Users, Eye, Download, Printer, Calendar, BarChart3, Package, Crown, ArrowUp, ArrowDown, Filter, RefreshCw } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Users, Eye, Download, Printer, Calendar, BarChart3, Package, Crown, ArrowUp, ArrowDown, Filter, RefreshCw, ChevronRight } from 'lucide-react';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 import PDFReportModal from '../../components/admin/PDFReportModal';
@@ -76,7 +76,7 @@ const formatShortDate = (dateStr: string): string => {
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 };
 
-const peso = (n: number) => `₱${n.toLocaleString()}`;
+const peso = (n: number) => `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const getPeriodKey = (date: Date, periodType: PeriodType): string => {
   if (periodType === 'daily') {
@@ -113,24 +113,38 @@ interface StatCardProps {
   icon: React.ReactNode;
   trend?: number;
   trendLabel?: string;
+  colorTheme: 'emerald' | 'indigo' | 'violet' | 'amber';
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, trendLabel }) => (
-  <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-    <div className="flex items-center justify-between mb-3">
-      <div className="p-2 bg-rose-50 rounded-lg">{icon}</div>
-      {trend !== undefined && (
-        <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${trend >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-          {trend >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          {Math.abs(trend).toFixed(1)}%
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, trendLabel, colorTheme }) => {
+  const themeStyles = {
+    emerald: 'bg-emerald-50 text-emerald-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
+    violet: 'bg-violet-50 text-violet-600',
+    amber: 'bg-amber-50 text-amber-600',
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-6 border border-slate-100 group flex flex-col justify-between">
+      <div className="flex items-start justify-between mb-4">
+        <div className={`p-3 rounded-xl transition-transform duration-300 group-hover:scale-110 ${themeStyles[colorTheme]}`}>
+          {icon}
         </div>
-      )}
+        {trend !== undefined && (
+          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${trend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+            {trend >= 0 ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+            {Math.abs(trend).toFixed(1)}%
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-sm font-medium text-slate-500 mb-1">{label}</p>
+        <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
+        {trendLabel && <p className="text-xs text-slate-400 mt-2 font-medium">{trendLabel}</p>}
+      </div>
     </div>
-    <p className="text-sm text-gray-500 mb-1">{label}</p>
-    <p className="text-2xl font-bold text-gray-900">{value}</p>
-    {trendLabel && <p className="text-xs text-gray-400 mt-1">{trendLabel}</p>}
-  </div>
-);
+  );
+};
 
 interface RevenueChartProps {
   data: PeriodSales[];
@@ -140,9 +154,9 @@ interface RevenueChartProps {
 const RevenueChart: React.FC<RevenueChartProps> = ({ data, periodType }) => {
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-        <BarChart3 className="w-12 h-12 mb-3 opacity-40" />
-        <p className="text-sm">No sales data available</p>
+      <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+        <BarChart3 className="w-16 h-16 mb-4 opacity-20" />
+        <p className="text-sm font-medium">No sales data available for this period</p>
       </div>
     );
   }
@@ -150,42 +164,42 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ data, periodType }) => {
   const maxRevenue = Math.max(...data.map(d => d.revenue), 1);
   
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-semibold text-gray-700">
+        <h3 className="text-base font-bold text-slate-800">
           {periodType === 'daily' ? 'Daily Sales Trend' : periodType === 'weekly' ? 'Weekly Sales Trend' : 'Monthly Sales Trend'}
         </h3>
-        <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
-            <span className="text-gray-500">Revenue</span>
+        <div className="flex items-center gap-4 text-xs font-medium">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-indigo-500 rounded-sm"></div>
+            <span className="text-slate-500">Revenue</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-            <span className="text-gray-500">Orders</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-slate-300 rounded-sm"></div>
+            <span className="text-slate-500">Orders</span>
           </div>
         </div>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
         {data.map((item, idx) => (
           <div key={idx} className="group">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-gray-600">{formatPeriodLabel(item.period, periodType)}</span>
-              <div className="flex gap-3">
-                <span className="font-medium text-rose-600">{peso(item.revenue)}</span>
-                <span className="text-gray-400">{item.orders} orders</span>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-slate-600 font-medium">{formatPeriodLabel(item.period, periodType)}</span>
+              <div className="flex items-center gap-4">
+                <span className="font-bold text-slate-900">{peso(item.revenue)}</span>
+                <span className="text-slate-400 text-xs w-16 text-right">{item.orders} orders</span>
               </div>
             </div>
-            <div className="space-y-1">
-              <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className="space-y-1.5">
+              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                 <div 
-                  className="bg-rose-500 h-2 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-700 ease-out"
                   style={{ width: `${(item.revenue / maxRevenue) * 100}%` }}
                 />
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[11px] font-medium text-slate-400">
                   Avg: {peso(item.averageOrderValue)}
                 </span>
               </div>
@@ -205,9 +219,9 @@ interface TopProductsTableProps {
 const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalRevenue }) => {
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-        <Package className="w-12 h-12 mb-3 opacity-40" />
-        <p className="text-sm">No product sales data available</p>
+      <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+        <Package className="w-16 h-16 mb-4 opacity-20" />
+        <p className="text-sm font-medium">No product sales data available</p>
       </div>
     );
   }
@@ -216,36 +230,38 @@ const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalReve
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-100">
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% of Total</th>
+          <tr className="border-b border-slate-200">
+            <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Rank</th>
+            <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</th>
+            <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Units Sold</th>
+            <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Revenue</th>
+            <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">% of Total</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-slate-100">
           {products.map((product, idx) => (
-            <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3">
-                {idx === 0 ? (
-                  <Crown className="w-4 h-4 text-yellow-500" />
-                ) : (
-                  <span className="text-xs font-medium text-gray-400">#{idx + 1}</span>
-                )}
+            <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
+              <td className="px-4 py-4">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 group-hover:bg-white transition-colors border border-slate-100">
+                  {idx === 0 ? (
+                    <Crown className="w-4 h-4 text-amber-500" />
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
+                  )}
+                </div>
                </td>
-              <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
-              <td className="px-4 py-3 text-right text-gray-600">{product.sold}</td>
-              <td className="px-4 py-3 text-right font-medium text-gray-900">{peso(product.revenue)}</td>
-              <td className="px-4 py-3 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <div className="w-16 bg-gray-100 rounded-full h-1.5">
+              <td className="px-4 py-4 font-semibold text-slate-800">{product.name}</td>
+              <td className="px-4 py-4 text-right text-slate-600 font-medium">{product.sold}</td>
+              <td className="px-4 py-4 text-right font-bold text-slate-900">{peso(product.revenue)}</td>
+              <td className="px-4 py-4 text-right">
+                <div className="flex items-center justify-end gap-3">
+                  <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-rose-500 h-1.5 rounded-full"
+                      className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-full rounded-full"
                       style={{ width: `${product.percentageOfTotal}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500">{product.percentageOfTotal.toFixed(1)}%</span>
+                  <span className="text-xs font-semibold text-slate-500 w-8">{product.percentageOfTotal.toFixed(1)}%</span>
                 </div>
               </td>
             </tr>
@@ -263,9 +279,9 @@ interface SalesTransactionsTableProps {
 const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders }) => {
   if (orders.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-        <ShoppingBag className="w-12 h-12 mb-3 opacity-40" />
-        <p className="text-sm">No transactions found</p>
+      <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+        <ShoppingBag className="w-16 h-16 mb-4 opacity-20" />
+        <p className="text-sm font-medium">No transactions found</p>
       </div>
     );
   }
@@ -274,32 +290,39 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-100">
+          <tr className="bg-slate-50/50 border-y border-slate-200">
             {['Date', 'Order #', 'Customer', 'Items', 'Payment', 'Status', 'Total'].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-slate-100">
           {orders.map((order) => (
-            <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3 text-gray-600">{toDisplayDate(order.orderDate ?? order.createdAt)}</td>
-              <td className="px-4 py-3 font-mono text-xs text-gray-500">#{order.orderNumber?.slice(-8) ?? order.id}</td>
-              <td className="px-4 py-3 text-gray-900">{order.customerName ?? 'Guest'}</td>
-              <td className="px-4 py-3 text-gray-600">{order.items?.length ?? 0}</td>
-              <td className="px-4 py-3 text-gray-600 capitalize">{order.paymentMethod ?? 'N/A'}</td>
-              <td className="px-4 py-3">
-                <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                  order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                  order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
+            <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
+              <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">{toDisplayDate(order.orderDate ?? order.createdAt)}</td>
+              <td className="px-6 py-4 font-mono text-xs font-medium text-indigo-600 bg-indigo-50/30 rounded inline-block mt-3 ml-2 px-2">#{order.orderNumber?.slice(-8) ?? order.id}</td>
+              <td className="px-6 py-4 text-slate-800 font-medium">{order.customerName ?? 'Guest'}</td>
+              <td className="px-6 py-4 text-slate-600">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-xs font-bold">{order.items?.length ?? 0}</span>
+              </td>
+              <td className="px-6 py-4 text-slate-600 capitalize font-medium">{order.paymentMethod ?? 'N/A'}</td>
+              <td className="px-6 py-4">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold border ${
+                  order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  order.status === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                  'bg-amber-50 text-amber-700 border-amber-200'
                 }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    order.status === 'delivered' ? 'bg-emerald-500' :
+                    order.status === 'cancelled' ? 'bg-rose-500' :
+                    'bg-amber-500'
+                  }`}></span>
                   {order.status ?? 'N/A'}
                 </span>
               </td>
-              <td className="px-4 py-3 font-medium text-gray-900">{peso(order.totalAmount ?? 0)}</td>
+              <td className="px-6 py-4 font-bold text-slate-900">{peso(order.totalAmount ?? 0)}</td>
             </tr>
           ))}
         </tbody>
@@ -470,30 +493,6 @@ const SalesReport: React.FC = () => {
       .slice(0, 10);
   }, [filteredOrders, currentStats.totalRevenue]);
 
-  // Calculate daily sales for chart
-  const dailySales = useMemo((): DailySales[] => {
-    const dailyMap = new Map<string, { revenue: number; orders: number }>();
-    
-    filteredOrders.forEach(order => {
-      const date = toLocalDateStr(order.orderDate ?? order.createdAt);
-      if (!date) return;
-      
-      const existing = dailyMap.get(date);
-      const amount = order.totalAmount ?? 0;
-      
-      if (existing) {
-        existing.revenue += amount;
-        existing.orders += 1;
-      } else {
-        dailyMap.set(date, { revenue: amount, orders: 1 });
-      }
-    });
-    
-    return Array.from(dailyMap.entries())
-      .map(([date, data]) => ({ date, revenue: data.revenue, orders: data.orders }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredOrders]);
-
   const uniqueCustomers = useMemo(() => {
     return Array.from(new Set(filteredOrders.map(o => o.customerEmail ?? o.userId))).length;
   }, [filteredOrders]);
@@ -563,15 +562,15 @@ const SalesReport: React.FC = () => {
         <head>
           <title>Sales Performance Report</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { color: #333; }
-            .summary { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+            body { font-family: Arial, sans-serif; margin: 20px; color: #334155; }
+            h1 { color: #0f172a; }
+            .summary { margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
             .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
-            .stat-card { padding: 15px; background: white; border: 1px solid #ddd; border-radius: 8px; }
+            .stat-card { padding: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background: #f2f2f2; }
-            .footer { margin-top: 30px; font-size: 12px; color: #666; text-align: center; }
+            th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+            th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; }
+            .footer { margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
             @media print { body { margin: 0; } }
           </style>
         </head>
@@ -582,18 +581,19 @@ const SalesReport: React.FC = () => {
             <p><strong>Report Type:</strong> ${periodType.toUpperCase()} Sales Analysis</p>
           </div>
           <div class="stats-grid">
-            <div class="stat-card"><strong>Total Revenue</strong><br>${peso(currentStats.totalRevenue)}</div>
-            <div class="stat-card"><strong>Total Orders</strong><br>${currentStats.totalOrders}</div>
-            <div class="stat-card"><strong>Avg Order Value</strong><br>${peso(currentStats.averageOrderValue)}</div>
-            <div class="stat-card"><strong>Revenue Growth</strong><br>${currentStats.revenueGrowth.toFixed(1)}%</div>
+            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Total Revenue</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${peso(currentStats.totalRevenue)}</span></div>
+            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Total Orders</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${currentStats.totalOrders}</span></div>
+            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Avg Order Value</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${peso(currentStats.averageOrderValue)}</span></div>
+            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Revenue Growth</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${currentStats.revenueGrowth.toFixed(1)}%</span></div>
           </div>
           <h2>Top Selling Products</h2>
           <table>
             <thead><tr><th>Product</th><th>Units Sold</th><th>Revenue</th><th>% of Total</th></tr></thead>
             <tbody>
-              ${topProducts.map(p => `<tr><td>${p.name}</td><td>${p.sold}</td><td>${peso(p.revenue)}</td><td>${p.percentageOfTotal.toFixed(1)}%</td></tr>`).join('')}
+              ${topProducts.map(p => `<tr><td><strong>${p.name}</strong></td><td>${p.sold}</td><td>${peso(p.revenue)}</td><td>${p.percentageOfTotal.toFixed(1)}%</td></tr>`).join('')}
             </tbody>
           </table>
+          <h2 style="margin-top: 40px;">Sales Transactions</h2>
           ${content.innerHTML}
           <div class="footer">
             <p>Generated on ${new Date().toLocaleString()}</p>
@@ -608,34 +608,36 @@ const SalesReport: React.FC = () => {
   };
 
   const summaryContent = (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4">
+      <div className="flex justify-between items-center pb-4 border-b border-slate-100">
         <div>
-          <p className="text-sm font-medium text-gray-800">Sales Performance</p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-sm font-bold text-slate-800">Sales Performance</p>
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             {periodType === 'daily' ? 'Daily' : periodType === 'weekly' ? 'Weekly' : 'Monthly'} Analysis
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-medium text-gray-800">Total Revenue</p>
-          <p className="text-lg font-bold text-rose-600">{peso(currentStats.totalRevenue)}</p>
+          <p className="text-sm font-semibold text-slate-500 mb-1">Total Revenue</p>
+          <p className="text-xl font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg inline-block">{peso(currentStats.totalRevenue)}</p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3 pt-2 border-t">
-        <div>
-          <p className="text-xs text-gray-400">Orders</p>
-          <p className="text-sm font-semibold">{currentStats.totalOrders}</p>
-          <p className={`text-xs ${currentStats.ordersGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+      <div className="grid grid-cols-3 gap-4 pt-2">
+        <div className="bg-slate-50 p-3 rounded-xl">
+          <p className="text-xs font-semibold text-slate-400 mb-1">Orders</p>
+          <p className="text-base font-bold text-slate-800">{currentStats.totalOrders}</p>
+          <p className={`text-xs mt-1 font-bold ${currentStats.ordersGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
             {currentStats.ordersGrowth >= 0 ? '↑' : '↓'} {Math.abs(currentStats.ordersGrowth).toFixed(1)}%
           </p>
         </div>
-        <div>
-          <p className="text-xs text-gray-400">Avg Order</p>
-          <p className="text-sm font-semibold">{peso(currentStats.averageOrderValue)}</p>
+        <div className="bg-slate-50 p-3 rounded-xl">
+          <p className="text-xs font-semibold text-slate-400 mb-1">Avg Order</p>
+          <p className="text-base font-bold text-slate-800">{peso(currentStats.averageOrderValue)}</p>
         </div>
-        <div>
-          <p className="text-xs text-gray-400">Top Product</p>
-          <p className="text-sm font-semibold truncate">{topProducts[0]?.name || 'N/A'}</p>
+        <div className="bg-slate-50 p-3 rounded-xl">
+          <p className="text-xs font-semibold text-slate-400 mb-1">Top Product</p>
+          <p className="text-sm font-bold text-slate-800 truncate" title={topProducts[0]?.name || 'N/A'}>
+            {topProducts[0]?.name || 'N/A'}
+          </p>
         </div>
       </div>
     </div>
@@ -643,68 +645,92 @@ const SalesReport: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-rose-600 mx-auto" />
-          <p className="mt-4 text-sm text-gray-500">Loading sales data…</p>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+          <div className="relative w-12 h-12 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full border-t-2 border-indigo-600 animate-spin"></div>
+            <div className="absolute inset-2 rounded-full border-t-2 border-violet-400 animate-spin opacity-50"></div>
+          </div>
+          <p className="text-sm font-semibold text-slate-500">Compiling sales data…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-8 space-y-8 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Sales Performance Report</h1>
-        <p className="text-sm text-gray-500 mt-1">Track revenue trends, analyze performance, and identify top-selling products</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sales Performance</h1>
+          <p className="text-sm text-slate-500 mt-2 font-medium">Track revenue trends, analyze performance, and identify top-selling products.</p>
+        </div>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowPDFModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm transition-all"
+          >
+            <Eye className="w-4 h-4 text-slate-500" />
+            Preview Report
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+      <div className="bg-white rounded-2xl shadow-sm p-5 border border-slate-100">
+        <div className="flex flex-wrap gap-5 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              <Calendar className="w-3.5 h-3.5" /> Start Date
+            </label>
             <input
               type="date"
               value={dateRange.start}
               onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
             />
           </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
             <input
               type="date"
               value={dateRange.end}
               onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
             />
           </div>
-          <div className="w-36">
-            <label className="block text-xs font-medium text-gray-500 mb-1">View By</label>
-            <select
-              value={periodType}
-              onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
+          <div className="w-48">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              <Filter className="w-3.5 h-3.5" /> View By
+            </label>
+            <div className="relative">
+              <select
+                value={periodType}
+                onChange={(e) => setPeriodType(e.target.value as PeriodType)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
+              >
+                <option value="daily">Daily Analysis</option>
+                <option value="weekly">Weekly Analysis</option>
+                <option value="monthly">Monthly Analysis</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={() => handleExport('excel')}
               disabled={exportLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-2"
+              className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:transform active:scale-95 transition-all flex items-center gap-2 disabled:opacity-70"
             >
               <Download className="w-4 h-4" />
-              Export
+              Export Data
             </button>
             <button
               onClick={handlePrint}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition flex items-center gap-2"
+              className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-xl text-sm hover:bg-slate-900 shadow-sm hover:shadow-md active:transform active:scale-95 transition-all flex items-center gap-2"
             >
               <Printer className="w-4 h-4" />
               Print
@@ -714,63 +740,72 @@ const SalesReport: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="Total Revenue"
           value={peso(currentStats.totalRevenue)}
-          icon={<DollarSign className="w-5 h-5 text-green-600" />}
+          icon={<DollarSign className="w-6 h-6" />}
           trend={currentStats.revenueGrowth}
           trendLabel="vs previous period"
+          colorTheme="emerald"
         />
         <StatCard
           label="Total Orders"
           value={String(currentStats.totalOrders)}
-          icon={<ShoppingBag className="w-5 h-5 text-blue-600" />}
+          icon={<ShoppingBag className="w-6 h-6" />}
           trend={currentStats.ordersGrowth}
           trendLabel="vs previous period"
+          colorTheme="indigo"
         />
         <StatCard
           label="Average Order Value"
           value={peso(currentStats.averageOrderValue)}
-          icon={<TrendingUp className="w-5 h-5 text-purple-600" />}
+          icon={<TrendingUp className="w-6 h-6" />}
+          colorTheme="violet"
         />
         <StatCard
           label="Unique Customers"
           value={String(uniqueCustomers)}
-          icon={<Users className="w-5 h-5 text-amber-600" />}
+          icon={<Users className="w-6 h-6" />}
+          colorTheme="amber"
         />
       </div>
 
       {/* Revenue Chart & Top Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <RevenueChart data={periodSales} periodType={periodType} />
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Crown className="w-4 h-4 text-yellow-500" />
-            Top Selling Products
-            <span className="text-xs text-gray-400 ml-2">({topProducts.length} products)</span>
-          </h3>
-          <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden flex flex-col">
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <div className="bg-amber-100 p-1.5 rounded-lg text-amber-600">
+                <Crown className="w-4 h-4" />
+              </div>
+              Top Selling Products
+            </h3>
+            <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+              {topProducts.length} items
+            </span>
+          </div>
+          <div className="p-2 flex-1 overflow-auto">
+            <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
+          </div>
         </div>
       </div>
 
       {/* Sales Transactions */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-rose-600" />
-            Sales Transactions
-            <span className="text-xs text-gray-400 ml-2">({filteredOrders.length} transactions)</span>
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
+        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <div className="bg-blue-100 p-1.5 rounded-lg text-blue-600">
+              <Calendar className="w-4 h-4" />
+            </div>
+            Recent Transactions
           </h3>
-          <button
-            onClick={() => setShowPDFModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            Preview Full Report
-          </button>
+          <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+            {filteredOrders.length} orders
+          </span>
         </div>
 
         <div id="report-print-content">
@@ -790,13 +825,17 @@ const SalesReport: React.FC = () => {
       >
         <>
           <RevenueChart data={periodSales} periodType={periodType} />
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Top Selling Products</h3>
-            <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
+          <div className="mt-8">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Top Selling Products</h3>
+            <div className="border border-slate-100 rounded-xl overflow-hidden">
+              <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
+            </div>
           </div>
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Sales Transactions</h3>
-            <SalesTransactionsTable orders={filteredOrders} />
+          <div className="mt-8">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Sales Transactions</h3>
+            <div className="border border-slate-100 rounded-xl overflow-hidden">
+              <SalesTransactionsTable orders={filteredOrders} />
+            </div>
           </div>
         </>
       </PDFReportModal>
