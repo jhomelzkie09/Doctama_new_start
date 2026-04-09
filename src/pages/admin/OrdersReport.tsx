@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Package, Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, Eye, Search } from 'lucide-react';
 import ReportFilters from '../../components/admin/ReportFilters';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
@@ -21,24 +21,12 @@ interface StatusStats {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * order.service.ts maps the date field to `orderDate`.
- * `createdAt` is also passed through raw as a fallback.
- */
 const resolveOrderDate = (order: any): string | Date | undefined =>
   order.orderDate ?? order.createdAt ?? order.updatedAt;
 
-/**
- * order.service.ts maps the amount field to `totalAmount`.
- * `total` is checked as a fallback for any direct API responses.
- */
 const resolveOrderTotal = (order: any): number =>
   order.totalAmount ?? order.total ?? 0;
 
-/**
- * Converts any date to a LOCAL date string (YYYY-MM-DD).
- * Avoids toISOString() which shifts dates by UTC offset (critical for UTC+8).
- */
 const toLocalDateStr = (value: string | Date | undefined): string => {
   if (!value) return '';
   try {
@@ -57,23 +45,27 @@ const toDisplayDate = (value: string | Date | undefined): string => {
   if (!value) return 'N/A';
   try {
     const d = new Date(value);
-    return isNaN(d.getTime()) ? 'Invalid date' : d.toLocaleDateString();
+    return isNaN(d.getTime()) ? 'Invalid date' : d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   } catch {
     return 'Invalid date';
   }
 };
 
-const peso = (n: number) => `₱${n.toLocaleString()}`;
+const peso = (n: number) => `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const STATUS_BADGE: Record<string, string> = {
-  completed:  'bg-green-100 text-green-800',
-  delivered:  'bg-green-100 text-green-800',
-  processing: 'bg-blue-100 text-blue-800',
-  pending:    'bg-yellow-100 text-yellow-800',
+const STATUS_CONFIG: Record<string, { bg: string, text: string, border: string, dot: string }> = {
+  completed:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+  delivered:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+  processing: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
+  pending:    { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' },
 };
 
-const statusBadge = (status: string | undefined) =>
-  STATUS_BADGE[status?.toLowerCase() ?? ''] ?? 'bg-red-100 text-red-800';
+const getStatusConfig = (status: string | undefined) =>
+  STATUS_CONFIG[status?.toLowerCase() ?? ''] ?? { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -81,18 +73,29 @@ interface StatCardProps {
   label: string;
   value: number;
   icon: React.ReactNode;
-  valueColor: string;
+  themeColor: 'yellow' | 'blue' | 'green' | 'red';
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, icon, valueColor }) => (
-  <div className="bg-white rounded-xl shadow-sm p-5 flex items-center justify-between">
-    <div>
-      <p className="text-sm text-gray-500 mb-1">{label}</p>
-      <p className={`text-2xl font-semibold ${valueColor}`}>{value}</p>
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, themeColor }) => {
+  const colorMap = {
+    yellow: 'text-amber-600 bg-amber-50',
+    blue: 'text-blue-600 bg-blue-50',
+    green: 'text-emerald-600 bg-emerald-50',
+    red: 'text-rose-600 bg-rose-50',
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+      <div>
+        <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
+        <p className="text-3xl font-bold text-gray-900">{value}</p>
+      </div>
+      <div className={`p-4 rounded-xl ${colorMap[themeColor]} bg-opacity-60`}>
+        {icon}
+      </div>
     </div>
-    <div className="opacity-70">{icon}</div>
-  </div>
-);
+  );
+};
 
 interface OrderTableProps {
   orders: any[];
@@ -102,10 +105,12 @@ interface OrderTableProps {
 const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
   if (orders.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-        <Package className="w-12 h-12 mb-3 opacity-40" />
-        <p className="text-sm">No orders found in this date range</p>
-        <p className="text-xs mt-1 text-gray-300">Try widening the date range</p>
+      <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200 m-4">
+        <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+          <Search className="w-8 h-8 text-gray-400" />
+        </div>
+        <p className="text-base font-medium text-gray-900">No orders found</p>
+        <p className="text-sm mt-1 text-gray-500">Try adjusting your date range to see more results.</p>
       </div>
     );
   }
@@ -114,50 +119,73 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-100">
-            {['Order ID', 'Date', 'Customer', 'Total', 'Status', 'Payment', 'Items'].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <tr className="bg-gray-50/80 border-b border-gray-100">
+            {['Order ID', 'Date', 'Customer', 'Total', 'Status', 'Payment', 'Items'].map((h, i) => (
+              <th 
+                key={h} 
+                className={`px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider ${i === 3 ? 'text-right' : 'text-left'}`}
+              >
                 {h}
               </th>
             ))}
           </tr>
         </thead>
 
-        <tbody className="divide-y divide-gray-50">
-          {orders.map((order) => (
-            <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                #{order.id?.toString().slice(-6) ?? 'N/A'}
-              </td>
-              <td className="px-4 py-3 text-gray-600">
-                {toDisplayDate(resolveOrderDate(order))}
-              </td>
-              <td className="px-4 py-3 text-gray-900">
-                {order.customerName ?? order.user?.fullName ?? order.user?.name ?? 'Guest'}
-              </td>
-              <td className="px-4 py-3 font-medium text-gray-900">
-                {peso(resolveOrderTotal(order))}
-              </td>
-              <td className="px-4 py-3">
-                <span className={`px-2.5 py-1 text-xs rounded-full font-medium ${statusBadge(order.status)}`}>
-                  {order.status ?? 'N/A'}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-gray-600">
-                {order.paymentMethod ?? order.payment_method ?? 'N/A'}
-              </td>
-              <td className="px-4 py-3 text-gray-600">{order.items?.length ?? 0}</td>
-            </tr>
-          ))}
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {orders.map((order) => {
+            const customerName = order.customerName ?? order.user?.fullName ?? order.user?.name ?? 'Guest';
+            const initial = customerName.charAt(0).toUpperCase();
+            const statusStyle = getStatusConfig(order.status);
+
+            return (
+              <tr key={order.id} className="hover:bg-gray-50/80 transition-colors group">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="font-mono text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md inline-block">
+                    #{order.id?.toString().slice(-6) ?? 'N/A'}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">
+                  {toDisplayDate(resolveOrderDate(order))}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-sm">
+                      {initial}
+                    </div>
+                    <span className="font-medium text-gray-900">{customerName}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <span className="font-semibold text-gray-900">{peso(resolveOrderTotal(order))}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-full font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
+                    <span className="capitalize">{order.status ?? 'N/A'}</span>
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-gray-500 capitalize">
+                  {order.paymentMethod ?? order.payment_method ?? 'N/A'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                    {order.items?.length ?? 0}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
 
         <tfoot>
-          <tr className="bg-gray-50 border-t border-gray-200">
-            <td colSpan={3} className="px-4 py-3 text-right text-sm font-medium text-gray-600">
-              Total
+          <tr className="bg-gray-50/80 border-t-2 border-gray-100">
+            <td colSpan={3} className="px-6 py-4 text-right text-sm font-semibold text-gray-600">
+              Total Sales Period
             </td>
-            <td className="px-4 py-3 font-semibold text-gray-900">{peso(totalSales)}</td>
-            <td colSpan={3} className="px-4 py-3 text-sm text-gray-500">
+            <td className="px-6 py-4 text-right font-bold text-gray-900 text-base">
+              {peso(totalSales)}
+            </td>
+            <td colSpan={3} className="px-6 py-4 text-sm font-medium text-gray-500">
               {orders.length} order{orders.length !== 1 ? 's' : ''}
             </td>
           </tr>
@@ -244,14 +272,20 @@ const OrdersReport: React.FC = () => {
         <head>
           <title>Orders Report</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 40px; color: #111827; }
+            h2 { color: #111827; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background: #f2f2f2; }
+            th, td { border-bottom: 1px solid #e5e7eb; padding: 12px 8px; text-align: left; }
+            th { background: #f9fafb; font-weight: 600; color: #4b5563; font-size: 14px; }
+            td { font-size: 14px; }
+            .text-right { text-align: right; }
             @media print { body { margin: 0; } .no-print { display: none; } }
           </style>
         </head>
-        <body>${content.innerHTML}</body>
+        <body>
+          <h2>Orders Report</h2>
+          ${content.innerHTML}
+        </body>
       </html>
     `);
     win.document.close();
@@ -261,84 +295,98 @@ const OrdersReport: React.FC = () => {
   };
 
   const summaryContent = (
-    <div className="flex justify-between items-center">
+    <div className="flex justify-between items-start bg-gray-50 p-4 rounded-lg">
       <div>
-        <p className="text-sm font-medium text-gray-800">Orders summary</p>
-        <p className="text-xs text-gray-500 mt-0.5">Total orders: {filteredOrders.length}</p>
-        <p className="text-xs text-gray-500">Total sales: {peso(totalSales)}</p>
+        <p className="text-sm font-semibold text-gray-900">Orders Summary</p>
+        <div className="mt-2 space-y-1">
+          <p className="text-sm text-gray-600">Total orders: <span className="font-medium text-gray-900">{filteredOrders.length}</span></p>
+          <p className="text-sm text-gray-600">Total sales: <span className="font-medium text-gray-900">{peso(totalSales)}</span></p>
+        </div>
       </div>
       <div className="text-right">
-        <p className="text-sm font-medium text-gray-800">Breakdown</p>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Pending: {statusStats.pending} · Processing: {statusStats.processing}
-        </p>
-        <p className="text-xs text-gray-500">
-          Completed: {statusStats.completed} · Cancelled: {statusStats.cancelled}
-        </p>
+        <p className="text-sm font-semibold text-gray-900">Status Breakdown</p>
+        <div className="mt-2 space-y-1">
+          <p className="text-sm text-gray-600">
+            Pending: <span className="font-medium text-gray-900">{statusStats.pending}</span> · Processing: <span className="font-medium text-gray-900">{statusStats.processing}</span>
+          </p>
+          <p className="text-sm text-gray-600">
+            Completed: <span className="font-medium text-gray-900">{statusStats.completed}</span> · Cancelled: <span className="font-medium text-gray-900">{statusStats.cancelled}</span>
+          </p>
+        </div>
       </div>
     </div>
   );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-rose-600 mx-auto" />
-          <p className="mt-4 text-sm text-gray-500">Loading orders…</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-gray-100"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
         </div>
+        <p className="mt-4 text-sm font-medium text-gray-500 animate-pulse">Loading your orders…</p>
       </div>
     );
   }
 
-  const iconSize = 'w-8 h-8';
+  const iconSize = 'w-7 h-7';
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Orders report</h1>
-        <p className="text-sm text-gray-500 mt-1">View and export order details</p>
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Orders Report</h1>
+          <p className="text-base text-gray-500 mt-1">Monitor your sales performance and order fulfillments.</p>
+        </div>
       </div>
 
-      <ReportFilters
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-        onExport={handleExport}
-        onPrint={handlePrint}
-        loading={exportLoading}
-      />
+      {/* Filters */}
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+        <ReportFilters
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onExport={handleExport}
+          onPrint={handlePrint}
+          loading={exportLoading}
+        />
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          label="Pending orders"
+          label="Pending Orders"
           value={statusStats.pending}
-          icon={<Clock className={`${iconSize} text-yellow-500`} />}
-          valueColor="text-yellow-600"
+          icon={<Clock className={iconSize} />}
+          themeColor="yellow"
         />
         <StatCard
           label="Processing"
           value={statusStats.processing}
-          icon={<Package className={`${iconSize} text-blue-500`} />}
-          valueColor="text-blue-600"
+          icon={<Package className={iconSize} />}
+          themeColor="blue"
         />
         <StatCard
           label="Completed"
           value={statusStats.completed}
-          icon={<CheckCircle className={`${iconSize} text-green-500`} />}
-          valueColor="text-green-600"
+          icon={<CheckCircle className={iconSize} />}
+          themeColor="green"
         />
         <StatCard
           label="Cancelled"
           value={statusStats.cancelled}
-          icon={<XCircle className={`${iconSize} text-red-500`} />}
-          valueColor="text-red-600"
+          icon={<XCircle className={iconSize} />}
+          themeColor="red"
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="px-5 py-3 border-b border-gray-100 flex justify-end">
+      {/* Table Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+          <h2 className="text-lg font-semibold text-gray-900">Transaction History</h2>
           <button
             onClick={() => setShowPDFModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium text-sm rounded-lg transition-colors"
           >
             <Eye className="w-4 h-4" />
             Preview PDF
