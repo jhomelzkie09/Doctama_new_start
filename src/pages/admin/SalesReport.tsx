@@ -122,7 +122,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, trendLab
       {trend !== undefined && (
         <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${trend >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
           {trend >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          {Math.abs(trend)}%
+          {Math.abs(trend).toFixed(1)}%
         </div>
       )}
     </div>
@@ -233,7 +233,7 @@ const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalReve
                 ) : (
                   <span className="text-xs font-medium text-gray-400">#{idx + 1}</span>
                 )}
-              </td>
+               </td>
               <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
               <td className="px-4 py-3 text-right text-gray-600">{product.sold}</td>
               <td className="px-4 py-3 text-right font-medium text-gray-900">{peso(product.revenue)}</td>
@@ -245,13 +245,13 @@ const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalReve
                       style={{ width: `${product.percentageOfTotal}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500">{product.percentageOfTotal}%</span>
+                  <span className="text-xs text-gray-500">{product.percentageOfTotal.toFixed(1)}%</span>
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
-       </table>
+      </table>
     </div>
   );
 };
@@ -280,7 +280,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders 
                 {h}
               </th>
             ))}
-           </tr>
+          </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {orders.map((order) => (
@@ -299,11 +299,11 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders 
                   {order.status ?? 'N/A'}
                 </span>
               </td>
-              <td className="px-4 py-3 font-medium text-gray-900">{peso(order.totalAmount ?? order.total ?? 0)}</td>
+              <td className="px-4 py-3 font-medium text-gray-900">{peso(order.totalAmount ?? 0)}</td>
             </tr>
           ))}
         </tbody>
-       </table>
+      </table>
     </div>
   );
 };
@@ -358,7 +358,7 @@ const SalesReport: React.FC = () => {
 
   // Calculate current period stats
   const currentStats = useMemo((): SalesStats => {
-    const totalRevenue = filteredOrders.reduce((s, o) => s + (o.totalAmount ?? o.total ?? 0), 0);
+    const totalRevenue = filteredOrders.reduce((s, o) => s + (o.totalAmount ?? 0), 0);
     const totalOrders = filteredOrders.length;
     
     return {
@@ -374,7 +374,7 @@ const SalesReport: React.FC = () => {
 
   // Calculate previous period stats for comparison
   useEffect(() => {
-    const calculatePreviousStats = async () => {
+    const calculatePreviousStats = () => {
       if (!previousDateRange.start || !previousDateRange.end) return;
       
       const prevOrders = orders.filter((order) => {
@@ -382,17 +382,21 @@ const SalesReport: React.FC = () => {
         return d && d >= previousDateRange.start && d <= previousDateRange.end;
       });
       
-      const prevRevenue = prevOrders.reduce((s, o) => s + (o.totalAmount ?? o.total ?? 0), 0);
+      const prevRevenue = prevOrders.reduce((s, o) => s + (o.totalAmount ?? 0), 0);
       const prevOrdersCount = prevOrders.length;
       
-      currentStats.previousPeriodRevenue = prevRevenue;
-      currentStats.revenueGrowth = prevRevenue > 0 
+      const revenueGrowth = prevRevenue > 0 
         ? ((currentStats.totalRevenue - prevRevenue) / prevRevenue) * 100 
-        : 100;
-      currentStats.previousPeriodOrders = prevOrdersCount;
-      currentStats.ordersGrowth = prevOrdersCount > 0 
+        : currentStats.totalRevenue > 0 ? 100 : 0;
+      
+      const ordersGrowth = prevOrdersCount > 0 
         ? ((currentStats.totalOrders - prevOrdersCount) / prevOrdersCount) * 100 
-        : 100;
+        : currentStats.totalOrders > 0 ? 100 : 0;
+      
+      currentStats.previousPeriodRevenue = prevRevenue;
+      currentStats.revenueGrowth = revenueGrowth;
+      currentStats.previousPeriodOrders = prevOrdersCount;
+      currentStats.ordersGrowth = ordersGrowth;
     };
     
     calculatePreviousStats();
@@ -409,7 +413,7 @@ const SalesReport: React.FC = () => {
       const date = new Date(orderDate);
       const periodKey = getPeriodKey(date, periodType);
       const existing = periodMap.get(periodKey);
-      const amount = order.totalAmount ?? order.total ?? 0;
+      const amount = order.totalAmount ?? 0;
       
       if (existing) {
         existing.revenue += amount;
@@ -453,15 +457,14 @@ const SalesReport: React.FC = () => {
       });
     });
     
+    const totalRevenue = currentStats.totalRevenue;
     return Array.from(productSales.entries())
       .map(([id, data]) => ({
         id,
         name: data.name,
         sold: data.sold,
         revenue: data.revenue,
-        percentageOfTotal: currentStats.totalRevenue > 0 
-          ? (data.revenue / currentStats.totalRevenue) * 100 
-          : 0,
+        percentageOfTotal: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0,
       }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
@@ -476,7 +479,7 @@ const SalesReport: React.FC = () => {
       if (!date) return;
       
       const existing = dailyMap.get(date);
-      const amount = order.totalAmount ?? order.total ?? 0;
+      const amount = order.totalAmount ?? 0;
       
       if (existing) {
         existing.revenue += amount;
@@ -489,6 +492,10 @@ const SalesReport: React.FC = () => {
     return Array.from(dailyMap.entries())
       .map(([date, data]) => ({ date, revenue: data.revenue, orders: data.orders }))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }, [filteredOrders]);
+
+  const uniqueCustomers = useMemo(() => {
+    return Array.from(new Set(filteredOrders.map(o => o.customerEmail ?? o.userId))).length;
   }, [filteredOrders]);
 
   const handleExport = async (format: 'excel' | 'csv' | 'json') => {
@@ -505,6 +512,8 @@ const SalesReport: React.FC = () => {
         { Metric: 'Period', Value: `${toDisplayDate(dateRange.start)} - ${toDisplayDate(dateRange.end)}` },
       ];
       
+      reportService.exportToExcel(summaryRows, `sales_summary_${dateRange.start}_to_${dateRange.end}`);
+      
       // Export top products
       const productRows = topProducts.map(p => ({
         'Product Name': p.name,
@@ -512,6 +521,8 @@ const SalesReport: React.FC = () => {
         Revenue: peso(p.revenue),
         '% of Total': `${p.percentageOfTotal.toFixed(1)}%`,
       }));
+      
+      reportService.exportToExcel(productRows, `top_products_${dateRange.start}_to_${dateRange.end}`);
       
       // Export transactions
       const transactionRows = filteredOrders.map(order => ({
@@ -521,18 +532,16 @@ const SalesReport: React.FC = () => {
         Items: order.items?.length ?? 0,
         'Payment Method': order.paymentMethod ?? 'N/A',
         Status: order.status ?? 'N/A',
-        Total: peso(order.totalAmount ?? order.total ?? 0),
+        Total: peso(order.totalAmount ?? 0),
       }));
       
-      reportService.exportToExcel(summaryRows, `sales_summary_${dateRange.start}_to_${dateRange.end}`);
-      reportService.exportToExcel(productRows, `top_products_${dateRange.start}_to_${dateRange.end}`);
       reportService.exportToExcel(transactionRows, `sales_transactions_${dateRange.start}_to_${dateRange.end}`);
     } else if (format === 'csv') {
       const rows = filteredOrders.map(order => ({
         Date: toDisplayDate(order.orderDate ?? order.createdAt),
         'Order #': order.orderNumber ?? order.id,
         Customer: order.customerName ?? 'Guest',
-        Total: peso(order.totalAmount ?? order.total ?? 0),
+        Total: peso(order.totalAmount ?? 0),
         Status: order.status ?? 'N/A',
       }));
       reportService.exportToCSV(rows, `sales_report_${dateRange.start}_to_${dateRange.end}`);
@@ -727,7 +736,7 @@ const SalesReport: React.FC = () => {
         />
         <StatCard
           label="Unique Customers"
-          value={String(new Set(filteredOrders.map(o => o.customerEmail ?? o.userId)).size)}
+          value={String(uniqueCustomers)}
           icon={<Users className="w-5 h-5 text-amber-600" />}
         />
       </div>
