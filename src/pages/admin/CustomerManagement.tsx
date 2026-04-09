@@ -1098,19 +1098,22 @@ const CustomerManagement = () => {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <div className="flex gap-1">
-                  {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
-                    let pageNum;
-                    if (pagination.totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (pagination.currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (pagination.currentPage >= pagination.totalPages - 2) {
-                      pageNum = pagination.totalPages - 4 + i;
+                  {(() => {
+                    const pageNumbers: number[] = [];
+                    const totalPages = pagination.totalPages;
+                    const currentPage = pagination.currentPage;
+                    
+                    if (totalPages <= 5) {
+                      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+                    } else if (currentPage <= 3) {
+                      for (let i = 1; i <= 5; i++) pageNumbers.push(i);
+                    } else if (currentPage >= totalPages - 2) {
+                      for (let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
                     } else {
-                      pageNum = pagination.currentPage - 2 + i;
+                      for (let i = currentPage - 2; i <= currentPage + 2; i++) pageNumbers.push(i);
                     }
                     
-                    return (
+                    return pageNumbers.map((pageNum) => (
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
@@ -1122,8 +1125,8 @@ const CustomerManagement = () => {
                       >
                         {pageNum}
                       </button>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
                 <button
                   onClick={() => handlePageChange(pagination.currentPage + 1)}
