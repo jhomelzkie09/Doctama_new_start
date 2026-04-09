@@ -4,14 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import categoryService, { Category } from '../../services/category.service';
 import { 
   Plus, 
-  Edit, 
+  Edit2, 
   Trash2, 
   Loader,
-  AlertCircle,
-  Folder,
+  AlertTriangle,
+  FolderOpen,
   Package,
   X,
-  Check
+  CheckCircle2,
+  Layers
 } from 'lucide-react';
 
 const CategoriesManagement = () => {
@@ -63,10 +64,10 @@ const CategoriesManagement = () => {
     try {
       if (editingCategory) {
         await categoryService.updateCategory(editingCategory.id, formData);
-        setSuccess('Category updated successfully!');
+        setSuccess('Collection updated successfully');
       } else {
         await categoryService.createCategory(formData);
-        setSuccess('Category created successfully!');
+        setSuccess('New collection added');
       }
       
       setShowForm(false);
@@ -74,10 +75,10 @@ const CategoriesManagement = () => {
       setFormData({ name: '', description: '' });
       fetchCategories();
       
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to save category');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -91,34 +92,50 @@ const CategoriesManagement = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this category? This action cannot be undone.')) return;
+    if (!window.confirm('Delete this collection? Any associated products will need to be recategorized.')) return;
     
     try {
       await categoryService.deleteCategory(id);
-      setSuccess('Category deleted successfully!');
+      setSuccess('Collection removed');
       fetchCategories();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to delete category');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="w-8 h-8 animate-spin text-red-600" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#FDFDFD]">
+        <Loader className="w-10 h-10 animate-spin text-rose-600 mb-4" />
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Collections...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-[#FDFDFD] pb-20">
+      {/* Floating Notifications */}
+      {success && (
+        <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5" />
+          <span className="font-medium text-sm">{success}</span>
+        </div>
+      )}
+      {error && (
+        <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <AlertTriangle className="w-5 h-5" />
+          <span className="font-medium text-sm">{error}</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 py-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Categories Management</h1>
-            <p className="text-gray-600 mt-1">Organize your furniture products by categories</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Collections</h1>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Manage Furniture Categories</p>
           </div>
           <button
             onClick={() => {
@@ -126,141 +143,62 @@ const CategoriesManagement = () => {
               setFormData({ name: '', description: '' });
               setShowForm(true);
             }}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-rose-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-rose-200 hover:bg-rose-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Category
+            <Plus className="w-5 h-5" />
+            Add Collection
           </button>
         </div>
+      </header>
 
-        {/* Success Message */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
-            <div className="flex items-center">
-              <Check className="w-5 h-5 text-green-500 mr-2" />
-              <span className="text-green-700">{success}</span>
-            </div>
-            <button onClick={() => setSuccess('')} className="text-green-500 hover:text-green-700">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-            <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-              <span className="text-red-700">{error}</span>
-            </div>
-            <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Category Form Modal */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {editingCategory ? 'Edit Category' : 'Add New Category'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingCategory(null);
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form onSubmit={handleSubmit}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="e.g., Sofas & Couches"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Brief description of this category..."
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingCategory(null);
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                  >
-                    {editingCategory ? 'Update Category' : 'Create Category'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {categories.map((category) => (
-            <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="h-32 bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center">
-                <Folder className="w-12 h-12 text-white opacity-75" />
-              </div>
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{category.name}</h3>
-                  <div className="flex items-center space-x-1">
+            <div 
+              key={category.id} 
+              className="group bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:border-rose-100 transition-all duration-300 relative overflow-hidden"
+            >
+              {/* Decorative background element */}
+              <div className="absolute -right-6 -top-6 w-24 h-24 bg-rose-50 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
+              
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                    <FolderOpen className="w-6 h-6" />
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white shadow-sm border border-slate-100 rounded-xl p-1">
                     <button
                       onClick={() => handleEdit(category)}
-                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                       title="Edit"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(category.id)}
-                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                       title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-                {category.description && (
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{category.description}</p>
-                )}
-                <div className="flex items-center text-sm text-gray-500">
-                  <Package className="w-4 h-4 mr-1" />
-                  <span>{category.productCount || 0} products</span>
+
+                <div className="flex-1">
+                  <h3 className="text-xl font-black text-slate-900 mb-2">{category.name}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
+                    {category.description || "No description provided for this collection."}
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-slate-500">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                    <Package className="w-4 h-4" />
+                    <span>{category.productCount || 0} Items</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -269,24 +207,104 @@ const CategoriesManagement = () => {
 
         {/* Empty State */}
         {categories.length === 0 && !loading && (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <Folder className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-medium text-gray-700 mb-2">No Categories Yet</h3>
-            <p className="text-gray-500 mb-6">Create your first category to organize your furniture products</p>
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 border-dashed p-16 text-center max-w-2xl mx-auto mt-10 shadow-sm">
+            <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Layers className="w-10 h-10 text-rose-300" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-3">Your showroom is empty</h3>
+            <p className="text-slate-500 mb-8 max-w-md mx-auto leading-relaxed">
+              Start building your store's structure by creating collections to group your furniture beautifully.
+            </p>
             <button
               onClick={() => {
                 setEditingCategory(null);
                 setFormData({ name: '', description: '' });
                 setShowForm(true);
               }}
-              className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+              className="inline-flex items-center px-8 py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all hover:-translate-y-1"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Your First Category
+              <Plus className="w-5 h-5 mr-2" />
+              Create First Collection
             </button>
           </div>
         )}
-      </div>
+      </main>
+
+      {/* Category Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setShowForm(false)}
+          />
+          
+          {/* Dialog */}
+          <div className="relative bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">
+                  {editingCategory ? 'Edit Collection' : 'New Collection'}
+                </h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                  {editingCategory ? 'Update details' : 'Set up a new category'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowForm(false)}
+                className="p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-2xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                  Collection Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Living Room Seating"
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-medium focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe the items in this collection..."
+                  rows={4}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-medium focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 px-6 py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 hover:border-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all"
+                >
+                  {editingCategory ? 'Save Changes' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
