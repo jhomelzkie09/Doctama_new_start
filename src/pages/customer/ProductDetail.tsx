@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom
 import { 
   ShoppingCart, Heart, Share2, Check, Truck, Shield, RotateCcw,
   Star, Minus, Plus, ArrowLeft, X, ChevronLeft, ChevronRight,
-  ZoomIn, Package, CheckCircle, AlertCircle, Facebook, Twitter, Mail, Link2
+  ZoomIn, Package, CheckCircle, AlertCircle, Facebook, Twitter, Mail, Link2,
+  Ruler, Maximize
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import { useCart } from '../../contexts/CartContext';
@@ -324,9 +325,66 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
 
             <div className="min-h-[400px]">
               {activeTab === 'description' && (
-                <div className="prose prose-lg max-w-none text-gray-500 leading-relaxed">
-                  <h3 className="text-2xl font-black text-gray-900 mb-6">Product Description</h3>
-                  <p>{product.description}</p>
+                <div className="space-y-8">
+                  {/* Product Description */}
+                  <div className="prose prose-lg max-w-none text-gray-500 leading-relaxed">
+                    <h3 className="text-2xl font-black text-gray-900 mb-6">Product Description</h3>
+                    <p>{product.description}</p>
+                  </div>
+
+                  {/* Dimensions Section - Length, Width, Height only */}
+                  <div className="bg-gray-50 rounded-3xl p-8">
+                    <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                      <Ruler className="w-6 h-6 text-red-600" />
+                      Product Dimensions
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                      {/* Length */}
+                      <div className="bg-white rounded-2xl p-5 text-center shadow-sm">
+                        <Maximize className="w-8 h-8 text-red-600 mx-auto mb-3" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Length</p>
+                        <p className="text-xl font-black text-gray-900">
+                          {product.length || product.length || 75} cm
+                        </p>
+                      </div>
+                      
+                      {/* Width */}
+                      <div className="bg-white rounded-2xl p-5 text-center shadow-sm">
+                        <Ruler className="w-8 h-8 text-red-600 mx-auto mb-3" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Width</p>
+                        <p className="text-xl font-black text-gray-900">
+                          {product.width || 80} cm
+                        </p>
+                      </div>
+                      
+                      {/* Height */}
+                      <div className="bg-white rounded-2xl p-5 text-center shadow-sm">
+                        <Maximize className="w-8 h-8 text-red-600 mx-auto mb-3 rotate-90" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Height</p>
+                        <p className="text-xl font-black text-gray-900">
+                          {product.height || 85} cm
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Measurement note */}
+                    <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100">
+                      <p className="text-xs text-gray-500 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <span>Measurements are approximate and may vary slightly. Please allow 1-3 cm difference due to manual measurement.</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Features List */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    {['Sustainably Sourced Materials', 'Premium Quality Craftsmanship', 'Ergonomic Design', 'Durable Construction'].map(feat => (
+                      <div key={feat} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
+                        <div className="bg-red-600 p-1 rounded-full"><Check className="text-white w-3 h-3" /></div>
+                        <span className="font-bold text-gray-900">{feat}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
