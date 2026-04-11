@@ -323,6 +323,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
             </div>
 
             <div className="min-h-[400px]">
+              {activeTab === 'description' && (
+                <div className="prose prose-lg max-w-none text-gray-500 leading-relaxed">
+                  <h3 className="text-2xl font-black text-gray-900 mb-6">Product Description</h3>
+                  <p>{product.description}</p>
+                </div>
+              )}
+
               {activeTab === 'reviews' && (
                 <ProductReviews productId={product.id} productName={product.name} />
               )}
