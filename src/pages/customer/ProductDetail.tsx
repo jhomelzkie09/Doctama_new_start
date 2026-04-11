@@ -323,21 +323,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
             </div>
 
             <div className="min-h-[400px]">
-              {activeTab === 'description' && (
-                <div className="prose prose-lg max-w-none text-gray-500 leading-relaxed">
-                  <h3 className="text-2xl font-black text-gray-900 mb-6">Product Description</h3>
-                  <p>{product.description}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-                    {['Sustainably Sourced Materials', 'Premium Quality Craftsmanship', 'Ergonomic Design', 'Durable Construction'].map(feat => (
-                      <div key={feat} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                        <div className="bg-red-600 p-1 rounded-full"><Check className="text-white w-3 h-3" /></div>
-                        <span className="font-bold text-gray-900">{feat}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {activeTab === 'reviews' && (
                 <ProductReviews productId={product.id} productName={product.name} />
               )}
