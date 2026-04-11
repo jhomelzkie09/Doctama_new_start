@@ -26,11 +26,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
   const { addItem } = useCart();
   const { user } = useAuth();
   
-  // Get onAuthRequired from outlet context
   const outletContext = useOutletContext<OutletContextType>();
   const onAuthRequired = outletContext?.onAuthRequired;
   
-  // States
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -39,7 +37,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
   const [addedToCart, setAddedToCart] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showZoom, setShowZoom] = useState(false);
-  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -52,7 +50,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
     }
   }, [product]);
 
-  // Close modal on Escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (isModal && e.key === 'Escape' && onClose) onClose();
@@ -69,7 +66,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
         setSelectedColor(data.colorsVariant[0]);
       }
     } catch (error) {
-      console.error('Failed to load product:', error);
+      // Silent fail - error handled by UI
     } finally {
       setLoading(false);
     }
@@ -83,7 +80,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
         .slice(0, 4);
       setRelatedProducts(related);
     } catch (error) {
-      console.error('Failed to load related products:', error);
+      // Silent fail - no related products shown
     }
   };
 
@@ -96,14 +93,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
     return images.filter(Boolean);
   };
 
-  // Handle Add to Cart with Auth Check
   const handleAddToCart = () => {
-    // If user is not logged in, open the auth sidebar
     if (!user) {
       if (onAuthRequired) {
         onAuthRequired('login');
       } else {
-        console.warn('onAuthRequired not available, falling back to navigation');
         navigate('/login', { state: { from: `/products/${id}` } });
       }
       return;
@@ -117,15 +111,23 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-
   const handleShare = (platform: string) => {
     const url = window.location.href;
     const text = `Check out ${product?.name} at Doctama!`;
     switch (platform) {
-      case 'facebook': window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`); break;
-      case 'twitter': window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`); break;
-      case 'email': window.location.href = `mailto:?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(url)}`; break;
-      case 'copy': navigator.clipboard.writeText(url); alert('Link copied to clipboard!'); break;
+      case 'facebook': 
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`); 
+        break;
+      case 'twitter': 
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`); 
+        break;
+      case 'email': 
+        window.location.href = `mailto:?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(url)}`; 
+        break;
+      case 'copy': 
+        navigator.clipboard.writeText(url); 
+        alert('Link copied to clipboard!');
+        break;
     }
     setShowShareMenu(false);
   };
@@ -312,7 +314,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
           
           <div className="max-w-4xl mx-auto">
             <div className="flex gap-12 border-b border-gray-100 mb-10 overflow-x-auto no-scrollbar">
-              {['description', 'specs', 'reviews'].map((tab) => (
+              {['description', 'reviews'].map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-6 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === tab ? 'text-red-600' : 'text-gray-300 hover:text-gray-600'}`}>
                   {tab} {tab === 'reviews' && '(12)'}
                   {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-1 bg-red-600 rounded-full" />}
@@ -323,10 +325,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
             <div className="min-h-[400px]">
               {activeTab === 'description' && (
                 <div className="prose prose-lg max-w-none text-gray-500 leading-relaxed">
-                  <h3 className="text-2xl font-black text-gray-900 mb-6">Masterful Design & Comfort</h3>
+                  <h3 className="text-2xl font-black text-gray-900 mb-6">Product Description</h3>
                   <p>{product.description}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-                    {['Sustainably Sourced Oak', 'Hypoallergenic Fabric', 'Precision Hand-Stitched', 'Ergonomic Support'].map(feat => (
+                    {['Sustainably Sourced Materials', 'Premium Quality Craftsmanship', 'Ergonomic Design', 'Durable Construction'].map(feat => (
                       <div key={feat} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
                         <div className="bg-red-600 p-1 rounded-full"><Check className="text-white w-3 h-3" /></div>
                         <span className="font-bold text-gray-900">{feat}</span>
@@ -336,46 +338,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
                 </div>
               )}
 
-              <ProductReviews productId={product.id} productName={product.name} />
-
-              {activeTab === 'specs' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-2">
-                  {[
-                    { label: 'Overall Dimensions', value: `${product.height}H x ${product.width}W x ${product.length}L cm` },
-                    { label: 'Primary Material', value: 'Solid Wood & Premium Upholstery' },
-                    { label: 'Net Weight', value: '32.0 kg' },
-                    { label: 'Seating Capacity', value: '1 Person' },
-                    { label: 'Assembly', value: 'Partial Assembly Required' },
-                    { label: 'Country of Origin', value: 'Philippines' }
-                  ].map((spec, i) => (
-                    <div key={i} className="flex justify-between py-5 border-b border-gray-50">
-                      <span className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">{spec.label}</span>
-                      <span className="text-gray-900 font-bold">{spec.value}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               {activeTab === 'reviews' && (
-                <div className="space-y-12">
-                  <div className="flex flex-col md:flex-row items-center gap-12 p-10 bg-gray-50 rounded-[40px]">
-                    <div className="text-center">
-                      <div className="text-7xl font-black text-gray-900">4.5</div>
-                      <div className="flex justify-center my-3">{renderStars(4.5)}</div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">12 Total Reviews</p>
-                    </div>
-                    <div className="flex-1 w-full space-y-4">
-                      {[5,4,3,2,1].map(r => (
-                        <div key={r} className="flex items-center gap-4">
-                          <span className="text-[10px] font-black w-4">{r}★</span>
-                          <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-red-600" style={{ width: `${r === 5 ? 75 : r === 4 ? 15 : 5}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <ProductReviews productId={product.id} productName={product.name} />
               )}
             </div>
           </div>
@@ -383,7 +347,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
           {/* Related Products */}
           {relatedProducts.length > 0 && (
             <div className="mt-32">
-              <h2 className="text-3xl font-black text-gray-900 mb-12">Related Products</h2>
+              <h2 className="text-3xl font-black text-gray-900 mb-12">You May Also Like</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 {relatedProducts.map(p => (
                   <Link to={`/products/${p.id}`} key={p.id} className="group">
