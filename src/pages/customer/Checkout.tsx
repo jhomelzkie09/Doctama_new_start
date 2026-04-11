@@ -1195,12 +1195,44 @@ const Checkout = () => {
                         paymentMethod === 'gcash' ? 'bg-blue-100' : 'bg-purple-100'
                       }`}>
                         {paymentMethod === 'cod' && <DollarSign className="w-6 h-6 text-green-600" />}
-                        {paymentMethod === 'gcash' && <Smartphone className="w-6 h-6 text-blue-600" />}
-                        {paymentMethod === 'paymaya' && <Wallet className="w-6 h-6 text-purple-600" />}
+                        {paymentMethod === 'gcash' && (
+                          <img 
+                            src={gcash_logo} 
+                            alt="GCash" 
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent) {
+                                const fallback = document.createElement('div');
+                                fallback.className = 'w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center';
+                                fallback.innerHTML = '<span class="text-white text-xs font-bold">G</span>';
+                                parent.appendChild(fallback);
+                              }
+                            }}
+                          />
+                        )}
+                        {paymentMethod === 'paymaya' && (
+                          <img 
+                            src={paymaya_logo} 
+                            alt="PayMaya" 
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent) {
+                                const fallback = document.createElement('div');
+                                fallback.className = 'w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center';
+                                fallback.innerHTML = '<span class="text-white text-xs font-bold">P</span>';
+                                parent.appendChild(fallback);
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                       <span className="font-medium text-gray-900">
                         {paymentMethod === 'cod' ? 'Cash on Delivery' : 
-                         paymentMethod === 'gcash' ? 'GCash' : 'PayMaya'}
+                        paymentMethod === 'gcash' ? 'GCash' : 'PayMaya'}
                       </span>
                     </div>
 
