@@ -3,55 +3,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import userService from '../../services/user.service';
 import orderService from '../../services/order.service';
-import { 
-  Users, 
-  Search, 
-  Filter, 
-  Download, 
-  RefreshCw,
-  Eye,
-  Edit,
-  Trash2,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  ShoppingBag,
-  DollarSign,
-  Star,
-  AlertCircle,
-  Loader,
-  ChevronLeft,
-  ChevronRight,
-  MoreVertical,
-  UserPlus,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  TrendingDown,
-  Shield,
-  UserCheck,
-  UserX,
-  ArrowUpDown,
-  DownloadCloud,
-  MailPlus,
-  Settings,
-  Home,
-  Package,
-  CreditCard,
-  Award,
-  Clock,
-  BarChart3,
-  Activity,
-  Zap,
-  Crown,
-  Heart,
-  Gift,
-  Sparkles
+import {
+  Users, Search, Download, RefreshCw, Eye, Edit, Trash2,
+  Phone, Calendar, DollarSign, Star, AlertCircle,
+  ChevronLeft, ChevronRight, UserPlus, CheckCircle, XCircle,
+  TrendingUp, Shield, ArrowUpDown, DownloadCloud, Clock,
+  Activity, Crown, Heart, Sparkles, Award, Filter, ChevronDown,
+  MoreHorizontal, Mail, X
 } from 'lucide-react';
 import { User, Order, OrderStatus } from '../../types';
 
-// Extended types for customer management
 interface CustomerWithStats extends User {
   stats: {
     totalOrders: number;
@@ -97,960 +58,558 @@ interface QuickStats {
   conversionRate: number;
 }
 
+// Tier config
+const getTier = (spent: number) => {
+  if (spent >= 50000) return { name: 'Diamond', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', icon: Crown };
+  if (spent >= 25000) return { name: 'Platinum', color: '#818cf8', bg: 'rgba(129,140,248,0.12)', icon: Award };
+  if (spent >= 10000) return { name: 'Gold', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Star };
+  if (spent >= 5000) return { name: 'Silver', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', icon: Heart };
+  return { name: 'Bronze', color: '#fb923c', bg: 'rgba(251,146,60,0.12)', icon: Sparkles };
+};
+
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+const Avatar = ({ customer }: { customer: CustomerWithStats }) => {
+  const colors = ['#6366f1','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#10b981','#3b82f6'];
+  const idx = (customer.email?.charCodeAt(0) || 0) % colors.length;
+  const initial = (customer.fullName || customer.email || '?').charAt(0).toUpperCase();
+  return (
+    <div style={{
+      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+      background: `${colors[idx]}22`, border: `1.5px solid ${colors[idx]}44`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 14, fontWeight: 600, color: colors[idx], fontFamily: "'DM Mono', monospace",
+      position: 'relative'
+    }}>
+      {customer.profileImage
+        ? <img src={customer.profileImage} alt={customer.fullName}
+            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+        : initial}
+      {customer.isActive && (
+        <span style={{
+          position: 'absolute', bottom: 0, right: 0,
+          width: 8, height: 8, background: '#22c55e',
+          borderRadius: '50%', border: '2px solid var(--surface)'
+        }} />
+      )}
+    </div>
+  );
+};
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+const StatCard = ({ label, value, sub, accent, trend }: {
+  label: string; value: string; sub?: string; accent: string; trend?: string;
+}) => (
+  <div style={{
+    background: 'var(--card-bg)', border: '1px solid var(--border)',
+    borderRadius: 16, padding: '20px 24px',
+    borderLeft: `3px solid ${accent}`,
+    transition: 'box-shadow 0.2s',
+  }}
+    onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.07)')}
+    onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+  >
+    <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 8px' }}>{label}</p>
+    <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em' }}>{value}</p>
+    {sub && <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{sub}</p>}
+    {trend && (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 11, fontWeight: 600, color: '#22c55e', background: '#22c55e18', padding: '2px 8px', borderRadius: 20 }}>
+        <TrendingUp size={10} /> {trend}
+      </span>
+    )}
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const CustomerManagement = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if not admin
-  useEffect(() => {
-    if (!isAdmin) {
-      navigate('/');
-    }
-  }, [isAdmin, navigate]);
+  useEffect(() => { if (!isAdmin) navigate('/'); }, [isAdmin, navigate]);
 
-  // State management
   const [customers, setCustomers] = useState<CustomerWithStats[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Filters state
-  const [filters, setFilters] = useState<CustomerFilters>({
-    search: '',
-    status: 'all',
-    verified: 'all',
-    dateRange: 'all',
-    sortBy: 'joined',
-    sortOrder: 'desc',
-    page: 1,
-    limit: 10
-  });
-
-  // Pagination state
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 10,
-    hasNext: false,
-    hasPrevious: false
-  });
-
-  // Quick stats
-  const [quickStats, setQuickStats] = useState<QuickStats>({
-    totalCustomers: 0,
-    activeCustomers: 0,
-    newCustomersToday: 0,
-    totalRevenue: 0,
-    averageOrderValue: 0,
-    verifiedRate: 0,
-    conversionRate: 0
-  });
-
-  // UI state
-  const [showFilters, setShowFilters] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithStats | null>(null);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch customers with stats
+  const [filters, setFilters] = useState<CustomerFilters>({
+    search: '', status: 'all', verified: 'all', dateRange: 'all',
+    sortBy: 'joined', sortOrder: 'desc', page: 1, limit: 10
+  });
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10, hasNext: false, hasPrevious: false
+  });
+  const [quickStats, setQuickStats] = useState<QuickStats>({
+    totalCustomers: 0, activeCustomers: 0, newCustomersToday: 0,
+    totalRevenue: 0, averageOrderValue: 0, verifiedRate: 0, conversionRate: 0
+  });
+
   const fetchCustomers = useCallback(async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
-      console.log('📊 Fetching customers...');
-      
       const users = await userService.getAllUsers() as User[];
-      console.log('📋 All users from API:', users.map(u => ({ 
-        email: u.email, 
-        roles: u.roles,
-        fullName: u.fullName 
-      })));
-
-      // Filter only users with 'user' role (customers)
-      const customersOnly = users.filter(user => {
-        if (Array.isArray(user.roles)) {
-          return user.roles.some(role => 
-            role.toLowerCase() === 'user' || 
-            role.toLowerCase() === 'customer'
-          );
-        }
-        if (typeof user.roles === 'string') {
-          const roleStr = user.roles.toLowerCase();
-          return roleStr === 'user' || roleStr === 'customer';
-        }
+      let customersOnly = users.filter(u => {
+        if (Array.isArray(u.roles)) return u.roles.some(r => ['user','customer'].includes(r.toLowerCase()));
+        if (typeof u.roles === 'string') return ['user','customer'].includes(u.roles.toLowerCase());
         return false;
       });
-
-      console.log(`📊 Found ${customersOnly.length} customers out of ${users.length} total users`);
-
-      if (customersOnly.length === 0) {
-        console.log('⚠️ No users with customer role found, showing all non-admin users');
-        const nonAdminUsers = users.filter(user => {
-          if (Array.isArray(user.roles)) {
-            return !user.roles.some(role => 
-              role.toLowerCase() === 'admin' || 
-              role.toLowerCase() === 'administrator'
-            );
-          }
-          if (typeof user.roles === 'string') {
-            const roleStr = user.roles.toLowerCase();
-            return roleStr !== 'admin' && roleStr !== 'administrator';
-          }
+      if (!customersOnly.length) {
+        customersOnly = users.filter(u => {
+          if (Array.isArray(u.roles)) return !u.roles.some(r => ['admin','administrator'].includes(r.toLowerCase()));
+          if (typeof u.roles === 'string') return !['admin','administrator'].includes(u.roles.toLowerCase());
           return true;
         });
-        
-        console.log(`📊 Showing ${nonAdminUsers.length} non-admin users as customers`);
-        customersOnly.push(...nonAdminUsers);
       }
-      
-      // Fetch all orders
       let allOrders: Order[] = [];
-      try {
-        allOrders = await orderService.getAllOrders();
-      } catch (err) {
-        console.warn('⚠️ Could not fetch orders:', err);
-      }
-      
-      // Process and enhance customer data with stats
-      const customersWithStats = await Promise.all(
-        customersOnly.map(async (customer) => {
-          try {
-            const customerOrders = allOrders.filter(order => order.userId === customer.id);
-            
-            const totalOrders = customerOrders.length;
-            const totalSpent = customerOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-            const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
-            
-            const cancelledOrders = customerOrders.filter(order => 
-              order.status === 'cancelled'
-            ).length;
-            
-            const recentOrders = customerOrders
-              .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-              .slice(0, 5);
-            
-            const addressParts = [
-              customer.address,
-              customer.city,
-              customer.state,
-              customer.zipCode,
-              customer.country
-            ].filter(Boolean);
-            const addressSummary = addressParts.length > 0 
-              ? addressParts.slice(0, 2).join(', ') + (addressParts.length > 2 ? '...' : '')
-              : undefined;
-            
-            return {
-              ...customer,
-              stats: {
-                totalOrders,
-                totalSpent,
-                averageOrderValue,
-                lastOrderDate: recentOrders[0]?.orderDate,
-                favoriteCategory: 'Living Room',
-                reviewCount: 0,
-                returnCount: 0,
-                cancellationCount: cancelledOrders
-              },
-              recentOrders,
-              addressSummary
-            };
-          } catch (err) {
-            console.warn(`⚠️ Error processing customer ${customer.id}:`, err);
-            return {
-              ...customer,
-              stats: {
-                totalOrders: 0,
-                totalSpent: 0,
-                averageOrderValue: 0,
-                reviewCount: 0,
-                returnCount: 0,
-                cancellationCount: 0
-              },
-              recentOrders: []
-            };
-          }
-        })
-      );
+      try { allOrders = await orderService.getAllOrders(); } catch {}
 
-      let filteredCustomers = customersWithStats;
+      const withStats = await Promise.all(customersOnly.map(async c => {
+        const orders = allOrders.filter(o => o.userId === c.id);
+        const totalOrders = orders.length;
+        const totalSpent = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+        const recentOrders = [...orders].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()).slice(0, 5);
+        const addrParts = [c.address, c.city, c.state].filter(Boolean);
+        return {
+          ...c,
+          stats: {
+            totalOrders, totalSpent,
+            averageOrderValue: totalOrders ? totalSpent / totalOrders : 0,
+            lastOrderDate: recentOrders[0]?.orderDate,
+            favoriteCategory: 'Living Room',
+            reviewCount: 0, returnCount: 0,
+            cancellationCount: orders.filter(o => o.status === 'cancelled').length
+          },
+          recentOrders,
+          addressSummary: addrParts.slice(0, 2).join(', ') || undefined
+        };
+      }));
 
+      let filtered = [...withStats];
       if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        filteredCustomers = filteredCustomers.filter(c => 
-          c.fullName?.toLowerCase().includes(searchLower) ||
-          c.email?.toLowerCase().includes(searchLower) ||
+        const q = filters.search.toLowerCase();
+        filtered = filtered.filter(c =>
+          c.fullName?.toLowerCase().includes(q) ||
+          c.email?.toLowerCase().includes(q) ||
           c.phoneNumber?.includes(filters.search)
         );
       }
-
-      if (filters.status !== 'all') {
-        filteredCustomers = filteredCustomers.filter(c => 
-          filters.status === 'active' ? c.isActive : !c.isActive
-        );
-      }
-
-      if (filters.verified !== 'all') {
-        filteredCustomers = filteredCustomers.filter(c => 
-          filters.verified === 'verified' ? c.emailConfirmed : !c.emailConfirmed
-        );
-      }
-
+      if (filters.status !== 'all') filtered = filtered.filter(c => filters.status === 'active' ? c.isActive : !c.isActive);
+      if (filters.verified !== 'all') filtered = filtered.filter(c => filters.verified === 'verified' ? c.emailConfirmed : !c.emailConfirmed);
       if (filters.dateRange !== 'all') {
-        const now = new Date();
         const cutoff = new Date();
-        switch (filters.dateRange) {
-          case 'today':
-            cutoff.setHours(0, 0, 0, 0);
-            break;
-          case 'week':
-            cutoff.setDate(now.getDate() - 7);
-            break;
-          case 'month':
-            cutoff.setMonth(now.getMonth() - 1);
-            break;
-          case 'year':
-            cutoff.setFullYear(now.getFullYear() - 1);
-            break;
-        }
-        filteredCustomers = filteredCustomers.filter(c => 
-          new Date(c.createdAt) >= cutoff
-        );
+        if (filters.dateRange === 'today') cutoff.setHours(0,0,0,0);
+        else if (filters.dateRange === 'week') cutoff.setDate(cutoff.getDate() - 7);
+        else if (filters.dateRange === 'month') cutoff.setMonth(cutoff.getMonth() - 1);
+        else cutoff.setFullYear(cutoff.getFullYear() - 1);
+        filtered = filtered.filter(c => new Date(c.createdAt) >= cutoff);
       }
-
-      filteredCustomers.sort((a, b) => {
-        let comparison = 0;
-        switch (filters.sortBy) {
-          case 'name':
-            comparison = (a.fullName || '').localeCompare(b.fullName || '');
-            break;
-          case 'email':
-            comparison = (a.email || '').localeCompare(b.email || '');
-            break;
-          case 'orders':
-            comparison = (a.stats?.totalOrders || 0) - (b.stats?.totalOrders || 0);
-            break;
-          case 'spent':
-            comparison = (a.stats?.totalSpent || 0) - (b.stats?.totalSpent || 0);
-            break;
-          case 'joined':
-            comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            break;
-        }
-        return filters.sortOrder === 'asc' ? comparison : -comparison;
+      filtered.sort((a, b) => {
+        let cmp = 0;
+        if (filters.sortBy === 'name') cmp = (a.fullName||'').localeCompare(b.fullName||'');
+        else if (filters.sortBy === 'email') cmp = a.email.localeCompare(b.email);
+        else if (filters.sortBy === 'orders') cmp = (a.stats.totalOrders) - (b.stats.totalOrders);
+        else if (filters.sortBy === 'spent') cmp = a.stats.totalSpent - b.stats.totalSpent;
+        else cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        return filters.sortOrder === 'asc' ? cmp : -cmp;
       });
 
-      const totalCustomers = filteredCustomers.length;
-      const activeCustomers = filteredCustomers.filter(c => c.isActive).length;
-      const verifiedCustomers = filteredCustomers.filter(c => c.emailConfirmed).length;
-      
-      const newCustomersToday = filteredCustomers.filter(c => {
-        const today = new Date().toDateString();
-        return new Date(c.createdAt).toDateString() === today;
-      }).length;
-      
-      const totalRevenue = filteredCustomers.reduce((sum, c) => sum + (c.stats?.totalSpent || 0), 0);
-      
-      const usersWithOrders = filteredCustomers.filter(c => (c.stats?.totalOrders || 0) > 0).length;
-      const conversionRate = totalCustomers > 0 ? (usersWithOrders / totalCustomers) * 100 : 0;
-
+      const total = filtered.length;
+      const active = filtered.filter(c => c.isActive).length;
+      const verified = filtered.filter(c => c.emailConfirmed).length;
+      const today = new Date().toDateString();
+      const newToday = filtered.filter(c => new Date(c.createdAt).toDateString() === today).length;
+      const revenue = filtered.reduce((s, c) => s + c.stats.totalSpent, 0);
+      const withOrders = filtered.filter(c => c.stats.totalOrders > 0).length;
       setQuickStats({
-        totalCustomers,
-        activeCustomers,
-        newCustomersToday,
-        totalRevenue,
-        averageOrderValue: totalCustomers > 0 ? totalRevenue / totalCustomers : 0,
-        verifiedRate: totalCustomers > 0 ? (verifiedCustomers / totalCustomers) * 100 : 0,
-        conversionRate
+        totalCustomers: total, activeCustomers: active, newCustomersToday: newToday,
+        totalRevenue: revenue, averageOrderValue: total ? revenue / total : 0,
+        verifiedRate: total ? (verified / total) * 100 : 0,
+        conversionRate: total ? (withOrders / total) * 100 : 0
       });
 
       const start = (filters.page - 1) * filters.limit;
       const end = start + filters.limit;
-      const paginatedCustomers = filteredCustomers.slice(start, end);
-
       setPagination({
-        currentPage: filters.page,
-        totalPages: Math.ceil(filteredCustomers.length / filters.limit),
-        totalItems: filteredCustomers.length,
-        itemsPerPage: filters.limit,
-        hasNext: end < filteredCustomers.length,
-        hasPrevious: start > 0
+        currentPage: filters.page, totalPages: Math.ceil(total / filters.limit),
+        totalItems: total, itemsPerPage: filters.limit,
+        hasNext: end < total, hasPrevious: start > 0
       });
-
-      setCustomers(paginatedCustomers);
-      
-    } catch (err: any) {
-      console.error('❌ Error fetching customers:', err);
-      setError(err.message || 'Failed to load customers');
+      setCustomers(filtered.slice(start, end));
+    } catch (e: any) {
+      setError(e.message || 'Failed to load customers');
     } finally {
       setLoading(false);
     }
   }, [filters]);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers]);
+  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
-  const handleFilterChange = (key: keyof CustomerFilters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      page: 1
-    }));
-  };
+  const handleFilterChange = (key: keyof CustomerFilters, value: any) =>
+    setFilters(p => ({ ...p, [key]: value, page: 1 }));
 
-  const handleSort = (column: CustomerFilters['sortBy']) => {
-    setFilters(prev => ({
-      ...prev,
-      sortBy: column,
-      sortOrder: prev.sortBy === column && prev.sortOrder === 'asc' ? 'desc' : 'asc',
-      page: 1
-    }));
-  };
+  const handleSort = (col: CustomerFilters['sortBy']) =>
+    setFilters(p => ({ ...p, sortBy: col, sortOrder: p.sortBy === col && p.sortOrder === 'asc' ? 'desc' : 'asc', page: 1 }));
 
-  const handlePageChange = (newPage: number) => {
-    setFilters(prev => ({
-      ...prev,
-      page: newPage
-    }));
-  };
-
-  const handleSelectCustomer = (customerId: string) => {
-    setSelectedCustomers(prev => {
-      if (prev.includes(customerId)) {
-        return prev.filter(id => id !== customerId);
-      } else {
-        return [...prev, customerId];
-      }
-    });
-  };
+  const handleSelectCustomer = (id: string) =>
+    setSelectedCustomers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
   const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedCustomers([]);
-    } else {
-      setSelectedCustomers(customers.map(c => c.id));
-    }
     setSelectAll(!selectAll);
+    setSelectedCustomers(selectAll ? [] : customers.map(c => c.id));
   };
 
   const handleBulkAction = async (action: 'activate' | 'deactivate' | 'email') => {
-    if (selectedCustomers.length === 0) {
-      setError('Please select at least one customer');
-      return;
-    }
-
+    if (!selectedCustomers.length) { setError('Select at least one customer'); return; }
     setLoading(true);
     try {
-      switch (action) {
-        case 'activate':
-          await Promise.all(selectedCustomers.map(id => 
-            userService.toggleUserStatus(id, true)
-          ));
-          setSuccess(`Activated ${selectedCustomers.length} customer${selectedCustomers.length !== 1 ? 's' : ''}`);
-          break;
-        case 'deactivate':
-          await Promise.all(selectedCustomers.map(id => 
-            userService.toggleUserStatus(id, false)
-          ));
-          setSuccess(`Deactivated ${selectedCustomers.length} customer${selectedCustomers.length !== 1 ? 's' : ''}`);
-          break;
-        case 'email':
-          navigate('/admin/email/compose', { 
-            state: { 
-              recipients: selectedCustomers,
-              type: 'bulk'
-            } 
-          });
-          return;
+      if (action === 'activate') {
+        await Promise.all(selectedCustomers.map(id => userService.toggleUserStatus(id, true)));
+        setSuccess(`Activated ${selectedCustomers.length} customer(s)`);
+      } else if (action === 'deactivate') {
+        await Promise.all(selectedCustomers.map(id => userService.toggleUserStatus(id, false)));
+        setSuccess(`Deactivated ${selectedCustomers.length} customer(s)`);
+      } else {
+        navigate('/admin/email/compose', { state: { recipients: selectedCustomers, type: 'bulk' } });
+        return;
       }
-      
-      setSelectedCustomers([]);
-      setSelectAll(false);
-      fetchCustomers();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      setSelectedCustomers([]); setSelectAll(false); fetchCustomers();
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
   };
 
   const handleExport = async () => {
     try {
-      setLoading(true);
-      
-      const dataToExport = selectedCustomers.length > 0 
-        ? customers.filter(c => selectedCustomers.includes(c.id))
-        : customers;
-      
-      const headers = ['Name', 'Email', 'Phone', 'Status', 'Verified', 'Total Orders', 'Total Spent', 'Joined', 'Last Login'];
-      const csvData = dataToExport.map(c => [
-        c.fullName || '',
-        c.email,
-        c.phoneNumber || '',
-        c.isActive ? 'Active' : 'Inactive',
-        c.emailConfirmed ? 'Yes' : 'No',
-        c.stats?.totalOrders || 0,
-        c.stats?.totalSpent || 0,
-        new Date(c.createdAt).toLocaleDateString(),
-        c.lastLogin ? new Date(c.lastLogin).toLocaleDateString() : 'Never'
+      const data = selectedCustomers.length ? customers.filter(c => selectedCustomers.includes(c.id)) : customers;
+      const headers = ['Name','Email','Phone','Status','Verified','Total Orders','Total Spent','Joined'];
+      const rows = data.map(c => [
+        c.fullName||'', c.email, c.phoneNumber||'',
+        c.isActive?'Active':'Inactive', c.emailConfirmed?'Yes':'No',
+        c.stats.totalOrders, c.stats.totalSpent,
+        new Date(c.createdAt).toLocaleDateString()
       ]);
-      
-      const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
       const a = document.createElement('a');
-      a.href = url;
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
       a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
-      
-      setSuccess(`Exported ${dataToExport.length} customer${dataToExport.length !== 1 ? 's' : ''} successfully`);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      setSuccess(`Exported ${data.length} customer(s)`);
+    } catch (e: any) { setError(e.message); }
   };
 
   const handleDeleteCustomer = async () => {
     if (!selectedCustomer) return;
-    
     setLoading(true);
     try {
       await userService.deleteUser(selectedCustomer.id);
-      setSuccess('Customer deleted successfully');
-      setShowDeleteModal(false);
-      setSelectedCustomer(null);
-      fetchCustomers();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      setSuccess('Customer deleted'); setShowDeleteModal(false); setSelectedCustomer(null); fetchCustomers();
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  // ── CSS vars injected once ──
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+    :root {
+      --bg: #f8f7f5;
+      --surface: #ffffff;
+      --card-bg: #ffffff;
+      --border: #e8e5e0;
+      --border-strong: #d0cdc8;
+      --text: #1a1916;
+      --muted: #78746c;
+      --accent: #5b47e0;
+      --accent-hover: #4836c8;
     }
-  };
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110;
+        --surface: #1c1b19;
+        --card-bg: #1c1b19;
+        --border: #2e2c28;
+        --border-strong: #3d3a34;
+        --text: #f0ede8;
+        --muted: #8a8680;
+        --accent: #7c6ff7;
+        --accent-hover: #9389f9;
+      }
+    }
+    .cm-root * { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
+    .cm-root { background: var(--bg); min-height: 100vh; padding: 40px 40px; }
+    .cm-btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 10px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+    .cm-btn-ghost:hover { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+    .cm-btn-primary { background: var(--accent); border: none; color: #fff; border-radius: 10px; padding: 9px 18px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; transition: all 0.15s; }
+    .cm-btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .cm-input { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 13px; color: var(--text); outline: none; transition: border 0.15s; width: 100%; }
+    .cm-input:focus { border-color: var(--accent); }
+    .cm-select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 13px; color: var(--text); outline: none; cursor: pointer; appearance: none; }
+    .cm-select:focus { border-color: var(--accent); }
+    .cm-row { transition: background 0.12s; }
+    .cm-row:hover { background: var(--bg); }
+    .cm-check { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .cm-page-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .cm-page-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+    .cm-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .cm-page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .cm-sort-btn { background: none; border: none; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 0; }
+    .cm-sort-btn:hover { color: var(--text); }
+    .cm-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .cm-action-btn { background: transparent; border: none; padding: 7px; border-radius: 8px; cursor: pointer; color: var(--muted); transition: all 0.15s; display: flex; }
+    .cm-action-btn:hover { background: var(--bg); color: var(--text); }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  `;
 
-  const getStatusColor = (status: boolean) => {
-    return status 
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : 'bg-gray-50 text-gray-500 border-gray-200';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getCustomerTier = (totalSpent: number) => {
-    if (totalSpent >= 50000) return { name: 'Diamond', color: 'text-purple-600', bg: 'bg-purple-100', icon: Crown };
-    if (totalSpent >= 25000) return { name: 'Platinum', color: 'text-indigo-600', bg: 'bg-indigo-100', icon: Award };
-    if (totalSpent >= 10000) return { name: 'Gold', color: 'text-amber-600', bg: 'bg-amber-100', icon: Star };
-    if (totalSpent >= 5000) return { name: 'Silver', color: 'text-gray-500', bg: 'bg-gray-100', icon: Heart };
-    return { name: 'Bronze', color: 'text-orange-600', bg: 'bg-orange-100', icon: Sparkles };
-  };
-
-  if (loading && customers.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Users className="w-6 h-6 text-indigo-600" />
-          </div>
-        </div>
-        <p className="mt-4 text-sm text-gray-500">Loading customer data...</p>
-      </div>
-    );
-  }
+  if (loading && !customers.length) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #e8e5e0', borderTopColor: '#5b47e0', animation: 'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <p style={{ marginTop: 16, fontSize: 13, color: '#78746c' }}>Loading customers…</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
-      </div>
+    <>
+      <style>{css}</style>
+      <div className="cm-root">
 
-      <div className="relative z-10 p-6 md:p-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  Customer Management
-                </h1>
-              </div>
-              <p className="text-gray-500 ml-12">
-                Manage your customers, track their activity, and build lasting relationships
-              </p>
-            </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => navigate('/admin/customers/new')}
-                className="group relative px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5"
-              >
-                <div className="flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                  <span className="font-medium">Add Customer</span>
-                </div>
-              </button>
-              
-              <button
-                onClick={handleExport}
-                className="px-5 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <DownloadCloud className="w-4 h-4 text-gray-600" />
-                  <span className="font-medium text-gray-700">Export</span>
-                </div>
-              </button>
-              
-              <button
-                onClick={fetchCustomers}
-                disabled={loading}
-                className="px-5 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 36, flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 600, color: 'var(--text)', margin: '0 0 5px', letterSpacing: '-0.02em' }}>Customers</h1>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+              {quickStats.totalCustomers.toLocaleString()} total · {quickStats.activeCustomers} active · {quickStats.newCustomersToday} joined today
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="cm-btn-ghost" onClick={handleExport}><DownloadCloud size={14} /> Export</button>
+            <button className="cm-btn-ghost" onClick={fetchCustomers} disabled={loading}>
+              <RefreshCw size={14} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
+            </button>
+            <button className="cm-btn-primary" onClick={() => navigate('/admin/customers/new')}>
+              <UserPlus size={14} /> Add customer
+            </button>
           </div>
         </div>
 
-        {/* Quick Stats Grid - Enhanced */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          <div className="group bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-full">
-                <TrendingUp className="w-3 h-3 text-emerald-600" />
-                <span className="text-xs font-medium text-emerald-600">+12%</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mb-1">Total Customers</p>
-            <p className="text-2xl font-bold text-gray-900">{quickStats.totalCustomers}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(quickStats.activeCustomers / quickStats.totalCustomers) * 100}%` }}></div>
-              </div>
-              <span className="text-xs text-gray-400">{quickStats.activeCustomers} active</span>
-            </div>
-          </div>
-
-          <div className="group bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-md">
-                <DollarSign className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-full">
-                <Zap className="w-3 h-3 text-emerald-600" />
-                <span className="text-xs font-medium text-emerald-600">LTV: ${quickStats.averageOrderValue.toFixed(0)}</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mb-1">Total Revenue</p>
-            <p className="text-2xl font-bold text-gray-900">${quickStats.totalRevenue.toLocaleString()}</p>
-            <p className="text-xs text-gray-400 mt-2">From {quickStats.totalCustomers} customers</p>
-          </div>
-
-          <div className="group bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-md">
-                <Activity className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 rounded-full">
-                <Clock className="w-3 h-3 text-purple-600" />
-                <span className="text-xs font-medium text-purple-600">+{quickStats.newCustomersToday} today</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mb-1">Conversion Rate</p>
-            <p className="text-2xl font-bold text-gray-900">{quickStats.conversionRate.toFixed(1)}%</p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-purple-500 rounded-full" style={{ width: `${quickStats.conversionRate}%` }}></div>
-              </div>
-              <span className="text-xs text-gray-400">of customers buy</span>
-            </div>
-          </div>
-
-          <div className="group bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-md">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-full">
-                <CheckCircle className="w-3 h-3 text-emerald-600" />
-                <span className="text-xs font-medium text-emerald-600">Verified</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mb-1">Verified Rate</p>
-            <p className="text-2xl font-bold text-gray-900">{quickStats.verifiedRate.toFixed(1)}%</p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${quickStats.verifiedRate}%` }}></div>
-              </div>
-              <span className="text-xs text-gray-400">email confirmed</span>
-            </div>
-          </div>
+        {/* ── Stats ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+          <StatCard label="Total Revenue" value={formatCurrency(quickStats.totalRevenue)}
+            sub={`${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#5b47e0" trend="+12% this month" />
+          <StatCard label="Conversion Rate" value={`${quickStats.conversionRate.toFixed(1)}%`}
+            sub="visitors who purchased" accent="#0ea5e9" />
+          <StatCard label="Verified Rate" value={`${quickStats.verifiedRate.toFixed(1)}%`}
+            sub="email confirmed" accent="#22c55e" />
+          <StatCard label="Active Today" value={String(quickStats.newCustomersToday)}
+            sub="new signups" accent="#f59e0b" />
         </div>
 
-        {/* Filters Bar - Enhanced */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or phone..."
+        {/* ── Filters ── */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+              <input className="cm-input" style={{ paddingLeft: 34 }}
+                placeholder="Search name, email, phone…"
                 value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
+                onChange={e => handleFilterChange('search', e.target.value)} />
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-              >
-                <option value="all">All Status</option>
+            <div style={{ position: 'relative' }}>
+              <select className="cm-select" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} style={{ paddingRight: 28 }}>
+                <option value="all">All status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-
-              <select
-                value={filters.verified}
-                onChange={(e) => handleFilterChange('verified', e.target.value)}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-              >
-                <option value="all">All Verification</option>
+              <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+            </div>
+            <div style={{ position: 'relative' }}>
+              <select className="cm-select" value={filters.verified} onChange={e => handleFilterChange('verified', e.target.value)} style={{ paddingRight: 28 }}>
+                <option value="all">All verification</option>
                 <option value="verified">Verified</option>
                 <option value="unverified">Unverified</option>
               </select>
-
-              <select
-                value={filters.dateRange}
-                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">Last 7 Days</option>
-                <option value="month">Last 30 Days</option>
-                <option value="year">Last Year</option>
-              </select>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2.5 border rounded-xl flex items-center gap-2 transition-all ${
-                  showFilters 
-                    ? 'bg-indigo-50 border-indigo-300 text-indigo-600' 
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="text-sm">Filters</span>
-              </button>
+              <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
             </div>
+            <div style={{ position: 'relative' }}>
+              <select className="cm-select" value={filters.dateRange} onChange={e => handleFilterChange('dateRange', e.target.value)} style={{ paddingRight: 28 }}>
+                <option value="all">All time</option>
+                <option value="today">Today</option>
+                <option value="week">Last 7 days</option>
+                <option value="month">Last 30 days</option>
+                <option value="year">Last year</option>
+              </select>
+              <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+            </div>
+            <button className="cm-btn-ghost" onClick={() => setShowFilters(!showFilters)} style={{ borderColor: showFilters ? 'var(--accent)' : 'var(--border)', color: showFilters ? 'var(--accent)' : 'var(--muted)' }}>
+              <Filter size={13} /> More
+            </button>
           </div>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4 animate-slideDown">
+            <div className="fade-in" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                <input
-                  type="text"
-                  placeholder="City, State, or Country"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Location</label>
+                <input className="cm-input" placeholder="City, State…" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Min. Orders</label>
-                <input
-                  type="number"
-                  placeholder="Minimum number of orders"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Min. Orders</label>
+                <input className="cm-input" type="number" placeholder="0" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Min. Spent</label>
-                <input
-                  type="number"
-                  placeholder="Minimum amount spent"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Min. Spent</label>
+                <input className="cm-input" type="number" placeholder="$0" />
               </div>
             </div>
           )}
         </div>
 
-        {/* Bulk Actions Bar */}
+        {/* ── Bulk Actions ── */}
         {selectedCustomers.length > 0 && (
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4 mb-6 flex items-center justify-between animate-slideDown">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-indigo-600" />
-              </div>
-              <span className="text-sm font-medium text-indigo-700">
-                {selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''} selected
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleBulkAction('activate')}
-                className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors"
-              >
-                Activate
-              </button>
-              <button
-                onClick={() => handleBulkAction('deactivate')}
-                className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors"
-              >
-                Deactivate
-              </button>
-              <button
-                onClick={() => handleBulkAction('email')}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Send Email
-              </button>
-              <button
-                onClick={() => setSelectedCustomers([])}
-                className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Clear
-              </button>
+          <div className="fade-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{selectedCustomers.length} selected</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="cm-btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => handleBulkAction('activate')}>Activate</button>
+              <button className="cm-btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => handleBulkAction('deactivate')}>Deactivate</button>
+              <button className="cm-btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => handleBulkAction('email')}><Mail size={12} /> Email</button>
+              <button className="cm-btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => { setSelectedCustomers([]); setSelectAll(false); }}><X size={12} /></button>
             </div>
           </div>
         )}
 
-        {/* Error/Success Messages */}
+        {/* ── Alerts ── */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-slideDown">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-red-700 text-sm">{error}</p>
+          <div className="fade-in" style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertCircle size={15} color="#ef4444" />
+            <span style={{ fontSize: 13, color: '#dc2626' }}>{error}</span>
+            <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }} onClick={() => setError('')}><X size={13} /></button>
           </div>
         )}
-        
         {success && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 animate-slideDown">
-            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-            <p className="text-emerald-700 text-sm">{success}</p>
+          <div className="fade-in" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CheckCircle size={15} color="#22c55e" />
+            <span style={{ fontSize: 13, color: '#16a34a' }}>{success}</span>
+            <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e' }} onClick={() => setSuccess('')}><X size={13} /></button>
           </div>
         )}
 
-        {/* Customers Table - Enhanced */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        {/* ── Table ── */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                  <th className="px-6 py-4 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                  </th>
-                  <th className="px-6 py-4 text-left">
-                    <button 
-                      onClick={() => handleSort('name')}
-                      className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
-                    >
-                      Customer
-                      {filters.sortBy === 'name' && (
-                        <ArrowUpDown className={`w-3 h-3 transition-transform ${filters.sortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-4 text-left">
-                    <button 
-                      onClick={() => handleSort('orders')}
-                      className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
-                    >
-                      Orders
-                      {filters.sortBy === 'orders' && (
-                        <ArrowUpDown className={`w-3 h-3 transition-transform ${filters.sortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-4 text-left">
-                    <button 
-                      onClick={() => handleSort('spent')}
-                      className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
-                    >
-                      Total Spent
-                      {filters.sortBy === 'spent' && (
-                        <ArrowUpDown className={`w-3 h-3 transition-transform ${filters.sortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-4 text-left">
-                    <button 
-                      onClick={() => handleSort('joined')}
-                      className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
-                    >
-                      Joined
-                      {filters.sortBy === 'joined' && (
-                        <ArrowUpDown className={`w-3 h-3 transition-transform ${filters.sortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Tier
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  {[
+                    { w: 48, content: <input type="checkbox" className="cm-check" checked={selectAll} onChange={handleSelectAll} /> },
+                    { w: 220, content: <button className="cm-sort-btn" onClick={() => handleSort('name')}>Customer {filters.sortBy === 'name' && <ArrowUpDown size={10} />}</button> },
+                    { w: 200, content: <span className="cm-sort-btn" style={{ cursor: 'default' }}>Contact</span> },
+                    { w: 100, content: <button className="cm-sort-btn" onClick={() => handleSort('orders')}>Orders {filters.sortBy === 'orders' && <ArrowUpDown size={10} />}</button> },
+                    { w: 120, content: <button className="cm-sort-btn" onClick={() => handleSort('spent')}>Spent {filters.sortBy === 'spent' && <ArrowUpDown size={10} />}</button> },
+                    { w: 120, content: <button className="cm-sort-btn" onClick={() => handleSort('joined')}>Joined {filters.sortBy === 'joined' && <ArrowUpDown size={10} />}</button> },
+                    { w: 100, content: <span className="cm-sort-btn" style={{ cursor: 'default' }}>Status</span> },
+                    { w: 90, content: <span className="cm-sort-btn" style={{ cursor: 'default' }}>Tier</span> },
+                    { w: 80, content: null },
+                  ].map((col, i) => (
+                    <th key={i} style={{ padding: '13px 16px', textAlign: 'left', width: col.w, background: 'var(--bg)' }}>{col.content}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {customers.map((customer) => {
-                  const tier = getCustomerTier(customer.stats?.totalSpent || 0);
+              <tbody>
+                {customers.map(customer => {
+                  const tier = getTier(customer.stats.totalSpent);
                   const TierIcon = tier.icon;
-                  
                   return (
-                    <tr key={customer.id} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
+                    <tr key={customer.id} className="cm-row" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '14px 16px' }}>
+                        <input type="checkbox" className="cm-check"
                           checked={selectedCustomers.includes(customer.id)}
-                          onChange={() => handleSelectCustomer(customer.id)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
+                          onChange={() => handleSelectCustomer(customer.id)} />
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center overflow-hidden">
-                              {customer.profileImage ? (
-                                <img src={customer.profileImage} alt={customer.fullName} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-lg font-semibold text-indigo-600">
-                                  {customer.fullName?.charAt(0).toUpperCase() || customer.email.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            {customer.isActive && (
-                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>
-                            )}
-                          </div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <Avatar customer={customer} />
                           <div>
-                            <div className="text-sm font-semibold text-gray-900">
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                               {customer.fullName || 'No name'}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              ID: {customer.id.substring(0, 8)}
-                            </div>
+                            </p>
+                            <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)', fontFamily: "'DM Mono', monospace" }}>
+                              {customer.id.substring(0, 10)}…
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700">{customer.email}</div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text)' }}>{customer.email}</p>
                         {customer.phoneNumber && (
-                          <div className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                            <Phone className="w-3 h-3" />
-                            {customer.phoneNumber}
-                          </div>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Phone size={10} />{customer.phoneNumber}
+                          </p>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {customer.stats?.totalOrders || 0}
-                        </div>
-                        {customer.stats?.totalOrders > 0 && (
-                          <div className="text-xs text-gray-400">
-                            ${customer.stats?.averageOrderValue.toFixed(0)} avg
-                          </div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)', fontFamily: "'DM Mono', monospace" }}>
+                          {customer.stats.totalOrders}
+                        </p>
+                        {customer.stats.totalOrders > 0 && (
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                            {formatCurrency(customer.stats.averageOrderValue)} avg
+                          </p>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-bold text-gray-900">
-                          ${customer.stats?.totalSpent.toLocaleString()}
-                        </div>
-                        {customer.stats?.lastOrderDate && (
-                          <div className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                            <Clock className="w-3 h-3" />
-                            {formatDate(customer.stats.lastOrderDate)}
-                          </div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)', fontFamily: "'DM Mono', monospace" }}>
+                          {formatCurrency(customer.stats.totalSpent)}
+                        </p>
+                        {customer.stats.lastOrderDate && (
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Clock size={9} />{formatDate(customer.stats.lastOrderDate)}
+                          </p>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700">
-                          {formatDate(customer.createdAt)}
-                        </div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text)' }}>{formatDate(customer.createdAt)}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
-                            {customer.isActive ? (
-                              <>
-                                <CheckCircle className="w-3 h-3" />
-                                Active
-                              </>
-                            ) : (
-                              <>
-                                <XCircle className="w-3 h-3" />
-                                Inactive
-                              </>
-                            )}
-                          </span>
-                          {customer.emailConfirmed && (
-                            <span className="inline-flex items-center gap-1 text-xs text-blue-600">
-                              <Shield className="w-3 h-3" />
-                              Verified
-                            </span>
-                          )}
-                        </div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span className="cm-tag" style={{
+                          background: customer.isActive ? '#22c55e18' : '#f1f0ec',
+                          color: customer.isActive ? '#16a34a' : 'var(--muted)'
+                        }}>
+                          {customer.isActive ? <CheckCircle size={10} /> : <XCircle size={10} />}
+                          {customer.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        {customer.emailConfirmed && (
+                          <p style={{ margin: '5px 0 0', fontSize: 10, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Shield size={9} /> Verified
+                          </p>
+                        )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tier.bg} ${tier.color}`}>
-                          <TierIcon className="w-3 h-3" />
-                          {tier.name}
-                        </div>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span className="cm-tag" style={{ background: tier.bg, color: tier.color }}>
+                          <TierIcon size={10} />{tier.name}
+                        </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => navigate(`/admin/customers/${customer.id}`)}
-                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                          <button className="cm-action-btn" title="View" onClick={() => navigate(`/admin/customers/${customer.id}`)}>
+                            <Eye size={14} />
                           </button>
-                          <button
-                            onClick={() => navigate(`/admin/customers/edit/${customer.id}`)}
-                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200"
-                            title="Edit Customer"
-                          >
-                            <Edit className="w-4 h-4" />
+                          <button className="cm-action-btn" title="Edit" onClick={() => navigate(`/admin/customers/edit/${customer.id}`)}>
+                            <Edit size={14} />
                           </button>
-                          <button
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setShowDeleteModal(true);
-                            }}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                            title="Delete Customer"
-                          >
-                            <Trash2 className="w-4 h-4" />
+                          <button className="cm-action-btn" title="Delete"
+                            style={{ color: '#f87171' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
@@ -1061,89 +620,74 @@ const CustomerManagement = () => {
             </table>
           </div>
 
-          {/* Empty State */}
-          {customers.length === 0 && (
-            <div className="text-center py-16">
-              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-10 h-10 text-gray-400" />
+          {/* Empty */}
+          {!customers.length && !loading && (
+            <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <Users size={22} color="var(--muted)" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No customers found</h3>
-              <p className="text-gray-500 mb-6">Try adjusting your filters or add a new customer</p>
-              <button
-                onClick={() => navigate('/admin/customers/new')}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <UserPlus className="w-4 h-4" />
-                  Add Customer
-                </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: '0 0 6px' }}>No customers found</p>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 20px' }}>Try adjusting your filters</p>
+              <button className="cm-btn-primary" onClick={() => navigate('/admin/customers/new')}>
+                <UserPlus size={13} /> Add customer
               </button>
             </div>
           )}
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
-                {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
-                {pagination.totalItems} results
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={!pagination.hasPrevious}
-                  className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronLeft className="w-4 h-4" />
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}–{Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems}
+              </span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className="cm-page-btn" disabled={!pagination.hasPrevious} onClick={() => handleFilterChange('page', filters.page - 1)}>
+                  <ChevronLeft size={14} />
                 </button>
-                <div className="flex gap-1">
-                  {(() => {
-                    const pageNumbers: number[] = [];
-                    const totalPages = pagination.totalPages;
-                    const currentPage = pagination.currentPage;
-                    
-                    if (totalPages <= 5) {
-                      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
-                    } else if (currentPage <= 3) {
-                      for (let i = 1; i <= 5; i++) pageNumbers.push(i);
-                    } else if (currentPage >= totalPages - 2) {
-                      for (let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
-                    } else {
-                      for (let i = currentPage - 2; i <= currentPage + 2; i++) pageNumbers.push(i);
-                    }
-                    
-                    return pageNumbers.map((pageNum) => (
-                      <button
-                        key={pageNum}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
-                          pagination.currentPage === pageNum
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                            : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    ));
-                  })()}
-                </div>
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={!pagination.hasNext}
-                  className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronRight className="w-4 h-4" />
+                {(() => {
+                  const pages: number[] = [];
+                  const t = pagination.totalPages, c = pagination.currentPage;
+                  if (t <= 5) for (let i = 1; i <= t; i++) pages.push(i);
+                  else if (c <= 3) pages.push(1,2,3,4,5);
+                  else if (c >= t - 2) for (let i = t - 4; i <= t; i++) pages.push(i);
+                  else for (let i = c - 2; i <= c + 2; i++) pages.push(i);
+                  return pages.map(p => (
+                    <button key={p} className={`cm-page-btn${pagination.currentPage === p ? ' active' : ''}`}
+                      onClick={() => handleFilterChange('page', p)}>{p}</button>
+                  ));
+                })()}
+                <button className="cm-page-btn" disabled={!pagination.hasNext} onClick={() => handleFilterChange('page', filters.page + 1)}>
+                  <ChevronRight size={14} />
                 </button>
               </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Customer Details Modal - Keep existing modal code */}
-      {/* Delete Confirmation Modal - Keep existing modal code */}
-    </div>
+        {/* ── Delete Modal ── */}
+        {showDeleteModal && selectedCustomer && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div className="fade-in" style={{ background: 'var(--surface)', borderRadius: 18, padding: '28px 32px', maxWidth: 400, width: '100%', border: '1px solid var(--border)' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+                <Trash2 size={18} color="#ef4444" />
+              </div>
+              <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>Delete customer?</h2>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 24px', lineHeight: 1.6 }}>
+                <strong style={{ color: 'var(--text)' }}>{selectedCustomer.fullName || selectedCustomer.email}</strong> will be permanently removed. This cannot be undone.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="cm-btn-ghost" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+                <button onClick={handleDeleteCustomer} disabled={loading}
+                  style={{ background: '#ef4444', border: 'none', color: '#fff', borderRadius: 10, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  {loading ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </>
   );
 };
 
