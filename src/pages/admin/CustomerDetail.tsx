@@ -8,7 +8,7 @@ import {
   Package, CreditCard, Edit, Trash2, AlertCircle, CheckCircle, XCircle,
   Shield, Home, Star, Clock, TrendingUp, User as UserIcon, Lock,
   RefreshCw, Plus, Send, Ban, Filter, Eye, Save, Award, Heart,
-  LogOut, Smartphone, FileText, Bell, Tag, X, ChevronDown, MoreHorizontal
+  LogOut, Smartphone, FileText, Bell, X, ChevronDown, MoreHorizontal
 } from 'lucide-react';
 import { User, Order, OrderStatus } from '../../types';
 
