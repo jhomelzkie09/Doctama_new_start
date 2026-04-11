@@ -46,6 +46,8 @@ import orderService from '../../services/order.service';
 import uploadService from '../../services/upload.service';
 import { PaymentMethod } from '../../types';
 import { showError, showSuccess, showLoading, dismissToast } from '../../utils/toast';
+import paymaya_logo from '../../assets/paymaya_logo.png';
+import gcash_logo from '../../assets/gcash_logo.png';
 
 // Shop payment details
 const SHOP_PAYMENT_DETAILS = {
@@ -853,6 +855,11 @@ const Checkout = () => {
                             <Smartphone className="w-7 h-7 text-blue-600" />
                           </div>
                           <div>
+                            <img 
+                              src={gcash_logo} 
+                              alt="GCash Logo" 
+                              className="w-full h-full object-contain"
+                            />
                             <p className="font-semibold text-lg">GCash</p>
                             <p className="text-sm text-gray-500">Pay via GCash and upload receipt</p>
                             <div className="flex items-center mt-2 text-sm text-blue-600">
@@ -896,6 +903,11 @@ const Checkout = () => {
                             <Wallet className="w-7 h-7 text-purple-600" />
                           </div>
                           <div>
+                            <img 
+                               src={paymaya_logo} 
+                               alt="Paymaya Logo" 
+                               className="w-full h-full object-contain"
+                            />
                             <p className="font-semibold text-lg">PayMaya</p>
                             <p className="text-sm text-gray-500">Pay via PayMaya and upload receipt</p>
                             <div className="flex items-center mt-2 text-sm text-purple-600">
