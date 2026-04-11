@@ -6,16 +6,14 @@ class OrderService {
 
   // Convert API order to frontend Order type
   private convertApiOrderToOrder(apiOrder: any): Order {
-    console.log('🔄 Converting API order:', apiOrder.id);
     
     // Check if items exist in the response - handle multiple possible property names
     const itemsData = apiOrder.items || apiOrder.Items || [];
-    console.log(`📦 Items data for order ${apiOrder.id}:`, itemsData);
-    console.log(`📦 Items count:`, itemsData.length);
+
     
     // Convert API items to frontend OrderItem format
     const items: OrderItem[] = itemsData.map((item: any, index: number) => {
-      console.log(`  Item ${index + 1}:`, item);
+
       return {
         id: item.id?.toString() || '',
         productId: item.productId?.toString() || '',
@@ -66,17 +64,13 @@ class OrderService {
       updatedAt: apiOrder.updatedAt
     };
     
-    console.log(`✅ Converted order ${convertedOrder.id}: ${convertedOrder.items.length} items`);
-    
     return convertedOrder;
   }
 
   // Get orders for current user
   async getUserOrders(userId: string): Promise<Order[]> {
     try {
-      console.log(`📤 Fetching orders for user...`);
       const response = await api.get(`${this.baseUrl}/my-orders`);
-      console.log('✅ User orders fetched:', response.data);
       
       let ordersData: any[] = [];
       if (Array.isArray(response.data)) {
@@ -87,14 +81,11 @@ class OrderService {
         ordersData = response.data.data;
       }
       
-      console.log('📦 Orders data count:', ordersData.length);
-      
       // Convert each API order to frontend Order type
       const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
       
       // Log summary of items found
       const totalItems = convertedOrders.reduce((sum, order) => sum + order.items.length, 0);
-      console.log(`📊 Total items across all orders: ${totalItems}`);
       
       return convertedOrders;
     } catch (error: any) {
@@ -105,9 +96,6 @@ class OrderService {
 
   async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
   try {
-    console.log(`📤 Updating order ${id} payment status to ${status}...`);
-    console.log('📤 Details received:', details);
-    
     // Format the payload to match backend expectations (PascalCase)
     const payload: any = { 
       status: status 
@@ -126,11 +114,9 @@ class OrderService {
       };
     }
     
-    console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
+
     
     const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
-    console.log('✅ Order payment updated:', response.data);
-    console.log('✅ ApprovedBy in response:', response.data.order?.ApprovedBy || response.data.ApprovedBy);
     
     // Handle both response formats (with or without nested 'order' property)
     const orderData = response.data.order || response.data;
@@ -143,14 +129,10 @@ class OrderService {
 
   async createOrder(orderData: any): Promise<Order> {
     try {
-      console.log('📤 Creating order...', orderData);
       const response = await api.post(this.baseUrl, orderData);
-      console.log('✅ Order created:', response.data);
       const convertedOrder = this.convertApiOrderToOrder(response.data);
-      console.log(`📊 Created order with ${convertedOrder.items.length} items`);
       return convertedOrder;
     } catch (error: any) {
-      console.error('❌ Error creating order:', error.response?.data || error.message);
       throw error;
     }
   }
@@ -162,11 +144,9 @@ class OrderService {
     pages: number;
   }> {
     try {
-      console.log('📤 Fetching my orders...');
       const response = await api.get(`${this.baseUrl}/my-orders`, {
         params: { page, limit }
       });
-      console.log('✅ Orders fetched:', response.data);
       
       let ordersData: any[] = [];
       let total = 0;
@@ -179,14 +159,11 @@ class OrderService {
         total = ordersData.length;
       }
       
-      console.log('📦 Orders data count:', ordersData.length);
-      
       // Convert each API order to frontend Order type
       const orders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
       
       // Log items summary
       const totalItems = orders.reduce((sum, order) => sum + order.items.length, 0);
-      console.log(`📊 Total items across ${orders.length} orders: ${totalItems}`);
       
       return {
         orders,
@@ -205,70 +182,28 @@ class OrderService {
     }
   }
 
-  // Get order by ID with proper items mapping
-  async getOrderById(id: number): Promise<Order | null> {
-    try {
-      console.log(`📤 Fetching order ${id}...`);
-      const response = await api.get(`${this.baseUrl}/my-orders/${id}`);
-      console.log('✅ Order fetched successfully');
-      
-      const apiOrder = response.data;
-      console.log(`📦 API Order has items:`, apiOrder.items?.length || apiOrder.Items?.length || 0);
-      
-      // Log the raw items from API for debugging
-      const rawItems = apiOrder.items || apiOrder.Items || [];
-      if (rawItems.length > 0) {
-        console.log('📦 Raw items from API:', rawItems);
-      }
-      
-      // Convert API order to frontend Order type
-      const order = this.convertApiOrderToOrder(apiOrder);
-      console.log(`✅ Converted order ${order.id} has ${order.items.length} items`);
-      
-      // Log each item details
-      if (order.items.length > 0) {
-        console.log('📋 Order items details:');
-        order.items.forEach((item, index) => {
-          console.log(`  ${index + 1}. ${item.productName} - Qty: ${item.quantity} - Price: ₱${item.price}`);
-        });
-      } else {
-        console.warn(`⚠️ Order ${id} has no items!`);
-      }
-      
-      return order;
-    } catch (error: any) {
-      console.error(`❌ Error fetching order ${id}:`, error.response?.data || error.message);
-      return null;
-    }
-  }
-
+  
   // Get all orders (admin only)
   async getAllOrders(): Promise<Order[]> {
     try {
-      console.log('📤 Fetching all orders (admin)...');
       const response = await api.get(`${this.baseUrl}/admin/all`);
-      console.log('✅ Orders fetched:', response.data);
-      
       let ordersData: any[] = [];
       if (Array.isArray(response.data)) {
         ordersData = response.data;
       } else if (response.data.orders && Array.isArray(response.data.orders)) {
         ordersData = response.data.orders;
       }
-      
-      console.log('📦 Orders data count:', ordersData.length);
+
       
       // Convert each API order to frontend Order type
       const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
       
       // Log summary
       const totalItems = convertedOrders.reduce((sum, order) => sum + order.items.length, 0);
-      console.log(`📊 Total items across ${convertedOrders.length} orders: ${totalItems}`);
+      
       
       // Log payment proof info for debugging
       const ordersWithPaymentProof = convertedOrders.filter(o => o.paymentProofImage);
-      console.log(`📸 Orders with payment proof: ${ordersWithPaymentProof.length}`);
-      
       return convertedOrders;
     } catch (error: any) {
       console.error('❌ Error fetching orders:', error.response?.data || error.message);
