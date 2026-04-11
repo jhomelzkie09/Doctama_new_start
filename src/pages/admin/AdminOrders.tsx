@@ -244,20 +244,38 @@ const AdminOrders = () => {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!cancellationReason) return setError('Please provide a reason');
+    if (!cancellationReason) {
+      setError('Please provide a reason');
+      return;
+    }
     setUpdatingStatus(true);
     try {
+      const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
+      
+      // First, update order status to cancelled
       await orderService.updateOrderStatus(parseInt(orderId), 'cancelled');
+      
+      // For COD orders, also update payment status to failed
+      const orderToCancel = orders.find(o => o.id === orderId);
+      if (orderToCancel?.paymentMethod === 'cod') {
+        await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
+          rejectedBy: adminName,
+          rejectedAt: new Date().toISOString(),
+          reason: cancellationReason
+        });
+      }
+      
       await fetchOrders();
-      setSuccess('Order cancelled');
+      setSuccess('Order cancelled successfully');
       setShowCancelModal(false);
       setShowOrderModal(false);
+      setCancellationReason('');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to cancel order');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setUpdatingStatus(false);
-      setCancellationReason('');
     }
   };
 
@@ -349,7 +367,7 @@ const AdminOrders = () => {
             />
           </div>
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {['all', 'pending', 'shipped', 'delivered'].map(f => (
+            {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(f => (
               <button 
                 key={f}
                 onClick={() => setStatusFilter(f)}
@@ -378,7 +396,7 @@ const AdminOrders = () => {
                   <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400">Total</th>
                   <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400">Status</th>
                   <th className="px-8 py-5 text-center text-[10px] font-black uppercase text-slate-400">Action</th>
-                </tr>
+                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {paginatedOrders.map((order) => (
@@ -435,7 +453,7 @@ const AdminOrders = () => {
                       {getPaymentMethodIcon(selectedOrder.paymentMethod)}
                       <span className="font-black text-slate-700 uppercase text-sm">{selectedOrder.paymentMethod}</span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${selectedOrder.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${selectedOrder.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : selectedOrder.paymentStatus === 'failed' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                       {selectedOrder.paymentStatus}
                     </span>
                   </div>
@@ -494,7 +512,7 @@ const AdminOrders = () => {
 
             {/* Admin Actions Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
-              {/* Verification Controls */}
+              {/* Verification Controls - Only for non-COD pending payments with proof */}
               {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && selectedOrder.paymentMethod?.toLowerCase() !== 'cod' && (
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] uppercase tracking-tighter">
@@ -521,11 +539,18 @@ const AdminOrders = () => {
                     key={s} 
                     onClick={() => handleStatusUpdate(selectedOrder.id, s)} 
                     className={`py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${selectedOrder.status === s ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                    disabled={selectedOrder.status === 'cancelled'}
                   >
                     Mark as {s}
                   </button>
                 ))}
-                <button onClick={() => setShowCancelModal(true)} className="py-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase border border-rose-100">Cancel Order</button>
+                <button 
+                  onClick={() => setShowCancelModal(true)} 
+                  className="py-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase border border-rose-100"
+                  disabled={selectedOrder.status === 'cancelled' || selectedOrder.status === 'delivered'}
+                >
+                  Cancel Order
+                </button>
               </div>
             </div>
           </div>
@@ -542,7 +567,12 @@ const AdminOrders = () => {
                 <XCircle className="w-8 h-8 text-rose-600" />
               </div>
               <h3 className="text-xl font-black text-slate-900">Cancel Order?</h3>
-              <p className="text-slate-500 text-sm mt-2 font-medium">Please provide a reason for cancelling Order #{selectedOrder.orderNumber?.slice(-8)}</p>
+              <p className="text-slate-500 text-sm mt-2 font-medium">
+                Please provide a reason for cancelling Order #{selectedOrder.orderNumber?.slice(-8)}
+                {selectedOrder.paymentMethod === 'cod' && (
+                  <span className="block text-xs text-amber-600 mt-1">This will also mark the payment as failed.</span>
+                )}
+              </p>
             </div>
             <textarea 
               value={cancellationReason} 
