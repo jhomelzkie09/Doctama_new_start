@@ -869,7 +869,7 @@ const Checkout = () => {
                             <img 
                                 src={gcash_logo} 
                                 alt="GCash" 
-                                className="h-6 w-auto object-contain"
+                                className="h-auto w-auto object-contain"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
@@ -921,7 +921,7 @@ const Checkout = () => {
                             <img 
                                 src={paymaya_logo} 
                                 alt="PayMaya" 
-                                className="h-6 w-auto object-contain"
+                                className="h-auto w-auto object-contain"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
