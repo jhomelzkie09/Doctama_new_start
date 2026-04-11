@@ -320,28 +320,15 @@ const CustomerManagement = () => {
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
     :root {
-      --bg: #f8f7f5;
+      --bg: #f0f4f8;
       --surface: #ffffff;
       --card-bg: #ffffff;
-      --border: #e8e5e0;
-      --border-strong: #d0cdc8;
-      --text: #1a1916;
-      --muted: #78746c;
-      --accent: #5b47e0;
-      --accent-hover: #4836c8;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #111110;
-        --surface: #1c1b19;
-        --card-bg: #1c1b19;
-        --border: #2e2c28;
-        --border-strong: #3d3a34;
-        --text: #f0ede8;
-        --muted: #8a8680;
-        --accent: #7c6ff7;
-        --accent-hover: #9389f9;
-      }
+      --border: #dde3ea;
+      --border-strong: #c4cdd8;
+      --text: #0f1923;
+      --muted: #6b7a8d;
+      --accent: #0d9488;
+      --accent-hover: #0f766e;
     }
     .cm-root * { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
     .cm-root { background: var(--bg); min-height: 100vh; padding: 40px 40px; }
@@ -371,7 +358,7 @@ const CustomerManagement = () => {
 
   if (loading && !customers.length) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
-      <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #e8e5e0', borderTopColor: '#5b47e0', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #dde3ea', borderTopColor: '#0d9488', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <p style={{ marginTop: 16, fontSize: 13, color: '#78746c' }}>Loading customers…</p>
     </div>
@@ -404,7 +391,7 @@ const CustomerManagement = () => {
         {/* ── Stats ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
           <StatCard label="Total Revenue" value={formatCurrency(quickStats.totalRevenue)}
-            sub={`${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#5b47e0" trend="+12% this month" />
+            sub={`${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#0d9488" trend="+12% this month" />
           <StatCard label="Conversion Rate" value={`${quickStats.conversionRate.toFixed(1)}%`}
             sub="visitors who purchased" accent="#0ea5e9" />
           <StatCard label="Verified Rate" value={`${quickStats.verifiedRate.toFixed(1)}%`}

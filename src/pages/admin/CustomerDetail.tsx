@@ -8,7 +8,7 @@ import {
   Package, CreditCard, Edit, Trash2, AlertCircle, CheckCircle, XCircle,
   Shield, Home, Star, Clock, TrendingUp, User as UserIcon, Lock,
   RefreshCw, Plus, Send, Ban, Filter, Eye, Save, Award, Heart,
-  LogOut, Smartphone, FileText, Bell, X, ChevronDown, MoreHorizontal
+  LogOut, Smartphone, FileText, Bell, Tag as TagIcon, X, ChevronDown, MoreHorizontal
 } from 'lucide-react';
 import { User, Order, OrderStatus } from '../../types';
 
@@ -110,7 +110,7 @@ const activityIconColor = (type: string) => {
     case 'login': return { color: '#16a34a', bg: '#22c55e18' };
     case 'email': return { color: '#7c3aed', bg: '#8b5cf618' };
     case 'note': return { color: '#b45309', bg: '#f59e0b18' };
-    case 'profile_update': return { color: '#5b47e0', bg: '#6366f118' };
+    case 'profile_update': return { color: '#0d9488', bg: '#6366f118' };
     default: return { color: '#78746c', bg: 'var(--bg)' };
   }
 };
@@ -338,16 +338,15 @@ const CustomerDetail = () => {
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
     :root {
-      --bg: #f8f7f5; --surface: #ffffff; --card-bg: #ffffff;
-      --border: #e8e5e0; --border-strong: #d0cdc8;
-      --text: #1a1916; --muted: #78746c; --accent: #5b47e0; --accent-hover: #4836c8;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #111110; --surface: #1c1b19; --card-bg: #1c1b19;
-        --border: #2e2c28; --border-strong: #3d3a34;
-        --text: #f0ede8; --muted: #8a8680; --accent: #7c6ff7; --accent-hover: #9389f9;
-      }
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --card-bg: #ffffff;
+      --border: #dde3ea;
+      --border-strong: #c4cdd8;
+      --text: #0f1923;
+      --muted: #6b7a8d;
+      --accent: #0d9488;
+      --accent-hover: #0f766e;
     }
     .cd-root * { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
     .cd-root { background: var(--bg); min-height: 100vh; padding: 36px 40px; }
@@ -376,7 +375,7 @@ const CustomerDetail = () => {
 
   if (loading && !customer) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #e8e5e0', borderTopColor: '#5b47e0', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #dde3ea', borderTopColor: '#0d9488', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <p style={{ marginTop: 14, fontSize: 13, color: '#78746c' }}>Loading customer…</p>
     </div>
@@ -534,7 +533,7 @@ const CustomerDetail = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
-                { label: 'Total Orders', value: String(customer?.stats.totalOrders || 0), sub: `First: ${formatDate(customer?.stats.firstOrderDate)}`, accent: '#5b47e0' },
+                { label: 'Total Orders', value: String(customer?.stats.totalOrders || 0), sub: `First: ${formatDate(customer?.stats.firstOrderDate)}`, accent: '#0d9488' },
                 { label: 'Total Spent', value: formatCurrency(customer?.stats.totalSpent || 0), sub: `Avg ${formatCurrency(customer?.stats.averageOrderValue || 0)}`, accent: '#22c55e' },
                 { label: 'Reviews · Returns', value: `${customer?.stats.reviewCount} · ${customer?.stats.returnCount}`, sub: `${customer?.stats.cancellationCount} cancellations`, accent: '#f59e0b' },
               ].map((s, i) => (
