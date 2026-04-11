@@ -150,9 +150,23 @@ const PaymentDetailsModal = ({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
               {paymentMethod === 'gcash' ? (
-                <Smartphone className="w-5 h-5 text-white" />
+                <img 
+                    src={gcash_logo} 
+                    alt="GCash" 
+                    className="h-6 w-auto object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
               ) : (
-                <Wallet className="w-5 h-5 text-white" />
+                <img 
+                  src={paymaya_logo} 
+                  alt="PayMaya" 
+                  className="h-6 w-auto object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
               )}
             </div>
             <h2 className="text-xl font-bold text-gray-900">Pay with {details.name}</h2>
