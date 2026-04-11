@@ -1,20 +1,13 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
-// Register fonts (optional - for better appearance)
-Font.register({
-  family: 'Open Sans',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/opensans/v18/mem8YaGs126MiZpBA-UFVZ0e.ttf', fontWeight: 'normal' },
-    { src: 'https://fonts.gstatic.com/s/opensans/v18/mem5YaGs126MiZpBA-UN7rgOUuhp.ttf', fontWeight: 'bold' },
-  ],
-});
+// Remove Font import and registration - use default fonts instead
 
 const styles = StyleSheet.create({
   page: {
     padding: 40,
     fontSize: 10,
-    fontFamily: 'Open Sans',
+    fontFamily: 'Helvetica', // Use built-in font
     backgroundColor: '#FFFFFF',
   },
   header: {
@@ -32,16 +25,19 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#DC2626',
+    fontFamily: 'Helvetica-Bold', // Use bold variant
   },
   invoiceTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#374151',
+    fontFamily: 'Helvetica-Bold',
   },
   companyInfo: {
     fontSize: 8,
     color: '#6B7280',
     marginTop: 5,
+    fontFamily: 'Helvetica',
   },
   orderInfo: {
     marginTop: 20,
@@ -60,11 +56,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#6B7280',
     marginBottom: 4,
+    fontFamily: 'Helvetica-Bold',
   },
   infoValue: {
     fontSize: 10,
     color: '#1F2937',
     marginBottom: 4,
+    fontFamily: 'Helvetica',
   },
   table: {
     marginTop: 20,
@@ -81,6 +79,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 'bold',
     color: '#374151',
+    fontFamily: 'Helvetica-Bold',
   },
   tableRow: {
     flexDirection: 'row',
@@ -108,11 +107,13 @@ const styles = StyleSheet.create({
     width: 100,
     textAlign: 'right',
     marginRight: 10,
+    fontFamily: 'Helvetica-Bold',
   },
   totalValue: {
     fontSize: 10,
     width: 100,
     textAlign: 'right',
+    fontFamily: 'Helvetica',
   },
   grandTotal: {
     fontSize: 12,
@@ -122,6 +123,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    fontFamily: 'Helvetica-Bold',
   },
   footer: {
     position: 'absolute',
@@ -134,6 +136,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     paddingTop: 10,
+    fontFamily: 'Helvetica',
   },
   statusBadge: {
     backgroundColor: '#10B981',
@@ -146,6 +149,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 8,
     fontWeight: 'bold',
+    fontFamily: 'Helvetica-Bold',
   },
 });
 
