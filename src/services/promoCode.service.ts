@@ -60,7 +60,6 @@ class PromoCodeService {
   // Get all promo codes (admin)
   async getAllPromoCodes(): Promise<PromoCode[]> {
     if (this.useMockData) {
-      console.log('Using mock data for getAllPromoCodes');
       return MOCK_PROMO_CODES;
     }
 
@@ -76,7 +75,6 @@ class PromoCodeService {
   // Get active promo codes (public)
   async getActivePromoCodes(): Promise<PromoCode[]> {
     if (this.useMockData) {
-      console.log('Using mock data for getActivePromoCodes');
       const now = new Date();
       return MOCK_PROMO_CODES.filter(p => 
         p.isActive && 
@@ -97,7 +95,6 @@ class PromoCodeService {
   // Get single promo code by ID
   async getPromoCodeById(id: number): Promise<PromoCode | null> {
     if (this.useMockData) {
-      console.log('Using mock data for getPromoCodeById');
       const promo = MOCK_PROMO_CODES.find(p => p.id === id);
       return promo || null;
     }
@@ -114,7 +111,6 @@ class PromoCodeService {
   // Create promo code (admin)
   async createPromoCode(data: any): Promise<PromoCode> {
     if (this.useMockData) {
-      console.log('Using mock data for createPromoCode', data);
       const newPromo: PromoCode = {
         id: MOCK_PROMO_CODES.length + 1,
         code: data.code.toUpperCase(),
@@ -147,7 +143,6 @@ class PromoCodeService {
   // Update promo code (admin)
   async updatePromoCode(id: number, data: Partial<PromoCode>): Promise<PromoCode> {
     if (this.useMockData) {
-      console.log('Using mock data for updatePromoCode', id, data);
       const index = MOCK_PROMO_CODES.findIndex(p => p.id === id);
       if (index !== -1) {
         MOCK_PROMO_CODES[index] = { ...MOCK_PROMO_CODES[index], ...data };
@@ -168,7 +163,6 @@ class PromoCodeService {
   // Delete promo code (admin)
   async deletePromoCode(id: number): Promise<void> {
     if (this.useMockData) {
-      console.log('Using mock data for deletePromoCode', id);
       const index = MOCK_PROMO_CODES.findIndex(p => p.id === id);
       if (index !== -1) {
         MOCK_PROMO_CODES.splice(index, 1);
@@ -192,7 +186,6 @@ class PromoCodeService {
     promoCode?: PromoCode;
   }> {
     if (this.useMockData) {
-      console.log('Using mock data for validatePromoCode', code, cartTotal);
       const promo = MOCK_PROMO_CODES.find(p => p.code === code.toUpperCase());
       
       if (!promo) {
@@ -268,7 +261,6 @@ class PromoCodeService {
     newTotal?: number;
   }> {
     if (this.useMockData) {
-      console.log('Using mock data for applyPromoCode', code, cartTotal);
       const validation = await this.validatePromoCode(code, cartTotal, userId);
       
       if (!validation.isValid) {

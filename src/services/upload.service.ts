@@ -4,9 +4,7 @@ class UploadService {
   private readonly baseUrl = '/products';
 
   async uploadImages(files: File[]): Promise<string[]> {
-    try {
-      console.log('📤 Uploading images...', files.length);
-      
+    try {     
       const formData = new FormData();
       files.forEach(file => {
         formData.append('files', file);
@@ -17,8 +15,6 @@ class UploadService {
           'Content-Type': 'multipart/form-data',
         },
       });
-      
-      console.log('✅ Upload response:', response.data);
       
       // Handle different response formats
       if (response.data.urls && Array.isArray(response.data.urls)) {

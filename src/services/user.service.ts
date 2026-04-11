@@ -44,9 +44,7 @@ class UserService {
    */
   async getCurrentUserProfile(): Promise<UserProfile | null> {
     try {
-      console.log('📤 Fetching current user profile...');
       const response = await api.get(`${this.baseUrl}/profile`);
-      console.log('✅ Profile fetched:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error fetching profile:', error.response?.data || error.message);
@@ -59,9 +57,7 @@ class UserService {
    */
   async updateProfile(data: UpdateProfileData): Promise<UserProfile> {
     try {
-      console.log('📤 Updating profile...', data);
       const response = await api.put(`${this.baseUrl}/profile`, data);
-      console.log('✅ Profile updated:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error updating profile:', error.response?.data || error.message);
@@ -77,13 +73,11 @@ class UserService {
     formData.append('file', file);
     
     try {
-      console.log('📤 Uploading profile picture...');
       const response = await api.post(`${this.baseUrl}/profile/picture`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      console.log('✅ Profile picture uploaded:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error uploading profile picture:', error.response?.data || error.message);
@@ -96,12 +90,10 @@ class UserService {
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     try {
-      console.log('📤 Changing password...');
       await api.post(`${this.baseUrl}/change-password`, {
         currentPassword,
         newPassword,
       });
-      console.log('✅ Password changed successfully');
     } catch (error: any) {
       console.error('❌ Error changing password:', error.response?.data || error.message);
       throw error;
@@ -115,9 +107,7 @@ class UserService {
    */
   async getAllUsers(): Promise<User[]> {
     try {
-      console.log('📤 Fetching all users from admin endpoint...');
       const response = await api.get(`${this.adminUrl}/all`);
-      console.log('✅ Users fetched:', response.data);
       
       if (Array.isArray(response.data)) {
         return response.data;
@@ -135,9 +125,7 @@ class UserService {
    */
   async getUserById(id: string): Promise<User | null> {
     try {
-      console.log(`📤 Fetching user ${id}...`);
       const response = await api.get(`${this.adminUrl}/${id}`);
-      console.log('✅ User fetched:', response.data);
       return response.data;
     } catch (error: any) {
       console.error(`❌ Error fetching user ${id}:`, error.response?.data || error.message);
@@ -150,9 +138,7 @@ class UserService {
    */
   async updateUser(id: string, userData: Partial<User>): Promise<User> {
     try {
-      console.log(`📤 Updating user ${id}...`);
       const response = await api.put(`${this.adminUrl}/${id}`, userData);
-      console.log('✅ User updated:', response.data);
       return response.data;
     } catch (error: any) {
       console.error(`❌ Error updating user ${id}:`, error.response?.data || error.message);
@@ -165,9 +151,7 @@ class UserService {
    */
   async toggleAdminRole(id: string, makeAdmin: boolean): Promise<any> {
     try {
-      console.log(`📤 Toggling admin role for user ${id} to ${makeAdmin}...`);
       const response = await api.post(`${this.adminUrl}/${id}/toggle-admin`, { makeAdmin });
-      console.log('✅ Admin role toggled:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error toggling admin role:', error.response?.data || error.message);
@@ -180,9 +164,7 @@ class UserService {
    */
   async deleteUser(id: string): Promise<void> {
     try {
-      console.log(`📤 Deleting user ${id}...`);
       await api.delete(`${this.adminUrl}/${id}`);
-      console.log('✅ User deleted');
     } catch (error: any) {
       console.error(`❌ Error deleting user ${id}:`, error.response?.data || error.message);
       throw error;
@@ -194,9 +176,7 @@ class UserService {
    */
   async toggleUserStatus(id: string, isActive: boolean): Promise<void> {
     try {
-      console.log(`📤 Toggling status for user ${id} to ${isActive ? 'active' : 'inactive'}...`);
       await api.patch(`${this.adminUrl}/${id}/toggle-status`, { isActive });
-      console.log('✅ User status toggled');
     } catch (error: any) {
       console.error(`❌ Error toggling user status ${id}:`, error.response?.data || error.message);
       throw error;
@@ -208,7 +188,6 @@ class UserService {
    */
   async getUsersByRole(role: string): Promise<User[]> {
     try {
-      console.log(`📤 Fetching users with role ${role}...`);
       const allUsers = await this.getAllUsers();
       return allUsers.filter(user => {
         if (Array.isArray(user.roles)) {

@@ -20,13 +20,10 @@ const authService = {
     fullName?: string;
   }> => {
     try {
-      console.log('🌐 Calling API:', `${API_URL}/auth/login`);
       const response = await axios.post(`${API_URL}/auth/login`, credentials, {
         headers: { 'Content-Type': 'application/json' }
       });
       const data = response.data;
-      
-      console.log('📦 Raw API response:', data);
       
       // Check for token in different possible locations
       let token = data.token || data.accessToken || data.access_token;
@@ -50,16 +47,9 @@ const authService = {
         roles: roles
       };
       
-      console.log('💾 Storing token in localStorage:', token.substring(0, 20) + '...');
-      console.log('💾 Storing user data:', userData);
-      
       // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
-      
-      // Verify storage
-      console.log('✅ Token stored?', !!localStorage.getItem('token'));
-      console.log('✅ User stored?', !!localStorage.getItem('user'));
       
       return {
         token,
@@ -77,8 +67,6 @@ const authService = {
   // Register method
   register: async (userData: RegisterData): Promise<any> => {
     try {
-      console.log('📤 Registering user with data:', userData);
-      
       const response = await axios.post(`${API_URL}/auth/register`, {
         email: userData.email,
         password: userData.password,
@@ -88,8 +76,6 @@ const authService = {
           'Content-Type': 'application/json'
         }
       });
-      
-      console.log('✅ Registration response:', response.data);
       const data = response.data;
       
       if (data.token || data.accessToken) {
@@ -101,8 +87,6 @@ const authService = {
           fullName: data.fullName || userData.fullName,
           roles: data.roles || data.user?.roles || []
         }));
-        
-        console.log('✅ Token stored after registration');
       }
       
       return data;
@@ -127,9 +111,6 @@ const authService = {
     try {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
-      
-      console.log('🔑 Token exists?', !!token);
-      console.log('👤 User exists?', !!userStr);
       
       if (!token || !userStr) return null;
       
@@ -157,9 +138,6 @@ const authService = {
         lastLogin: new Date().toISOString()
       };
       
-      console.log('👤 Current user:', fullUser.email);
-      console.log('👑 User roles:', fullUser.roles);
-      
       return fullUser;
     } catch (error) {
       console.error('Error parsing user:', error);
@@ -182,7 +160,6 @@ const authService = {
 
   // Logout method
   logout: (): void => {
-    console.log('👋 Logging out, clearing storage...');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
@@ -190,14 +167,12 @@ const authService = {
   // Check if user is authenticated
   isAuthenticated: (): boolean => {
     const token = localStorage.getItem('token');
-    console.log('🔍 Checking auth, token exists?', !!token);
     return !!token;
   },
 
   // Get auth token
   getToken: (): string | null => {
     const token = localStorage.getItem('token');
-    console.log('🔑 Getting token, exists?', !!token);
     return token;
   },
 
@@ -207,7 +182,6 @@ const authService = {
     const isAdminUser = user?.roles?.some(role => 
       role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
     ) || false;
-    console.log('👑 isAdmin check:', isAdminUser);
     return isAdminUser;
   },
 

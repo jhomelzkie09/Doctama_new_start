@@ -7,10 +7,7 @@ class ProductService {
   // Get all products
   async getProducts(): Promise<Product[]> {
     try {
-      console.log('📤 Fetching products from /products/simple...');
-      const response = await api.get('/products/simple');
-      console.log('✅ Products fetched:', response.data);
-      
+      const response = await api.get('/products/simple');    
       if (Array.isArray(response.data)) {
         return response.data;
       } else if (response.data.data && Array.isArray(response.data.data)) {
@@ -29,9 +26,7 @@ class ProductService {
   // Get single product
   async getProductById(id: number): Promise<Product | null> {
     try {
-      console.log(`📤 Fetching product ${id} from /products/simple...`);
       const response = await api.get(`/products/simple/${id}`);
-      console.log('✅ Product fetched:', response.data);
       return response.data || null;
     } catch (error: any) {
       console.error(`❌ Error fetching product ${id}:`, error.response?.data || error.message);
@@ -73,11 +68,7 @@ class ProductService {
         IsActive: productData.isActive === true || productData.isActive === 'true' ? true : false
       };
       
-      console.log('📤 Creating product with /products/simple...');
-      console.log('📦 Backend data:', JSON.stringify(backendData, null, 2));
-      
       const response = await api.post('/products/simple', backendData);
-      console.log('✅ Product created:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error creating product:', error.response?.data);
@@ -131,13 +122,8 @@ class ProductService {
         Length: typeof productData.length === 'number' ? productData.length : parseFloat(productData.length) || 0,
         ColorsVariant: colorsArray,
         IsActive: productData.isActive === true || productData.isActive === 'true' ? true : false
-      };
-      
-      console.log(`📤 Updating product ${id} with /products/simple...`);
-      console.log('📦 Backend data:', JSON.stringify(backendData, null, 2));
-      
+      };    
       const response = await api.put(`/products/simple/${id}`, backendData);
-      console.log('✅ Product updated:', response.data);
       return response.data;
     } catch (error: any) {
       console.error(`❌ Error updating product ${id}:`, error.response?.data || error.message);
@@ -152,9 +138,7 @@ class ProductService {
   // Delete product
   async deleteProduct(id: number): Promise<boolean> {
     try {
-      console.log(`📤 Deleting product ${id} from /products/simple...`);
       await api.delete(`/products/simple/${id}`);
-      console.log(`✅ Product ${id} deleted`);
       return true;
     } catch (error: any) {
       console.error(`❌ Error deleting product ${id}:`, error.response?.data || error.message);
@@ -165,9 +149,7 @@ class ProductService {
   // Toggle product status
   async toggleProductStatus(id: number, isActive: boolean): Promise<Product> {
     try {
-      console.log(`📤 Toggling product ${id} status to ${isActive ? 'active' : 'inactive'}...`);
       const response = await api.patch(`/products/simple/${id}/toggle-status`, isActive);
-      console.log('✅ Product status toggled:', response.data);
       return response.data;
     } catch (error: any) {
       console.error(`❌ Error toggling product status:`, error);
