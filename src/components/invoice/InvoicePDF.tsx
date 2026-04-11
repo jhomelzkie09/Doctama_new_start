@@ -200,12 +200,12 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <Text style={styles.logo}>DOCTAMA FURNITURE</Text>
+            <Text style={styles.logo}>DOCTAMA MARKETING</Text>
             <Text style={styles.invoiceTitle}>INVOICE</Text>
           </View>
           <Text style={styles.companyInfo}>
-            123 Furniture Street, Manila, Philippines 1000{'\n'}
-            Tel: (02) 1234-5678 | Email: info@doctama.com | Website: doctama.com
+            Sitio Gabao, San Roque, Bacon, Sorsogon City, Sorsogon, Philippines 4700{'\n'}
+            Tel: (+63) 998-586-8888 | Email: doctamasmarketing@gmail.com | Website: www.doctamasmarketing.shop
           </Text>
         </View>
 

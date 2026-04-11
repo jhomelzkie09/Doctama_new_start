@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import orderService from '../../../services/order.service';
 import invoiceService from '../../../services/invoice.service';
@@ -21,14 +21,12 @@ import {
   DollarSign,
   ThumbsUp,
   ThumbsDown,
-  Info,
   RefreshCw
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../../utils/toast';
 
 // Helper function to convert Order (string id) to ApiOrder (number id)
 const convertToApiOrder = (order: Order): ApiOrder => {
-  console.log(`Converting order ${order.id}: status=${order.status}, paymentStatus=${order.paymentStatus}`);
   return {
     id: parseInt(order.id),
     orderNumber: order.orderNumber,
@@ -106,23 +104,8 @@ const Orders = () => {
     }
     try {
       const response = await orderService.getMyOrders(1, 50);
-      console.log('📦 Orders API Response:', response);
-      
       const ordersData = response.orders || [];
-      console.log('📦 Raw orders from API:', ordersData);
-      
-      // Log each order's status from the raw API response
-      ordersData.forEach((order: Order) => {
-        console.log(`Raw order ${order.id}: status = "${order.status}", paymentStatus = "${order.paymentStatus}"`);
-      });
-      
       const convertedOrders = ordersData.map(convertToApiOrder);
-      console.log('📦 Converted orders:', convertedOrders);
-      
-      // Log each converted order's status
-      convertedOrders.forEach(order => {
-        console.log(`Converted order ${order.id}: status = "${order.status}", paymentStatus = "${order.paymentStatus}"`);
-      });
       
       setOrders(convertedOrders);
       setLastUpdated(new Date());
@@ -136,7 +119,6 @@ const Orders = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to load orders:', error);
       if (!silent) {
         showError('Failed to load orders');
       }
@@ -184,7 +166,6 @@ const Orders = () => {
   };
 
   const handleViewOrder = (orderId: number) => {
-    console.log(`🔍 Navigating to order details for order ID: ${orderId}`);
     navigate(`/account/orders/${orderId}`);
   };
 
@@ -213,7 +194,6 @@ const Orders = () => {
       showSuccess('Invoice downloaded successfully!');
     } catch (error) {
       dismissToast(loadingToast);
-      console.error('Failed to generate invoice:', error);
       showError('Failed to generate invoice');
     }
   };
