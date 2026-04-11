@@ -149,25 +149,27 @@ const styles = StyleSheet.create({
   },
 });
 
+export interface InvoiceOrderData {
+  id: number;
+  orderNumber: string;
+  orderDate: string;
+  totalAmount: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  shippingAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+}
+
 interface InvoicePDFProps {
-  order: {
-    id: number;
-    orderNumber: string;
-    orderDate: string;
-    totalAmount: number;
-    status: string;
-    paymentMethod: string;
-    paymentStatus: string;
-    shippingAddress: string;
-    customerName?: string;
-    customerEmail?: string;
-    customerPhone?: string;
-    items: Array<{
-      productName: string;
-      quantity: number;
-      unitPrice: number;
-    }>;
-  };
+  order: InvoiceOrderData;
 }
 
 const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {

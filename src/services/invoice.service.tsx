@@ -1,7 +1,6 @@
 import { pdf } from '@react-pdf/renderer';
-import InvoicePDF from '../components/invoice/InvoicePDF';
+import InvoicePDF, { InvoiceOrderData } from '../components/invoice/InvoicePDF';
 import { saveAs } from 'file-saver';
-import { InvoiceOrderData } from '../components/invoice/InvoicePDF';
 
 class InvoiceService {
   async generateAndDownloadPDF(order: InvoiceOrderData): Promise<void> {
