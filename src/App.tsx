@@ -26,7 +26,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ProductsManagement from './pages/admin/ProductManagement';
 import ProductForm from './pages/admin/ProductForm';
 import CategoriesManagement from './pages/admin/CategoryManagement';
-import AdminRoute from './components/AdminRoute';
+import AdminRoute from './components/admin/AdminRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import Orders from './pages/admin/AdminOrders';

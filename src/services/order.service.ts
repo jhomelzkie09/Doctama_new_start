@@ -67,6 +67,22 @@ class OrderService {
     return convertedOrder;
   }
 
+   async getOrderById(id: number): Promise<Order | null> {
+    try {
+      const response = await api.get(`${this.baseUrl}/my-orders/${id}`);
+      
+      const apiOrder = response.data;
+      
+      // Convert API order to frontend Order type
+      const order = this.convertApiOrderToOrder(apiOrder);
+      
+      return order;
+    } catch (error: any) {
+      console.error(`❌ Error fetching order ${id}:`, error.response?.data || error.message);
+      return null;
+    }
+  }
+
   // Get orders for current user
   async getUserOrders(userId: string): Promise<Order[]> {
     try {
@@ -213,9 +229,7 @@ class OrderService {
 
   async updateOrderStatus(id: number, status: string): Promise<Order> {
     try {
-      console.log(`📤 Updating order ${id} status to ${status}...`);
       const response = await api.put(`${this.baseUrl}/admin/${id}/status`, { status });
-      console.log('✅ Order updated:', response.data);
       return this.convertApiOrderToOrder(response.data);
     } catch (error: any) {
       console.error('❌ Error updating order:', error.response?.data || error.message);
