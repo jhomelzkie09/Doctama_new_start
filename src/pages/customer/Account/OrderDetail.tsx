@@ -112,7 +112,6 @@ const OrderDetail = () => {
     setLoading(true);
     setError('');
     try {
-      console.log(`📤 Loading order with ID: ${id}`);
       const orderId = parseInt(id as string);
       
       if (isNaN(orderId)) {
@@ -120,7 +119,6 @@ const OrderDetail = () => {
       }
       
       const data = await orderService.getOrderById(orderId);
-      console.log('📦 Order data from API:', data);
       
       if (!data) {
         setError('Order not found');
@@ -157,16 +155,6 @@ const OrderDetail = () => {
           rejectedBy: (data as any).rejectedBy,
           rejectionReason: (data as any).rejectionReason
         };
-        
-        console.log('📦 Display order:', displayOrder);
-        console.log(`📦 Items count: ${displayOrder.items?.length || 0}`);
-        
-        if (displayOrder.items && displayOrder.items.length > 0) {
-          displayOrder.items.forEach((item, idx) => {
-            console.log(`  Item ${idx + 1}: ${item.productName} - Qty: ${item.quantity} - Price: ₱${item.unitPrice}`);
-          });
-        }
-        
         setOrder(displayOrder);
       }
     } catch (error: any) {

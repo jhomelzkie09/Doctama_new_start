@@ -3,7 +3,6 @@ export default async function handler(req, res) {
   
   try {
     const response = await fetch(`${API_URL}/api/health`);
-    console.log(`✅ API pinged: ${response.status}`);
     res.status(200).json({ success: true });
   } catch (error) {
     console.error(`❌ Keep-alive failed: ${error.message}`);

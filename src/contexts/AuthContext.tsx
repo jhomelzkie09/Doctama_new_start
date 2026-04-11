@@ -43,8 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Get user from localStorage on mount
     const currentUser = authService.getCurrentUser();
     const token = authService.getToken();
-    console.log('🏁 Initial user from localStorage:', currentUser);
-    console.log('🏁 Initial token exists?', !!token);
     
     if (currentUser && token) {
       setUser(currentUser);
@@ -58,26 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       
       const response = await authService.login({ email, password });
-      console.log('✅ Login response:', response);
       
       // Get the updated user from storage
       const currentUser = authService.getCurrentUser();
-      const token = authService.getToken();
-      
-      console.log('🔑 Token after login:', !!token);
-      console.log('👤 User after login:', currentUser);
+
       
       setUser(currentUser);
-      
-      // Redirect based on role
-      if (checkIsAdmin(currentUser)) {
-        console.log('👑 Admin logged in, redirecting to /admin');
-        navigate('/admin');
-      } else {
-        console.log('👤 Regular user logged in, redirecting to /');
-        navigate('/');
-      }
-      
     } catch (err: any) {
       console.error('❌ Login error:', err);
       setError(err.message || 'Login failed');
@@ -88,7 +72,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    console.log('👋 Logging out...');
     authService.logout();
     setUser(null);
     // Force a full page reload to ensure header/footer render properly

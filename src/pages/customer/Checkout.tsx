@@ -476,10 +476,8 @@ const Checkout = () => {
     try {
       let receiptImageUrl = '';
       if (receiptFile && paymentMethod !== 'cod') {
-        console.log('📤 Uploading receipt...');
         const uploadedUrls = await uploadService.uploadImages([receiptFile]);
         receiptImageUrl = uploadedUrls[0];
-        console.log('✅ Receipt uploaded:', receiptImageUrl);
         setUploadProgress(100);
         setUploadStatus('success');
       }
@@ -513,11 +511,8 @@ const Checkout = () => {
         orderData.paymentProofDate = paymentDate;
         orderData.paymentProofNotes = paymentNotes;
       }
-
-      console.log('📤 Sending order data:', JSON.stringify(orderData, null, 2));
       
       const order = await orderService.createOrder(orderData);
-      console.log('✅ Order created:', order);
       
       dismissToast(loadingToast);
       showSuccess('Order placed successfully!');

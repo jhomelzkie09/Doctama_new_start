@@ -5,12 +5,6 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapi-simple.onrender.com/api';
 
-console.log('🔧 API Config loaded:', {
-  API_URL,
-  HasSpace: API_URL?.startsWith(' '),
-  Length: API_URL?.length
-});
-
 // Clean up URL if it has spaces
 const cleanApiUrl = API_URL?.trim();
 
@@ -30,7 +24,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('📤 Request:', config.method?.toUpperCase(), config.url);
+
     return config;
   },
   (error) => {
@@ -42,7 +36,6 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
-    console.log('📥 Response:', response.status, response.config.url);
     return response;
   },
   (error) => {
@@ -67,17 +60,12 @@ api.interceptors.response.use(
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    console.log('🔑 Token exists:', !!token);
-    console.log('🔑 Token (first 20 chars):', token?.substring(0, 20) + '...');
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('📤 Added Authorization header');
     } else {
       console.warn('⚠️ No token found for request:', config.url);
     }
-    
-    console.log('📤 Request headers:', config.headers);
     return config;
   },
   (error) => {

@@ -91,10 +91,8 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     setLoading(true);
 
     try {
-      if (mode === 'login') {
-        console.log('🔐 Attempting login with:', formData.email);
+      if (mode === 'login') {        
         await login(formData.email, formData.password);
-        console.log('✅ Login successful');
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);

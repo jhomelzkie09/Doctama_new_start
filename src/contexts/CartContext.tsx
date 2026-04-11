@@ -125,8 +125,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       const savedCart = localStorage.getItem(storageKey);
       
-      console.log(`🛒 Loading cart for ${user ? `user ${user.id}` : 'guest'} from key: ${storageKey}`);
-      
       if (savedCart) {
         try {
           const parsedCart = JSON.parse(savedCart);
@@ -138,7 +136,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const validItems = items.filter(item => item.id && item.quantity);
             if (validItems.length > 0) {
               dispatch({ type: 'LOAD_CART', payload: validItems });
-              console.log(`✅ Loaded ${validItems.length} items for ${user ? `user ${user.id}` : 'guest'}`);
             } else {
               dispatch({ type: 'CLEAR_CART' });
             }
@@ -152,7 +149,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         // No saved cart for this user
         dispatch({ type: 'CLEAR_CART' });
-        console.log(`📭 No saved cart found for ${user ? `user ${user.id}` : 'guest'}`);
       }
     };
 
@@ -166,11 +162,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (state.items.length > 0) {
         localStorage.setItem(storageKey, JSON.stringify(state.items));
-        console.log(`💾 Saved ${state.items.length} items for ${user ? `user ${user.id}` : 'guest'} to key: ${storageKey}`);
       } else {
         // If cart is empty, remove from localStorage to keep it clean
         localStorage.removeItem(storageKey);
-        console.log(`🗑️ Removed empty cart for ${user ? `user ${user.id}` : 'guest'} from key: ${storageKey}`);
       }
     };
 
