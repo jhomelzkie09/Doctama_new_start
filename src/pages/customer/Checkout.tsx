@@ -855,12 +855,17 @@ const Checkout = () => {
                             <Smartphone className="w-7 h-7 text-blue-600" />
                           </div>
                           <div>
-                            <img 
-                              src={gcash_logo} 
-                              alt="GCash Logo" 
-                              className="w-full h-full object-contain"
-                            />
-                            <p className="font-semibold text-lg">GCash</p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <img 
+                                src={gcash_logo} 
+                                alt="GCash" 
+                                className="h-6 w-auto object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                              <span className="font-semibold text-lg">GCash</span>
+                            </div>
                             <p className="text-sm text-gray-500">Pay via GCash and upload receipt</p>
                             <div className="flex items-center mt-2 text-sm text-blue-600">
                               <Shield className="w-4 h-4 mr-1" />
@@ -885,10 +890,10 @@ const Checkout = () => {
 
                     {/* PayMaya */}
                     <div className={`border-2 rounded-xl transition-all ${
-                      paymentMethod === 'paymaya' 
-                        ? 'border-purple-500 bg-purple-50 shadow-md' 
-                        : 'border-gray-200'
-                    }`}>
+                        paymentMethod === 'paymaya' 
+                          ? 'border-purple-500 bg-purple-50 shadow-md' 
+                          : 'border-gray-200'
+                      }`}>
                       <label className="flex items-start p-5 cursor-pointer">
                         <input
                           type="radio"
@@ -903,12 +908,17 @@ const Checkout = () => {
                             <Wallet className="w-7 h-7 text-purple-600" />
                           </div>
                           <div>
-                            <img 
-                               src={paymaya_logo} 
-                               alt="Paymaya Logo" 
-                               className="w-full h-full object-contain"
-                            />
-                            <p className="font-semibold text-lg">PayMaya</p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <img 
+                                src={paymaya_logo} 
+                                alt="PayMaya" 
+                                className="h-6 w-auto object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                              <span className="font-semibold text-lg">PayMaya</span>
+                            </div>
                             <p className="text-sm text-gray-500">Pay via PayMaya and upload receipt</p>
                             <div className="flex items-center mt-2 text-sm text-purple-600">
                               <Shield className="w-4 h-4 mr-1" />
