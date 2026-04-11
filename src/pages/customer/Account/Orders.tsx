@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import orderService from '../../../services/order.service';
+import invoiceService from '../../../services/invoice.service';
 import { ApiOrder, Order } from '../../../types';
 import {
   Package,
@@ -23,7 +24,7 @@ import {
   Info,
   RefreshCw
 } from 'lucide-react';
-import { showSuccess, showError } from '../../../utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '../../../utils/toast';
 
 // Helper function to convert Order (string id) to ApiOrder (number id)
 const convertToApiOrder = (order: Order): ApiOrder => {
@@ -33,9 +34,9 @@ const convertToApiOrder = (order: Order): ApiOrder => {
     orderNumber: order.orderNumber,
     orderDate: order.orderDate,
     totalAmount: order.totalAmount,
-    status: order.status,  // Make sure this is passed
+    status: order.status,
     paymentMethod: order.paymentMethod,
-    paymentStatus: order.paymentStatus,  // Make sure this is passed
+    paymentStatus: order.paymentStatus,
     shippingAddress: order.shippingAddress || '',
     customerName: order.customerName,
     customerEmail: order.customerEmail,
@@ -187,7 +188,36 @@ const Orders = () => {
     navigate(`/account/orders/${orderId}`);
   };
 
-  // Rest of your component remains the same...
+  const handleDownloadInvoice = async (order: ApiOrder) => {
+    const loadingToast = showLoading('Generating invoice...');
+    try {
+      await invoiceService.generateAndDownloadPDF({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        shippingAddress: order.shippingAddress,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        items: order.items?.map(item => ({
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })) || []
+      });
+      dismissToast(loadingToast);
+      showSuccess('Invoice downloaded successfully!');
+    } catch (error) {
+      dismissToast(loadingToast);
+      console.error('Failed to generate invoice:', error);
+      showError('Failed to generate invoice');
+    }
+  };
+
   const getStatusIcon = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
     if (approvedBy && paymentStatus === 'paid') {
       return <ThumbsUp className="w-5 h-5 text-green-500" />;
@@ -295,7 +325,7 @@ const Orders = () => {
           Last updated: {lastUpdated.toLocaleTimeString()}
         </div>
 
-        {/* Filters - same as before */}
+        {/* Filters */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
@@ -432,7 +462,10 @@ const Orders = () => {
                       View Details
                     </button>
                     {order.status === 'delivered' && (
-                      <button className="flex items-center px-4 py-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition">
+                      <button
+                        onClick={() => handleDownloadInvoice(order)}
+                        className="flex items-center px-4 py-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition"
+                      >
                         <Download className="w-4 h-4 mr-2" />
                         Download Invoice
                       </button>
