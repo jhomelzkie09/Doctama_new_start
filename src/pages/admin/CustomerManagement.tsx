@@ -621,14 +621,18 @@ const CustomerManagement = () => {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* ── Pagination (FIXED) ── */}
           {pagination.totalPages > 1 && (
-            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                 {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}–{Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems}
               </span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button className="cm-page-btn" disabled={!pagination.hasPrevious} onClick={() => handleFilterChange('page', filters.page - 1)}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                <button 
+                  className="cm-page-btn" 
+                  disabled={!pagination.hasPrevious} 
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                >
                   <ChevronLeft size={14} />
                 </button>
                 {(() => {
@@ -639,11 +643,20 @@ const CustomerManagement = () => {
                   else if (c >= t - 2) for (let i = t - 4; i <= t; i++) pages.push(i);
                   else for (let i = c - 2; i <= c + 2; i++) pages.push(i);
                   return pages.map(p => (
-                    <button key={p} className={`cm-page-btn${pagination.currentPage === p ? ' active' : ''}`}
-                      onClick={() => handleFilterChange('page', p)}>{p}</button>
+                    <button 
+                      key={p} 
+                      className={`cm-page-btn${pagination.currentPage === p ? ' active' : ''}`}
+                      onClick={() => setFilters(prev => ({ ...prev, page: p }))}
+                    >
+                      {p}
+                    </button>
                   ));
                 })()}
-                <button className="cm-page-btn" disabled={!pagination.hasNext} onClick={() => handleFilterChange('page', filters.page + 1)}>
+                <button 
+                  className="cm-page-btn" 
+                  disabled={!pagination.hasNext} 
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                >
                   <ChevronRight size={14} />
                 </button>
               </div>
