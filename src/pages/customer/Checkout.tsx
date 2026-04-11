@@ -866,18 +866,17 @@ const Checkout = () => {
                         />
                         <div className="flex items-center flex-1">
                           <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
-                            <Smartphone className="w-7 h-7 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <img 
+                            <img 
                                 src={gcash_logo} 
                                 alt="GCash" 
                                 className="h-6 w-auto object-contain"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
-                              />
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-lg">GCash</span>
                             </div>
                             <p className="text-sm text-gray-500">Pay via GCash and upload receipt</p>
@@ -919,11 +918,7 @@ const Checkout = () => {
                         />
                         <div className="flex items-center flex-1">
                           <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
-                            <Wallet className="w-7 h-7 text-purple-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <img 
+                            <img 
                                 src={paymaya_logo} 
                                 alt="PayMaya" 
                                 className="h-6 w-auto object-contain"
@@ -931,6 +926,9 @@ const Checkout = () => {
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
                               />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-lg">PayMaya</span>
                             </div>
                             <p className="text-sm text-gray-500">Pay via PayMaya and upload receipt</p>
