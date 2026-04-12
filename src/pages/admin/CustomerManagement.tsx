@@ -141,6 +141,7 @@ const CustomerManagement = () => {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
 
   const [filters, setFilters] = useState<CustomerFilters>({
     search: '', status: 'all', verified: 'all', dateRange: 'all',
@@ -315,6 +316,19 @@ const CustomerManagement = () => {
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   };
+
+  const handlePageChange = (newPage: number) => {
+  setPageLoading(true);
+  setFilters(prev => ({ ...prev, page: newPage }));
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  useEffect(() => {
+    if (pageLoading) {
+      setPageLoading(false);
+    }
+  }, [customers]);
 
   // ── CSS vars injected once ──
   const css = `
@@ -630,10 +644,10 @@ const CustomerManagement = () => {
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 <button 
                   className="cm-page-btn" 
-                  disabled={!pagination.hasPrevious} 
-                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={!pagination.hasPrevious || pageLoading} 
+                  onClick={() => handlePageChange(filters.page - 1)}
                 >
-                  <ChevronLeft size={14} />
+                  {pageLoading ? <RefreshCw size={12} className="spin" /> : <ChevronLeft size={14} />}
                 </button>
                 {(() => {
                   const pages: number[] = [];
@@ -654,10 +668,10 @@ const CustomerManagement = () => {
                 })()}
                 <button 
                   className="cm-page-btn" 
-                  disabled={!pagination.hasNext} 
-                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={!pagination.hasNext || pageLoading} 
+                  onClick={() => handlePageChange(filters.page + 1)}
                 >
-                  <ChevronRight size={14} />
+                  {pageLoading ? <RefreshCw size={12} className="spin" /> : <ChevronRight size={14} />}
                 </button>
               </div>
             </div>
