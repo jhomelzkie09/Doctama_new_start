@@ -355,18 +355,19 @@ const ProductsReport: React.FC = () => {
       console.log('📦 Date Range:', dateRange);
       
       // Calculate product stats from actual orders
-      const productSalesMap = new Map<number, { sold: number; revenue: number; returned: number }>();
-      const productInfoMap = new Map<number, { name: string; category: string; price: number; stock: number }>();
+      const productSalesMap = new Map<string | number, { sold: number; revenue: number; returned: number }>();
+      const productInfoMap = new Map<string | number, { name: string; category: string; price: number; stock: number }>();
       
-      // Initialize with product info
+      // Initialize with product info - convert ID to string for consistent comparison
       allProducts.forEach((p: any) => {
-        productInfoMap.set(p.id, {
+        const productId = String(p.id);
+        productInfoMap.set(productId, {
           name: p.name,
           category: p.categoryName || `Category ${p.categoryId}`,
           price: p.price,
           stock: p.stockQuantity ?? 0
         });
-        productSalesMap.set(p.id, { sold: 0, revenue: 0, returned: 0 });
+        productSalesMap.set(productId, { sold: 0, revenue: 0, returned: 0 });
       });
       
       // Track debug info
@@ -388,12 +389,16 @@ const ProductsReport: React.FC = () => {
           console.log(`✅ Delivered Order ${order.orderNumber}:`, order.items);
           
           order.items?.forEach((item: any) => {
-            const existing = productSalesMap.get(item.productId);
+            // Convert productId to string for consistent comparison
+            const productId = String(item.productId);
+            const existing = productSalesMap.get(productId);
             if (existing) {
               const itemRevenue = (item.unitPrice ?? item.price) * item.quantity;
               existing.sold += item.quantity;
               existing.revenue += itemRevenue;
-              console.log(`  📦 Product ${item.productName}: +${item.quantity} sold, +₱${itemRevenue}`);
+              console.log(`  📦 Product ID ${productId} (${item.productName}): +${item.quantity} sold, +₱${itemRevenue}`);
+            } else {
+              console.warn(`  ⚠️ Product ID ${productId} not found in product list`);
             }
           });
         }
@@ -404,7 +409,8 @@ const ProductsReport: React.FC = () => {
           console.log(`❌ Cancelled/Refunded Order ${order.orderNumber}:`, order.items);
           
           order.items?.forEach((item: any) => {
-            const existing = productSalesMap.get(item.productId);
+            const productId = String(item.productId);
+            const existing = productSalesMap.get(productId);
             if (existing) {
               existing.returned += item.quantity;
               console.log(`  📦 Product ${item.productName}: +${item.quantity} returned`);
@@ -428,20 +434,28 @@ const ProductsReport: React.FC = () => {
       
       console.log(`📊 Summary: ${deliveredOrdersCount} delivered orders, ${cancelledOrdersCount} cancelled orders`);
       
-      // Build product stats
-      const stats: ProductStat[] = Array.from(productSalesMap.entries()).map(([id, sales]) => {
-        const info = productInfoMap.get(id)!;
-        return {
-          id,
-          name: info.name,
-          category: info.category,
-          price: info.price,
-          stock: info.stock,
-          sold: sales.sold,
-          revenue: sales.revenue,
-          returned: sales.returned
-        };
-      }).filter(p => p.sold > 0 || p.stock > 0 || p.returned > 0);
+      // Build product stats - only include products with sales or stock
+      const stats: ProductStat[] = Array.from(productSalesMap.entries())
+      .map(([id, sales]) => {
+        const info = productInfoMap.get(id);
+        if (info && (sales.sold > 0 || sales.returned > 0 || info.stock > 0)) {
+          return {
+            id,
+            name: info.name,
+            category: info.category,
+            price: info.price,
+            stock: info.stock,
+            sold: sales.sold,
+            revenue: sales.revenue,
+            returned: sales.returned
+          };
+        }
+        return null;
+      })
+      .filter((item): item is ProductStat => item !== null);
+      
+      // Sort by sold count (most sold first)
+      stats.sort((a, b) => b.sold - a.sold);
       
       console.log('📊 Final Product Stats:', stats);
       
@@ -571,7 +585,7 @@ const ProductsReport: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <p className="text-sm font-medium text-gray-800">Inventory Summary</p>
-          <p className="text-xs text-gray-500 mt-0.5">Period: {toDisplayDate(dateRange.start)} – {toDisplayDate(dateRange.end)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Period: ${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}</p>
         </div>
         <div className="text-right">
           <p className="text-sm font-medium text-gray-800">Total Revenue</p>
@@ -629,7 +643,7 @@ const ProductsReport: React.FC = () => {
         <p className="text-sm text-gray-500 mt-1">Track stock levels, product performance, and returned items</p>
       </div>
 
-      {/* Debug Info (can be removed after testing) */}
+      {/* Debug Info */}
       {debugInfo && (
         <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
           <p className="text-xs text-blue-800 font-medium">Debug Info:</p>
