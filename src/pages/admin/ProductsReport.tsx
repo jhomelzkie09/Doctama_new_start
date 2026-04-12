@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Package, AlertCircle, DollarSign, TrendingUp, Eye, RefreshCw, ArrowLeftRight, Clock, CheckCircle, XCircle, AlertTriangle, Download, Printer, Filter } from 'lucide-react';
+import { Package, AlertCircle, DollarSign, TrendingUp, Eye, RefreshCw, ArrowLeftRight, Clock, CheckCircle, XCircle, AlertTriangle, Download, Printer, Filter, Loader } from 'lucide-react';
 import reportService from '../../services/report.service';
 import productService from '../../services/product.service';
 import orderService from '../../services/order.service';
@@ -47,6 +47,22 @@ interface TotalStats {
   pendingReturns: number;
 }
 
+// ─── Loading Overlay Component ────────────────────────────────────────────────
+
+const LoadingOverlay: React.FC<{ message: string }> = ({ message }) => (
+  <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
+        <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+        <div className="absolute inset-2 rounded-full border-2 border-t-violet-400 border-r-transparent border-b-transparent border-l-transparent animate-spin animation-delay-300"></div>
+      </div>
+      <p className="text-slate-700 font-semibold text-lg">{message}</p>
+      <p className="text-slate-400 text-sm">Please wait while we compile your data...</p>
+    </div>
+  </div>
+);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const toLocalDateStr = (value: string | Date | undefined): string => {
@@ -54,7 +70,10 @@ const toLocalDateStr = (value: string | Date | undefined): string => {
   try {
     const d = new Date(value);
     if (isNaN(d.getTime())) return '';
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch {
     return '';
   }
@@ -102,24 +121,58 @@ interface StatCardProps {
   icon: React.ReactNode;
   trend?: string;
   valueColor?: string;
+  isLoading?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, valueColor = 'text-gray-900' }) => (
-  <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
-    <div className="flex items-center justify-between mb-3">
-      <div className="p-2 bg-rose-50 rounded-lg">{icon}</div>
-      {trend && <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">{trend}</span>}
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, valueColor = 'text-gray-900', isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div className="flex items-center justify-between mb-3">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <div className="w-5 h-5 text-gray-300">{icon}</div>
+          </div>
+        </div>
+        <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+        <div className="h-8 bg-gray-200 rounded w-16 animate-pulse"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className="p-2 bg-rose-50 rounded-lg">{icon}</div>
+        {trend && <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">{trend}</span>}
+      </div>
+      <p className="text-sm text-gray-500 mb-1">{label}</p>
+      <p className={`text-2xl font-bold ${valueColor}`}>{value}</p>
     </div>
-    <p className="text-sm text-gray-500 mb-1">{label}</p>
-    <p className={`text-2xl font-bold ${valueColor}`}>{value}</p>
-  </div>
-);
+  );
+};
 
 interface LowStockAlertProps {
   products: ProductStat[];
+  isLoading?: boolean;
 }
 
-const LowStockAlert: React.FC<LowStockAlertProps> = ({ products }) => {
+const LowStockAlert: React.FC<LowStockAlertProps> = ({ products, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-5 py-3 bg-gray-100 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+            <div className="h-4 bg-gray-300 rounded w-32 animate-pulse"></div>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="h-20 bg-gray-100 rounded animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
+
   const lowStockProducts = products.filter(p => p.stock > 0 && p.stock < 10);
   const outOfStockProducts = products.filter(p => p.stock === 0);
   
@@ -196,9 +249,19 @@ const LowStockAlert: React.FC<LowStockAlertProps> = ({ products }) => {
 
 interface ReturnedProductsTableProps {
   returns: ReturnedProduct[];
+  isLoading?: boolean;
 }
 
-const ReturnedProductsTable: React.FC<ReturnedProductsTableProps> = ({ returns }) => {
+const ReturnedProductsTable: React.FC<ReturnedProductsTableProps> = ({ returns, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-400">Loading returns data...</p>
+      </div>
+    );
+  }
+
   if (returns.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -253,9 +316,19 @@ const ReturnedProductsTable: React.FC<ReturnedProductsTableProps> = ({ returns }
 interface ProductTableProps {
   products: ProductStat[];
   stats: TotalStats;
+  isLoading?: boolean;
 }
 
-const ProductTable: React.FC<ProductTableProps> = ({ products, stats }) => {
+const ProductTable: React.FC<ProductTableProps> = ({ products, stats, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="w-12 h-12 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-400">Loading product data...</p>
+      </div>
+    );
+  }
+
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-gray-400">
@@ -321,7 +394,7 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, stats }) => {
             <td className="px-4 py-3 font-semibold text-orange-600">{stats.totalReturned}</td>
             <td className="px-4 py-3 font-semibold text-gray-900">{peso(stats.totalRevenue - (stats.totalReturned * (stats.totalRevenue / stats.totalSold) || 0))}</td>
             <td className="px-4 py-3 text-sm text-gray-500">{stats.lowStock + stats.outOfStock} need attention</td>
-          </tr>
+           </tr>
         </tfoot>
       </table>
     </div>
@@ -336,6 +409,7 @@ const ProductsReport: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
@@ -350,9 +424,6 @@ const ProductsReport: React.FC = () => {
     try {
       const allProducts = await productService.getProducts();
       const allOrders = await orderService.getAllOrders();
-      
-      console.log('📦 All Orders:', allOrders);
-      console.log('📦 Date Range:', dateRange);
       
       // Calculate product stats from actual orders
       const productSalesMap = new Map<string | number, { sold: number; revenue: number; returned: number }>();
@@ -386,7 +457,6 @@ const ProductsReport: React.FC = () => {
         // Check if order is DELIVERED (sold)
         if (order.status === 'delivered') {
           deliveredOrdersCount++;
-          console.log(`✅ Delivered Order ${order.orderNumber}:`, order.items);
           
           order.items?.forEach((item: any) => {
             // Convert productId to string for consistent comparison
@@ -396,9 +466,6 @@ const ProductsReport: React.FC = () => {
               const itemRevenue = (item.unitPrice ?? item.price) * item.quantity;
               existing.sold += item.quantity;
               existing.revenue += itemRevenue;
-              console.log(`  📦 Product ID ${productId} (${item.productName}): +${item.quantity} sold, +₱${itemRevenue}`);
-            } else {
-              console.warn(`  ⚠️ Product ID ${productId} not found in product list`);
             }
           });
         }
@@ -406,14 +473,12 @@ const ProductsReport: React.FC = () => {
         // Check if order is CANCELLED and REFUNDED (returned)
         if (order.status === 'cancelled' && order.paymentStatus === 'refunded') {
           cancelledOrdersCount++;
-          console.log(`❌ Cancelled/Refunded Order ${order.orderNumber}:`, order.items);
           
           order.items?.forEach((item: any) => {
             const productId = String(item.productId);
             const existing = productSalesMap.get(productId);
             if (existing) {
               existing.returned += item.quantity;
-              console.log(`  📦 Product ${item.productName}: +${item.quantity} returned`);
               
               // Add to returns list
               returnsList.push({
@@ -432,32 +497,28 @@ const ProductsReport: React.FC = () => {
         }
       });
       
-      console.log(`📊 Summary: ${deliveredOrdersCount} delivered orders, ${cancelledOrdersCount} cancelled orders`);
-      
       // Build product stats - only include products with sales or stock
       const stats: ProductStat[] = Array.from(productSalesMap.entries())
-      .map(([id, sales]) => {
-        const info = productInfoMap.get(id);
-        if (info && (sales.sold > 0 || sales.returned > 0 || info.stock > 0)) {
-          return {
-            id,
-            name: info.name,
-            category: info.category,
-            price: info.price,
-            stock: info.stock,
-            sold: sales.sold,
-            revenue: sales.revenue,
-            returned: sales.returned
-          };
-        }
-        return null;
-      })
-      .filter((item): item is ProductStat => item !== null);
+        .map(([id, sales]) => {
+          const info = productInfoMap.get(id);
+          if (info && (sales.sold > 0 || sales.returned > 0 || info.stock > 0)) {
+            return {
+              id,
+              name: info.name,
+              category: info.category,
+              price: info.price,
+              stock: info.stock,
+              sold: sales.sold,
+              revenue: sales.revenue,
+              returned: sales.returned
+            };
+          }
+          return null;
+        })
+        .filter((item): item is ProductStat => item !== null);
       
       // Sort by sold count (most sold first)
       stats.sort((a, b) => b.sold - a.sold);
-      
-      console.log('📊 Final Product Stats:', stats);
       
       setProductStats(stats);
       setReturnedProducts(returnsList);
@@ -483,6 +544,19 @@ const ProductsReport: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [dateRange]);
+
+  // Handle filter changes with loading state
+  const handleDateRangeChange = (field: 'start' | 'end', value: string) => {
+    setDateRange(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setFilterCategory(value);
+  };
+
+  const handleRefresh = () => {
+    loadData();
+  };
 
   // ── Filter products by category ─────────────────────────────────────────────
   const filteredProducts = filterCategory === 'all' 
@@ -636,169 +710,179 @@ const ProductsReport: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Inventory & Returns Report</h1>
-        <p className="text-sm text-gray-500 mt-1">Track stock levels, product performance, and returned items</p>
-      </div>
-
-      {/* Debug Info */}
-      {debugInfo && (
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-          <p className="text-xs text-blue-800 font-medium">Debug Info:</p>
-          <p className="text-xs text-blue-600">Delivered Orders: {debugInfo.deliveredOrders}</p>
-          <p className="text-xs text-blue-600">Cancelled Orders: {debugInfo.cancelledOrders}</p>
-          <p className="text-xs text-blue-600">Total Sold: {debugInfo.totalSold} units</p>
-          <p className="text-xs text-blue-600">Total Returned: {debugInfo.totalReturned} units</p>
+    <>
+      {/* Loading Overlays */}
+      {(loading || exportLoading) && <LoadingOverlay message={loading ? "Loading inventory data..." : "Generating export file..."} />}
+      
+      <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Inventory & Returns Report</h1>
+          <p className="text-sm text-gray-500 mt-1">Track stock levels, product performance, and returned items</p>
         </div>
-      )}
 
-      {/* Date Range Filter */}
-      <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
-            />
+        {/* Debug Info (for development) */}
+        {debugInfo && (
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <p className="text-xs text-blue-800 font-medium">Debug Info:</p>
+            <p className="text-xs text-blue-600">Delivered Orders: {debugInfo.deliveredOrders}</p>
+            <p className="text-xs text-blue-600">Cancelled Orders: {debugInfo.cancelledOrders}</p>
+            <p className="text-xs text-blue-600">Total Sold: {debugInfo.totalSold} units</p>
+            <p className="text-xs text-blue-600">Total Returned: {debugInfo.totalReturned} units</p>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
-            />
+        )}
+
+        {/* Date Range Filter */}
+        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Category Filter</label>
+              <select
+                value={filterCategory}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <button
+                onClick={() => handleExport('excel')}
+                disabled={exportLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-2 disabled:opacity-50"
+              >
+                {exportLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Export
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Print
+              </button>
+            </div>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Category Filter</label>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
-            >
-              <option value="all">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
+        </div>
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Total Products"
+            value={stats.totalProducts}
+            icon={<Package className="w-5 h-5 text-blue-600" />}
+            isLoading={loading}
+          />
+          <StatCard
+            label="Total Stock"
+            value={stats.totalStock}
+            icon={<TrendingUp className="w-5 h-5 text-green-600" />}
+            isLoading={loading}
+          />
+          <StatCard
+            label="Total Revenue"
+            value={peso(stats.totalRevenue)}
+            icon={<DollarSign className="w-5 h-5 text-yellow-600" />}
+            isLoading={loading}
+          />
+          <StatCard
+            label="Returns"
+            value={`${stats.totalReturned} (${peso(stats.totalRefundAmount)})`}
+            icon={<ArrowLeftRight className="w-5 h-5 text-orange-600" />}
+            valueColor="text-orange-600"
+            isLoading={loading}
+          />
+        </div>
+
+        {/* Low Stock Alert */}
+        <LowStockAlert products={filteredProducts} isLoading={loading} />
+
+        {/* Product Inventory Table */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+          <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Package className="w-4 h-4 text-rose-600" />
+              Product Inventory
+              <span className="text-xs text-gray-400 ml-2">({filteredProducts.length} items)</span>
+            </h3>
             <button
-              onClick={() => loadData()}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition flex items-center gap-2"
+              onClick={() => setShowPDFModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg transition-colors"
             >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-            <button
-              onClick={() => handleExport('excel')}
-              disabled={exportLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Print
+              <Eye className="w-4 h-4" />
+              Preview Full Report
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Products"
-          value={stats.totalProducts}
-          icon={<Package className="w-5 h-5 text-blue-600" />}
-        />
-        <StatCard
-          label="Total Stock"
-          value={stats.totalStock}
-          icon={<TrendingUp className="w-5 h-5 text-green-600" />}
-        />
-        <StatCard
-          label="Total Revenue"
-          value={peso(stats.totalRevenue)}
-          icon={<DollarSign className="w-5 h-5 text-yellow-600" />}
-        />
-        <StatCard
-          label="Returns"
-          value={`${stats.totalReturned} (${peso(stats.totalRefundAmount)})`}
-          icon={<ArrowLeftRight className="w-5 h-5 text-orange-600" />}
-          valueColor="text-orange-600"
-        />
-      </div>
-
-      {/* Low Stock Alert */}
-      <LowStockAlert products={filteredProducts} />
-
-      {/* Product Inventory Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-            <Package className="w-4 h-4 text-rose-600" />
-            Product Inventory
-            <span className="text-xs text-gray-400 ml-2">({filteredProducts.length} items)</span>
-          </h3>
-          <button
-            onClick={() => setShowPDFModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            Preview Full Report
-          </button>
-        </div>
-
-        <div id="report-print-content">
-          <ProductTable products={filteredProducts} stats={stats} />
-        </div>
-      </div>
-
-      {/* Returned Products Section */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="px-5 py-3 bg-orange-50 border-b border-orange-100">
-          <div className="flex items-center gap-2">
-            <ArrowLeftRight className="w-4 h-4 text-orange-600" />
-            <h3 className="text-sm font-semibold text-orange-800">Returned Products</h3>
-            <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full ml-2">
-              {stats.totalReturned} units returned
-            </span>
+          <div id="report-print-content">
+            <ProductTable products={filteredProducts} stats={stats} isLoading={loading} />
           </div>
         </div>
-        <ReturnedProductsTable returns={returnedProducts} />
-      </div>
 
-      {/* PDF Modal */}
-      <PDFReportModal
-        isOpen={showPDFModal}
-        onClose={() => setShowPDFModal(false)}
-        title="Inventory & Returns Report"
-        onPrint={handlePrint}
-        onExport={() => handleExport('excel')}
-        period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
-        summary={summaryContent}
-      >
-        <>
-          <LowStockAlert products={filteredProducts} />
-          <ProductTable products={filteredProducts} stats={stats} />
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Returned Products</h3>
-            <ReturnedProductsTable returns={returnedProducts} />
+        {/* Returned Products Section */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+          <div className="px-5 py-3 bg-orange-50 border-b border-orange-100">
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight className="w-4 h-4 text-orange-600" />
+              <h3 className="text-sm font-semibold text-orange-800">Returned Products</h3>
+              <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full ml-2">
+                {stats.totalReturned} units returned
+              </span>
+            </div>
           </div>
-        </>
-      </PDFReportModal>
-    </div>
+          <ReturnedProductsTable returns={returnedProducts} isLoading={loading} />
+        </div>
+
+        {/* PDF Modal */}
+        <PDFReportModal
+          isOpen={showPDFModal}
+          onClose={() => setShowPDFModal(false)}
+          title="Inventory & Returns Report"
+          onPrint={handlePrint}
+          onExport={() => handleExport('excel')}
+          period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
+          summary={summaryContent}
+        >
+          <>
+            <LowStockAlert products={filteredProducts} />
+            <ProductTable products={filteredProducts} stats={stats} />
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Returned Products</h3>
+              <ReturnedProductsTable returns={returnedProducts} />
+            </div>
+          </>
+        </PDFReportModal>
+      </div>
+    </>
   );
 };
 

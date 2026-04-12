@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Package, Clock, CheckCircle, XCircle, Eye, Search } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, Eye, Search, Loader, RefreshCw } from 'lucide-react';
 import ReportFilters from '../../components/admin/ReportFilters';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
@@ -18,6 +18,22 @@ interface StatusStats {
   completed: number;
   cancelled: number;
 }
+
+// ─── Loading Overlay Component ────────────────────────────────────────────────
+
+const LoadingOverlay: React.FC<{ message: string }> = ({ message }) => (
+  <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
+        <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+        <div className="absolute inset-2 rounded-full border-2 border-t-violet-400 border-r-transparent border-b-transparent border-l-transparent animate-spin animation-delay-300"></div>
+      </div>
+      <p className="text-slate-700 font-semibold text-lg">{message}</p>
+      <p className="text-slate-400 text-sm">Please wait while we compile your data...</p>
+    </div>
+  </div>
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -74,15 +90,30 @@ interface StatCardProps {
   value: number;
   icon: React.ReactNode;
   themeColor: 'yellow' | 'blue' | 'green' | 'red';
+  isLoading?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, icon, themeColor }) => {
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon, themeColor, isLoading }) => {
   const colorMap = {
     yellow: 'text-amber-600 bg-amber-50',
     blue: 'text-blue-600 bg-blue-50',
     green: 'text-emerald-600 bg-emerald-50',
     red: 'text-rose-600 bg-rose-50',
   };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
+        <div>
+          <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+          <div className="h-8 bg-gray-200 rounded w-12 animate-pulse"></div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-100">
+          <div className="w-7 h-7 text-gray-300">{icon}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between hover:shadow-md hover:-translate-y-1 transition-all duration-300">
@@ -100,9 +131,19 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon, themeColor }) =
 interface OrderTableProps {
   orders: any[];
   totalSales: number;
+  isLoading?: boolean;
 }
 
-const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
+const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="w-12 h-12 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-400">Loading orders...</p>
+      </div>
+    );
+  }
+
   if (orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200 m-4">
@@ -128,7 +169,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
                 {h}
               </th>
             ))}
-          </tr>
+           </tr>
         </thead>
 
         <tbody className="divide-y divide-gray-100 bg-white">
@@ -143,10 +184,10 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
                   <div className="font-mono text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md inline-block">
                     #{order.id?.toString().slice(-6) ?? 'N/A'}
                   </div>
-                </td>
+                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">
                   {toDisplayDate(resolveOrderDate(order))}
-                </td>
+                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-sm">
@@ -154,25 +195,25 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
                     </div>
                     <span className="font-medium text-gray-900">{customerName}</span>
                   </div>
-                </td>
+                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <span className="font-semibold text-gray-900">{peso(resolveOrderTotal(order))}</span>
-                </td>
+                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-full font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
                     <span className="capitalize">{order.status ?? 'N/A'}</span>
                   </span>
-                </td>
+                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-500 capitalize">
                   {order.paymentMethod ?? order.payment_method ?? 'N/A'}
-                </td>
+                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
                     {order.items?.length ?? 0}
                   </span>
-                </td>
-              </tr>
+                 </td>
+               </tr>
             );
           })}
         </tbody>
@@ -181,14 +222,14 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
           <tr className="bg-gray-50/80 border-t-2 border-gray-100">
             <td colSpan={3} className="px-6 py-4 text-right text-sm font-semibold text-gray-600">
               Total Sales Period
-            </td>
+             </td>
             <td className="px-6 py-4 text-right font-bold text-gray-900 text-base">
               {peso(totalSales)}
-            </td>
+             </td>
             <td colSpan={3} className="px-6 py-4 text-sm font-medium text-gray-500">
               {orders.length} order{orders.length !== 1 ? 's' : ''}
-            </td>
-          </tr>
+             </td>
+           </tr>
         </tfoot>
       </table>
     </div>
@@ -199,7 +240,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales }) => {
 
 const OrdersReport: React.FC = () => {
   const { state, getAllOrders } = useOrders();
-  const { orders, loading } = state;
+  const { orders, loading: ordersLoading } = state;
 
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -208,21 +249,34 @@ const OrdersReport: React.FC = () => {
   });
   const [exportLoading, setExportLoading] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     getAllOrders();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Filter orders when date range changes
   useEffect(() => {
-    if (!orders?.length) {
-      setFilteredOrders([]);
-      return;
-    }
-    const filtered = orders.filter((order) => {
-      const d = toLocalDateStr(resolveOrderDate(order));
-      return d ? d >= dateRange.start && d <= dateRange.end : false;
-    });
-    setFilteredOrders(filtered);
+    const applyFilter = async () => {
+      if (!orders?.length) {
+        setFilteredOrders([]);
+        return;
+      }
+      
+      setIsFiltering(true);
+      // Small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const filtered = orders.filter((order) => {
+        const d = toLocalDateStr(resolveOrderDate(order));
+        return d ? d >= dateRange.start && d <= dateRange.end : false;
+      });
+      setFilteredOrders(filtered);
+      setIsFiltering(false);
+    };
+    
+    applyFilter();
   }, [orders, dateRange]);
 
   const statusStats = useCallback((): StatusStats => {
@@ -241,6 +295,12 @@ const OrdersReport: React.FC = () => {
   }, [filteredOrders])();
 
   const totalSales = filteredOrders.reduce((sum, o) => sum + resolveOrderTotal(o), 0);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await getAllOrders();
+    setIsRefreshing(false);
+  };
 
   const handleExport = async (format: 'excel' | 'csv' | 'json') => {
     setExportLoading(true);
@@ -317,14 +377,15 @@ const OrdersReport: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  // Main loading state
+  if (ordersLoading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center">
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 rounded-full border-4 border-gray-100"></div>
           <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
         </div>
-        <p className="mt-4 text-sm font-medium text-gray-500 animate-pulse">Loading your orders…</p>
+        <p className="mt-4 text-sm font-medium text-gray-500 animate-pulse">Loading order data…</p>
       </div>
     );
   }
@@ -332,84 +393,103 @@ const OrdersReport: React.FC = () => {
   const iconSize = 'w-7 h-7';
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Orders Report</h1>
-          <p className="text-base text-gray-500 mt-1">Monitor your sales performance and order fulfillments.</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
-        <ReportFilters
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          onExport={handleExport}
-          onPrint={handlePrint}
-          loading={exportLoading}
-        />
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          label="Pending Orders"
-          value={statusStats.pending}
-          icon={<Clock className={iconSize} />}
-          themeColor="yellow"
-        />
-        <StatCard
-          label="Processing"
-          value={statusStats.processing}
-          icon={<Package className={iconSize} />}
-          themeColor="blue"
-        />
-        <StatCard
-          label="Completed"
-          value={statusStats.completed}
-          icon={<CheckCircle className={iconSize} />}
-          themeColor="green"
-        />
-        <StatCard
-          label="Cancelled"
-          value={statusStats.cancelled}
-          icon={<XCircle className={iconSize} />}
-          themeColor="red"
-        />
-      </div>
-
-      {/* Table Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
-          <h2 className="text-lg font-semibold text-gray-900">Transaction History</h2>
+    <>
+      {/* Loading Overlays */}
+      {isFiltering && <LoadingOverlay message="Filtering orders..." />}
+      {exportLoading && <LoadingOverlay message="Generating export file..." />}
+      {isRefreshing && <LoadingOverlay message="Refreshing data..." />}
+      
+      <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Orders Report</h1>
+            <p className="text-base text-gray-500 mt-1">Monitor your sales performance and order fulfillments.</p>
+          </div>
           <button
-            onClick={() => setShowPDFModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium text-sm rounded-lg transition-colors"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
-            <Eye className="w-4 h-4" />
-            Preview PDF
+            <RefreshCw className={`w-4 h-4 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium text-gray-700">Refresh</span>
           </button>
         </div>
 
-        <div id="report-print-content">
-          <OrderTable orders={filteredOrders} totalSales={totalSales} />
+        {/* Filters */}
+        <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+          <ReportFilters
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            onExport={handleExport}
+            onPrint={handlePrint}
+            loading={exportLoading}
+          />
         </div>
-      </div>
 
-      <PDFReportModal
-        isOpen={showPDFModal}
-        onClose={() => setShowPDFModal(false)}
-        title="Orders Report"
-        onPrint={handlePrint}
-        onExport={() => handleExport('excel')}
-        period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
-        summary={summaryContent}
-      >
-        <OrderTable orders={filteredOrders} totalSales={totalSales} />
-      </PDFReportModal>
-    </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            label="Pending Orders"
+            value={statusStats.pending}
+            icon={<Clock className={iconSize} />}
+            themeColor="yellow"
+            isLoading={isFiltering}
+          />
+          <StatCard
+            label="Processing"
+            value={statusStats.processing}
+            icon={<Package className={iconSize} />}
+            themeColor="blue"
+            isLoading={isFiltering}
+          />
+          <StatCard
+            label="Completed"
+            value={statusStats.completed}
+            icon={<CheckCircle className={iconSize} />}
+            themeColor="green"
+            isLoading={isFiltering}
+          />
+          <StatCard
+            label="Cancelled"
+            value={statusStats.cancelled}
+            icon={<XCircle className={iconSize} />}
+            themeColor="red"
+            isLoading={isFiltering}
+          />
+        </div>
+
+        {/* Table Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+            <h2 className="text-lg font-semibold text-gray-900">Transaction History</h2>
+            <button
+              onClick={() => setShowPDFModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium text-sm rounded-lg transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              Preview PDF
+            </button>
+          </div>
+
+          <div id="report-print-content">
+            <OrderTable orders={filteredOrders} totalSales={totalSales} isLoading={isFiltering} />
+          </div>
+        </div>
+
+        <PDFReportModal
+          isOpen={showPDFModal}
+          onClose={() => setShowPDFModal(false)}
+          title="Orders Report"
+          onPrint={handlePrint}
+          onExport={() => handleExport('excel')}
+          period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
+          summary={summaryContent}
+        >
+          <OrderTable orders={filteredOrders} totalSales={totalSales} />
+        </PDFReportModal>
+      </div>
+    </>
   );
 };
 
