@@ -324,23 +324,30 @@ const Checkout = () => {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load saved addresses from localStorage and user's order history
+  // Load saved addresses from localStorage and user's order history (only for current user)
   useEffect(() => {
     const loadSavedAddresses = async () => {
+      if (!user) {
+        setSavedAddresses([]);
+        return;
+      }
+      
       const addresses: SavedAddress[] = [];
       
-      // Load from localStorage first
-      const saved = localStorage.getItem('saved_addresses');
+      // Load from localStorage with user-specific key
+      const savedKey = `saved_addresses_${user.id}`;
+      const saved = localStorage.getItem(savedKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         addresses.push(...parsed);
       }
       
-      // Load addresses from user's order history
-      if (user) {
-        try {
-          const orders = await orderService.getMyOrders(1, 50);
-          const orderAddresses = orders.orders.map(order => ({
+      // Load addresses from user's order history (only orders belonging to this user)
+      try {
+        const orders = await orderService.getMyOrders(1, 50);
+        const orderAddresses = orders.orders
+          .filter(order => order.userId === user.id) // Only current user's orders
+          .map(order => ({
             id: `order-${order.id}`,
             fullName: order.customerName || user.fullName || '',
             address: order.shippingAddress?.split(',')[0] || '',
@@ -352,23 +359,23 @@ const Checkout = () => {
             email: order.customerEmail || user.email || '',
             label: 'Previous Order'
           }));
-          
-          // Add unique addresses (avoid duplicates)
-          orderAddresses.forEach(addr => {
-            const exists = addresses.some(a => 
-              a.address === addr.address && a.city === addr.city
-            );
-            if (!exists && addr.address) {
-              addresses.push(addr);
-            }
-          });
-        } catch (error) {
-          console.error('Failed to load order addresses:', error);
-        }
+        
+        // Add unique addresses (avoid duplicates)
+        orderAddresses.forEach(addr => {
+          const exists = addresses.some(a => 
+            a.address === addr.address && a.city === addr.city
+          );
+          if (!exists && addr.address) {
+            addresses.push(addr);
+          }
+        });
+      } catch (error) {
+        console.error('Failed to load order addresses:', error);
       }
       
-      // Load saved shipping from previous checkout
-      const savedShipping = localStorage.getItem('checkout_shipping');
+      // Load saved shipping from previous checkout (user-specific)
+      const savedShippingKey = `checkout_shipping_${user.id}`;
+      const savedShipping = localStorage.getItem(savedShippingKey);
       if (savedShipping) {
         const shipping = JSON.parse(savedShipping);
         const exists = addresses.some(a => 
@@ -396,13 +403,17 @@ const Checkout = () => {
     loadSavedAddresses();
   }, [user]);
 
-  // Save shipping info to localStorage
+  // Also update the saveShippingInfo useEffect to use user-specific key:
   useEffect(() => {
-    localStorage.setItem('checkout_shipping', JSON.stringify(shippingInfo));
-  }, [shippingInfo]);
+    if (user) {
+      localStorage.setItem(`checkout_shipping_${user.id}`, JSON.stringify(shippingInfo));
+    }
+  }, [shippingInfo, user]);
 
-  // Save address to saved addresses when order is placed
+  // Update the saveAddressToStorage function to use user-specific key:
   const saveAddressToStorage = () => {
+    if (!user) return;
+    
     const newAddress: SavedAddress = {
       id: `addr-${Date.now()}`,
       fullName: shippingInfo.fullName,
@@ -416,7 +427,8 @@ const Checkout = () => {
       label: 'Saved Address'
     };
     
-    const existing = localStorage.getItem('saved_addresses');
+    const savedKey = `saved_addresses_${user.id}`;
+    const existing = localStorage.getItem(savedKey);
     let addresses: SavedAddress[] = existing ? JSON.parse(existing) : [];
     
     // Check if address already exists
@@ -428,9 +440,12 @@ const Checkout = () => {
       addresses.unshift(newAddress);
       // Keep only last 10 addresses
       addresses = addresses.slice(0, 10);
-      localStorage.setItem('saved_addresses', JSON.stringify(addresses));
+      localStorage.setItem(savedKey, JSON.stringify(addresses));
     }
   };
+
+  // Update the remove checkout shipping line in handlePlaceOrder:
+  localStorage.removeItem(`checkout_shipping_${user?.id}`);
 
   // Calculate shipping fee when city or barangay changes
   useEffect(() => {
