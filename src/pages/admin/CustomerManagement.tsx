@@ -405,10 +405,10 @@ const CustomerManagement = () => {
         {/* ── Stats ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
           <StatCard label="Total Revenue" value={formatCurrency(quickStats.totalRevenue)}
-            sub={`${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#0d9488" trend="+12% this month" />
-          <StatCard label="Conversion Rate" value={`${quickStats.conversionRate.toFixed(1)}%`}
+            sub={`₱ ${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#0d9488" trend="+12% this month" />
+          <StatCard label="Conversion Rate" value={`₱ ${quickStats.conversionRate.toFixed(1)}%`}
             sub="visitors who purchased" accent="#0ea5e9" />
-          <StatCard label="Verified Rate" value={`${quickStats.verifiedRate.toFixed(1)}%`}
+          <StatCard label="Verified Rate" value={`₱ ${quickStats.verifiedRate.toFixed(1)}%`}
             sub="email confirmed" accent="#22c55e" />
           <StatCard label="Active Today" value={String(quickStats.newCustomersToday)}
             sub="new signups" accent="#f59e0b" />
@@ -561,13 +561,13 @@ const CustomerManagement = () => {
                         </p>
                         {customer.stats.totalOrders > 0 && (
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
-                            {formatCurrency(customer.stats.averageOrderValue)} avg
+                            ₱ {formatCurrency(customer.stats.averageOrderValue)} avg
                           </p>
                         )}
                       </td>
                       <td style={{ padding: '14px 16px' }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)', fontFamily: "'DM Mono', monospace" }}>
-                          {formatCurrency(customer.stats.totalSpent)}
+                          ₱ {formatCurrency(customer.stats.totalSpent)}
                         </p>
                         {customer.stats.lastOrderDate && (
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
