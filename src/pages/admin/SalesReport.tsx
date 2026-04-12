@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { TrendingUp, DollarSign, ShoppingBag, Users, Eye, Download, Printer, Calendar, BarChart3, Package, Crown, ArrowUp, ArrowDown, Filter, RefreshCw, ChevronRight } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Users, Eye, Download, Printer, Calendar, BarChart3, Package, Crown, ArrowUp, ArrowDown, Filter, RefreshCw, ChevronRight, Loader } from 'lucide-react';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 import PDFReportModal from '../../components/admin/PDFReportModal';
@@ -44,6 +44,22 @@ interface DailySales {
   orders: number;
 }
 
+// ─── Loading Overlay Component ────────────────────────────────────────────────
+
+const LoadingOverlay: React.FC<{ message: string }> = ({ message }) => (
+  <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
+        <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+        <div className="absolute inset-2 rounded-full border-2 border-t-violet-400 border-r-transparent border-b-transparent border-l-transparent animate-spin animation-delay-300"></div>
+      </div>
+      <p className="text-slate-700 font-semibold text-lg">{message}</p>
+      <p className="text-slate-400 text-sm">Please wait while we compile your data...</p>
+    </div>
+  </div>
+);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const toLocalDateStr = (value: string | Date | undefined): string => {
@@ -51,7 +67,10 @@ const toLocalDateStr = (value: string | Date | undefined): string => {
   try {
     const d = new Date(value);
     if (isNaN(d.getTime())) return '';
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch {
     return '';
   }
@@ -149,9 +168,19 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, trendLab
 interface RevenueChartProps {
   data: PeriodSales[];
   periodType: PeriodType;
+  isLoading?: boolean;
 }
 
-const RevenueChart: React.FC<RevenueChartProps> = ({ data, periodType }) => {
+const RevenueChart: React.FC<RevenueChartProps> = ({ data, periodType, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-slate-400">Loading chart data...</p>
+      </div>
+    );
+  }
+  
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -214,9 +243,19 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ data, periodType }) => {
 interface TopProductsTableProps {
   products: TopProduct[];
   totalRevenue: number;
+  isLoading?: boolean;
 }
 
-const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalRevenue }) => {
+const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalRevenue, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-slate-400">Loading product data...</p>
+      </div>
+    );
+  }
+  
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -236,7 +275,7 @@ const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalReve
             <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Units Sold</th>
             <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Revenue</th>
             <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">% of Total</th>
-          </tr>
+           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {products.map((product, idx) => (
@@ -249,7 +288,7 @@ const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalReve
                     <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
                   )}
                 </div>
-               </td>
+              </td>
               <td className="px-4 py-4 font-semibold text-slate-800">{product.name}</td>
               <td className="px-4 py-4 text-right text-slate-600 font-medium">{product.sold}</td>
               <td className="px-4 py-4 text-right font-bold text-slate-900">{peso(product.revenue)}</td>
@@ -274,9 +313,19 @@ const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalReve
 
 interface SalesTransactionsTableProps {
   orders: any[];
+  isLoading?: boolean;
 }
 
-const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders }) => {
+const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-slate-400">Loading transaction data...</p>
+      </div>
+    );
+  }
+  
   if (orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -335,7 +384,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders 
 
 const SalesReport: React.FC = () => {
   const { state, getAllOrders } = useOrders();
-  const { orders, loading } = state;
+  const { orders, loading: ordersLoading } = state;
 
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [periodType, setPeriodType] = useState<PeriodType>('daily');
@@ -349,6 +398,8 @@ const SalesReport: React.FC = () => {
   });
   const [exportLoading, setExportLoading] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [isProcessingData, setIsProcessingData] = useState(false);
 
   useEffect(() => {
     getAllOrders();
@@ -371,13 +422,37 @@ const SalesReport: React.FC = () => {
     });
   }, [dateRange]);
 
+  // Filter orders when date range changes
   useEffect(() => {
-    const filtered = orders.filter((order) => {
-      const d = toLocalDateStr(order.orderDate ?? order.createdAt);
-      return d && d >= dateRange.start && d <= dateRange.end;
-    });
-    setFilteredOrders(filtered);
+    const applyFilter = async () => {
+      setIsFiltering(true);
+      // Simulate a small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const filtered = orders.filter((order) => {
+        const orderDate = toLocalDateStr(order.orderDate ?? order.createdAt);
+        if (!orderDate) return false;
+        
+        const isAfterStart = orderDate >= dateRange.start;
+        const isBeforeEnd = orderDate <= dateRange.end;
+        
+        return isAfterStart && isBeforeEnd;
+      });
+      setFilteredOrders(filtered);
+      setIsFiltering(false);
+    };
+    
+    applyFilter();
   }, [orders, dateRange]);
+
+  // Show processing indicator when calculating stats
+  useEffect(() => {
+    if (filteredOrders.length > 0) {
+      setIsProcessingData(true);
+      const timer = setTimeout(() => setIsProcessingData(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [filteredOrders, periodType]);
 
   // Calculate current period stats
   const currentStats = useMemo((): SalesStats => {
@@ -497,11 +572,18 @@ const SalesReport: React.FC = () => {
     return Array.from(new Set(filteredOrders.map(o => o.customerEmail ?? o.userId))).length;
   }, [filteredOrders]);
 
+  const handleDateRangeChange = (field: 'start' | 'end', value: string) => {
+    setDateRange(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePeriodTypeChange = (value: PeriodType) => {
+    setPeriodType(value);
+  };
+
   const handleExport = async (format: 'excel' | 'csv' | 'json') => {
     setExportLoading(true);
     
     if (format === 'excel') {
-      // Export sales summary
       const summaryRows = [
         { Metric: 'Total Revenue', Value: peso(currentStats.totalRevenue) },
         { Metric: 'Total Orders', Value: currentStats.totalOrders },
@@ -513,7 +595,6 @@ const SalesReport: React.FC = () => {
       
       reportService.exportToExcel(summaryRows, `sales_summary_${dateRange.start}_to_${dateRange.end}`);
       
-      // Export top products
       const productRows = topProducts.map(p => ({
         'Product Name': p.name,
         'Units Sold': p.sold,
@@ -523,7 +604,6 @@ const SalesReport: React.FC = () => {
       
       reportService.exportToExcel(productRows, `top_products_${dateRange.start}_to_${dateRange.end}`);
       
-      // Export transactions
       const transactionRows = filteredOrders.map(order => ({
         Date: toDisplayDate(order.orderDate ?? order.createdAt),
         'Order #': order.orderNumber ?? order.id,
@@ -643,7 +723,8 @@ const SalesReport: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  // Main loading state
+  if (ordersLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
@@ -651,195 +732,202 @@ const SalesReport: React.FC = () => {
             <div className="absolute inset-0 rounded-full border-t-2 border-indigo-600 animate-spin"></div>
             <div className="absolute inset-2 rounded-full border-t-2 border-violet-400 animate-spin opacity-50"></div>
           </div>
-          <p className="text-sm font-semibold text-slate-500">Compiling sales data…</p>
+          <p className="text-sm font-semibold text-slate-500">Loading order data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-8 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sales Performance</h1>
-          <p className="text-sm text-slate-500 mt-2 font-medium">Track revenue trends, analyze performance, and identify top-selling products.</p>
-        </div>
-        
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowPDFModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm transition-all"
-          >
-            <Eye className="w-4 h-4 text-slate-500" />
-            Preview Report
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm p-5 border border-slate-100">
-        <div className="flex flex-wrap gap-5 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              <Calendar className="w-3.5 h-3.5" /> Start Date
-            </label>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-            />
+    <>
+      {/* Loading Overlays */}
+      {isFiltering && <LoadingOverlay message="Filtering sales data..." />}
+      {exportLoading && <LoadingOverlay message="Generating export file..." />}
+      {isProcessingData && <LoadingOverlay message="Processing sales metrics..." />}
+      
+      <div className="p-6 md:p-8 space-y-8 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sales Performance</h1>
+            <p className="text-sm text-slate-500 mt-2 font-medium">Track revenue trends, analyze performance, and identify top-selling products.</p>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-            />
-          </div>
-          <div className="w-48">
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              <Filter className="w-3.5 h-3.5" /> View By
-            </label>
-            <div className="relative">
-              <select
-                value={periodType}
-                onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
-              >
-                <option value="daily">Daily Analysis</option>
-                <option value="weekly">Weekly Analysis</option>
-                <option value="monthly">Monthly Analysis</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
-                <ChevronRight className="w-4 h-4 rotate-90" />
-              </div>
-            </div>
-          </div>
+          
           <div className="flex gap-3">
             <button
-              onClick={() => handleExport('excel')}
-              disabled={exportLoading}
-              className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:transform active:scale-95 transition-all flex items-center gap-2 disabled:opacity-70"
+              onClick={() => setShowPDFModal(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm transition-all"
             >
-              <Download className="w-4 h-4" />
-              Export Data
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-xl text-sm hover:bg-slate-900 shadow-sm hover:shadow-md active:transform active:scale-95 transition-all flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Print
+              <Eye className="w-4 h-4 text-slate-500" />
+              Preview Report
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          label="Total Revenue"
-          value={peso(currentStats.totalRevenue)}
-          icon={<DollarSign className="w-6 h-6" />}
-          trend={currentStats.revenueGrowth}
-          trendLabel="vs previous period"
-          colorTheme="emerald"
-        />
-        <StatCard
-          label="Total Orders"
-          value={String(currentStats.totalOrders)}
-          icon={<ShoppingBag className="w-6 h-6" />}
-          trend={currentStats.ordersGrowth}
-          trendLabel="vs previous period"
-          colorTheme="indigo"
-        />
-        <StatCard
-          label="Average Order Value"
-          value={peso(currentStats.averageOrderValue)}
-          icon={<TrendingUp className="w-6 h-6" />}
-          colorTheme="violet"
-        />
-        <StatCard
-          label="Unique Customers"
-          value={String(uniqueCustomers)}
-          icon={<Users className="w-6 h-6" />}
-          colorTheme="amber"
-        />
-      </div>
-
-      {/* Revenue Chart & Top Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <RevenueChart data={periodSales} periodType={periodType} />
+        {/* Filters */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 border border-slate-100">
+          <div className="flex flex-wrap gap-5 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                <Calendar className="w-3.5 h-3.5" /> Start Date
+              </label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="w-48">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                <Filter className="w-3.5 h-3.5" /> View By
+              </label>
+              <div className="relative">
+                <select
+                  value={periodType}
+                  onChange={(e) => handlePeriodTypeChange(e.target.value as PeriodType)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                >
+                  <option value="daily">Daily Analysis</option>
+                  <option value="weekly">Weekly Analysis</option>
+                  <option value="monthly">Monthly Analysis</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
+                  <ChevronRight className="w-4 h-4 rotate-90" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleExport('excel')}
+                disabled={exportLoading}
+                className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:transform active:scale-95 transition-all flex items-center gap-2 disabled:opacity-70"
+              >
+                {exportLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Export Data
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-xl text-sm hover:bg-slate-900 shadow-sm hover:shadow-md active:transform active:scale-95 transition-all flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Print
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden flex flex-col">
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            label="Total Revenue"
+            value={peso(currentStats.totalRevenue)}
+            icon={<DollarSign className="w-6 h-6" />}
+            trend={currentStats.revenueGrowth}
+            trendLabel="vs previous period"
+            colorTheme="emerald"
+          />
+          <StatCard
+            label="Total Orders"
+            value={String(currentStats.totalOrders)}
+            icon={<ShoppingBag className="w-6 h-6" />}
+            trend={currentStats.ordersGrowth}
+            trendLabel="vs previous period"
+            colorTheme="indigo"
+          />
+          <StatCard
+            label="Average Order Value"
+            value={peso(currentStats.averageOrderValue)}
+            icon={<TrendingUp className="w-6 h-6" />}
+            colorTheme="violet"
+          />
+          <StatCard
+            label="Unique Customers"
+            value={String(uniqueCustomers)}
+            icon={<Users className="w-6 h-6" />}
+            colorTheme="amber"
+          />
+        </div>
+
+        {/* Revenue Chart & Top Products */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <RevenueChart data={periodSales} periodType={periodType} isLoading={isFiltering || isProcessingData} />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <div className="bg-amber-100 p-1.5 rounded-lg text-amber-600">
+                  <Crown className="w-4 h-4" />
+                </div>
+                Top Selling Products
+              </h3>
+              <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+                {topProducts.length} items
+              </span>
+            </div>
+            <div className="p-2 flex-1 overflow-auto">
+              <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} isLoading={isFiltering || isProcessingData} />
+            </div>
+          </div>
+        </div>
+
+        {/* Sales Transactions */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
           <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
             <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <div className="bg-amber-100 p-1.5 rounded-lg text-amber-600">
-                <Crown className="w-4 h-4" />
+              <div className="bg-blue-100 p-1.5 rounded-lg text-blue-600">
+                <Calendar className="w-4 h-4" />
               </div>
-              Top Selling Products
+              Recent Transactions
             </h3>
             <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-              {topProducts.length} items
+              {filteredOrders.length} orders
             </span>
           </div>
-          <div className="p-2 flex-1 overflow-auto">
-            <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
+
+          <div id="report-print-content">
+            <SalesTransactionsTable orders={filteredOrders} isLoading={isFiltering} />
           </div>
         </div>
+
+        {/* PDF Modal */}
+        <PDFReportModal
+          isOpen={showPDFModal}
+          onClose={() => setShowPDFModal(false)}
+          title="Sales Performance Report"
+          onPrint={handlePrint}
+          onExport={() => handleExport('excel')}
+          period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
+          summary={summaryContent}
+        >
+          <>
+            <RevenueChart data={periodSales} periodType={periodType} />
+            <div className="mt-8">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Top Selling Products</h3>
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
+              </div>
+            </div>
+            <div className="mt-8">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Sales Transactions</h3>
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <SalesTransactionsTable orders={filteredOrders} />
+              </div>
+            </div>
+          </>
+        </PDFReportModal>
       </div>
-
-      {/* Sales Transactions */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <div className="bg-blue-100 p-1.5 rounded-lg text-blue-600">
-              <Calendar className="w-4 h-4" />
-            </div>
-            Recent Transactions
-          </h3>
-          <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-            {filteredOrders.length} orders
-          </span>
-        </div>
-
-        <div id="report-print-content">
-          <SalesTransactionsTable orders={filteredOrders} />
-        </div>
-      </div>
-
-      {/* PDF Modal */}
-      <PDFReportModal
-        isOpen={showPDFModal}
-        onClose={() => setShowPDFModal(false)}
-        title="Sales Performance Report"
-        onPrint={handlePrint}
-        onExport={() => handleExport('excel')}
-        period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
-        summary={summaryContent}
-      >
-        <>
-          <RevenueChart data={periodSales} periodType={periodType} />
-          <div className="mt-8">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Top Selling Products</h3>
-            <div className="border border-slate-100 rounded-xl overflow-hidden">
-              <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
-            </div>
-          </div>
-          <div className="mt-8">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Sales Transactions</h3>
-            <div className="border border-slate-100 rounded-xl overflow-hidden">
-              <SalesTransactionsTable orders={filteredOrders} />
-            </div>
-          </div>
-        </>
-      </PDFReportModal>
-    </div>
+    </>
   );
 };
 
