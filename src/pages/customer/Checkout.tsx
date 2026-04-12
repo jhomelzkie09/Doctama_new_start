@@ -40,7 +40,10 @@ import {
   Heart,
   Star,
   Gift,
-  Sparkles
+  Sparkles,
+  Home,
+  History,
+  Plus
 } from 'lucide-react';
 import orderService from '../../services/order.service';
 import uploadService from '../../services/upload.service';
@@ -90,7 +93,6 @@ const calculateShippingFee = (city: string, barangay: string): number => {
     'Sorsogon City Capital'
   ];
   
-  // Check if the location qualifies for free shipping
   const isFreeShipping = freeShippingAreas.some(area => 
     city.toLowerCase().includes(area.toLowerCase()) || 
     barangay.toLowerCase().includes(area.toLowerCase())
@@ -100,27 +102,37 @@ const calculateShippingFee = (city: string, barangay: string): number => {
     return 0;
   }
   
-  // Other municipalities in Sorsogon province
   const municipalities = [
     'Casiguran', 'Magallanes', 'Bulan', 'Barcelona', 'Bulusan', 
     'Castilla', 'Donsol', 'Gubat', 'Irosin', 'Juban', 'Matnog', 
     'Pilar', 'Prieto Diaz', 'Santa Magdalena'
   ];
   
-  // Check if the location is in Sorsogon province but outside free areas
   const isSorsogonMunicipality = municipalities.some(muni => 
     city.toLowerCase().includes(muni.toLowerCase())
   );
   
   if (isSorsogonMunicipality) {
-    return 1500; // ₱1,500 for other municipalities
+    return 1500;
   }
   
-  // For locations outside Sorsogon province (e.g., Metro Manila, etc.)
-  // This would require a more complex calculation based on distance
-  // For now, set a base rate
   return 2000;
 };
+
+// Saved Address interface
+interface SavedAddress {
+  id: string;
+  fullName: string;
+  address: string;
+  barangay: string;
+  city: string;
+  province: string;
+  zipCode: string;
+  phone: string;
+  email: string;
+  isDefault?: boolean;
+  label?: string;
+}
 
 // Payment Details Modal Component
 const PaymentDetailsModal = ({ 
@@ -274,6 +286,12 @@ const Checkout = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [showSavedAddresses, setShowSavedAddresses] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [useSavedAddress, setUseSavedAddress] = useState(false);
+  
   // Shipping Info
   const [shippingInfo, setShippingInfo] = useState({
     fullName: user?.fullName || '',
@@ -306,18 +324,113 @@ const Checkout = () => {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load saved data from localStorage
+  // Load saved addresses from localStorage and user's order history
   useEffect(() => {
-    const savedShipping = localStorage.getItem('checkout_shipping');
-    if (savedShipping) {
-      setShippingInfo(JSON.parse(savedShipping));
-    }
-  }, []);
+    const loadSavedAddresses = async () => {
+      const addresses: SavedAddress[] = [];
+      
+      // Load from localStorage first
+      const saved = localStorage.getItem('saved_addresses');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        addresses.push(...parsed);
+      }
+      
+      // Load addresses from user's order history
+      if (user) {
+        try {
+          const orders = await orderService.getMyOrders(1, 50);
+          const orderAddresses = orders.orders.map(order => ({
+            id: `order-${order.id}`,
+            fullName: order.customerName || user.fullName || '',
+            address: order.shippingAddress?.split(',')[0] || '',
+            barangay: order.shippingAddress?.split(',')[1]?.trim() || '',
+            city: order.shippingAddress?.split(',')[2]?.trim() || '',
+            province: order.shippingAddress?.split(',')[3]?.trim()?.split(' ')[0] || '',
+            zipCode: order.shippingAddress?.match(/\d{4}/)?.[0] || '',
+            phone: order.customerPhone || '',
+            email: order.customerEmail || user.email || '',
+            label: 'Previous Order'
+          }));
+          
+          // Add unique addresses (avoid duplicates)
+          orderAddresses.forEach(addr => {
+            const exists = addresses.some(a => 
+              a.address === addr.address && a.city === addr.city
+            );
+            if (!exists && addr.address) {
+              addresses.push(addr);
+            }
+          });
+        } catch (error) {
+          console.error('Failed to load order addresses:', error);
+        }
+      }
+      
+      // Load saved shipping from previous checkout
+      const savedShipping = localStorage.getItem('checkout_shipping');
+      if (savedShipping) {
+        const shipping = JSON.parse(savedShipping);
+        const exists = addresses.some(a => 
+          a.address === shipping.address && a.city === shipping.city
+        );
+        if (!exists && shipping.address) {
+          addresses.unshift({
+            id: 'recent',
+            fullName: shipping.fullName,
+            address: shipping.address,
+            barangay: shipping.barangay,
+            city: shipping.city,
+            province: shipping.province,
+            zipCode: shipping.zipCode,
+            phone: shipping.phone,
+            email: shipping.email,
+            label: 'Recently Used'
+          });
+        }
+      }
+      
+      setSavedAddresses(addresses);
+    };
+    
+    loadSavedAddresses();
+  }, [user]);
 
   // Save shipping info to localStorage
   useEffect(() => {
     localStorage.setItem('checkout_shipping', JSON.stringify(shippingInfo));
   }, [shippingInfo]);
+
+  // Save address to saved addresses when order is placed
+  const saveAddressToStorage = () => {
+    const newAddress: SavedAddress = {
+      id: `addr-${Date.now()}`,
+      fullName: shippingInfo.fullName,
+      address: shippingInfo.address,
+      barangay: shippingInfo.barangay,
+      city: shippingInfo.city,
+      province: shippingInfo.province,
+      zipCode: shippingInfo.zipCode,
+      phone: shippingInfo.phone,
+      email: shippingInfo.email,
+      label: 'Saved Address'
+    };
+    
+    const existing = localStorage.getItem('saved_addresses');
+    let addresses: SavedAddress[] = existing ? JSON.parse(existing) : [];
+    
+    // Check if address already exists
+    const exists = addresses.some(a => 
+      a.address === newAddress.address && a.city === newAddress.city
+    );
+    
+    if (!exists) {
+      addresses.unshift(newAddress);
+      // Keep only last 10 addresses
+      addresses = addresses.slice(0, 10);
+      localStorage.setItem('saved_addresses', JSON.stringify(addresses));
+    }
+  };
 
   // Calculate shipping fee when city or barangay changes
   useEffect(() => {
@@ -400,13 +513,47 @@ const Checkout = () => {
     );
   };
 
+  const handleUseSavedAddress = (address: SavedAddress) => {
+    setShippingInfo({
+      fullName: address.fullName,
+      address: address.address,
+      barangay: address.barangay,
+      city: address.city,
+      province: address.province,
+      zipCode: address.zipCode,
+      phone: address.phone,
+      email: address.email,
+      deliveryInstructions: shippingInfo.deliveryInstructions
+    });
+    setSelectedAddressId(address.id);
+    setUseSavedAddress(true);
+    setShowSavedAddresses(false);
+    
+    // Clear any address-related errors
+    if (errors.address) {
+      setErrors(prev => ({ ...prev, address: '', barangay: '', city: '', province: '', zipCode: '' }));
+    }
+  };
+
+  const handleNewAddress = () => {
+    setUseSavedAddress(false);
+    setSelectedAddressId(null);
+    setShippingInfo({
+      ...shippingInfo,
+      address: '',
+      barangay: '',
+      city: '',
+      province: '',
+      zipCode: ''
+    });
+  };
+
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateShipping()) {
       setStep(2);
       window.scrollTo(0, 0);
     } else {
-      // Scroll to first error
       const firstError = document.querySelector('.border-rose-500');
       if (firstError) {
         firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -446,7 +593,6 @@ const Checkout = () => {
     reader.onloadend = () => {
       setReceiptPreview(reader.result as string);
       setUploadStatus('success');
-      // Clear receipt error when file is uploaded
       if (errors.receipt) {
         setErrors({ ...errors, receipt: '' });
       }
@@ -475,7 +621,6 @@ const Checkout = () => {
 
   const handlePlaceOrder = async () => {
     if (!validatePaymentDetails()) {
-      // Scroll to payment section
       const paymentSection = document.querySelector('.border-t.border-gray-200');
       if (paymentSection) {
         paymentSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -529,6 +674,9 @@ const Checkout = () => {
       }
       
       const order = await orderService.createOrder(orderData);
+      
+      // Save address for future use
+      saveAddressToStorage();
       
       dismissToast(loadingToast);
       showSuccess('Order placed successfully!');
@@ -643,6 +791,68 @@ const Checkout = () => {
                     </div>
                     Shipping Information
                   </h2>
+                  
+                  {/* Saved Addresses Section */}
+                  {savedAddresses.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          onClick={() => setShowSavedAddresses(!showSavedAddresses)}
+                          className="flex items-center gap-2 text-sm font-medium text-rose-600 hover:text-rose-700"
+                        >
+                          <History className="w-4 h-4" />
+                          {showSavedAddresses ? 'Hide saved addresses' : 'Use a saved address'}
+                        </button>
+                        {useSavedAddress && (
+                          <button
+                            onClick={handleNewAddress}
+                            className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Use new address
+                          </button>
+                        )}
+                      </div>
+                      
+                      {showSavedAddresses && (
+                        <div className="space-y-3 max-h-80 overflow-y-auto">
+                          {savedAddresses.map((address) => (
+                            <div
+                              key={address.id}
+                              onClick={() => handleUseSavedAddress(address)}
+                              className={`p-4 border rounded-xl cursor-pointer transition-all ${
+                                selectedAddressId === address.id
+                                  ? 'border-rose-500 bg-rose-50'
+                                  : 'border-gray-200 hover:border-rose-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Home className="w-4 h-4 text-gray-400" />
+                                    <span className="text-xs font-medium text-gray-500">
+                                      {address.label || 'Saved Address'}
+                                    </span>
+                                  </div>
+                                  <p className="font-medium text-gray-900">{address.fullName}</p>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {address.address}, {address.barangay}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {address.city}, {address.province} {address.zipCode}
+                                  </p>
+                                  <p className="text-sm text-gray-500 mt-1">📞 {address.phone}</p>
+                                  <p className="text-sm text-gray-500">✉️ {address.email}</p>
+                                </div>
+                                <CheckCircle className={`w-5 h-5 ${selectedAddressId === address.id ? 'text-rose-600' : 'text-gray-300'}`} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <form onSubmit={handleShippingSubmit}>
                     <div className="space-y-5">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -810,8 +1020,10 @@ const Checkout = () => {
                 </div>
               )}
 
+              {/* Step 2 and 3 remain the same */}
               {step === 2 && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  {/* ... existing step 2 code ... */}
                   <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                     <div className="w-8 h-8 bg-rose-100 rounded-xl flex items-center justify-center mr-3">
                       <CreditCard className="w-4 h-4 text-rose-600" />

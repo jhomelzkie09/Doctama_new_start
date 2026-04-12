@@ -342,6 +342,7 @@ const ProductsReport: React.FC = () => {
   });
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [categories, setCategories] = useState<string[]>([]);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
   const loadData = async () => {
@@ -349,6 +350,9 @@ const ProductsReport: React.FC = () => {
     try {
       const allProducts = await productService.getProducts();
       const allOrders = await orderService.getAllOrders();
+      
+      console.log('📦 All Orders:', allOrders);
+      console.log('📦 Date Range:', dateRange);
       
       // Calculate product stats from actual orders
       const productSalesMap = new Map<number, { sold: number; revenue: number; returned: number }>();
@@ -365,31 +369,45 @@ const ProductsReport: React.FC = () => {
         productSalesMap.set(p.id, { sold: 0, revenue: 0, returned: 0 });
       });
       
+      // Track debug info
+      let deliveredOrdersCount = 0;
+      let cancelledOrdersCount = 0;
+      
       // Calculate sales and returns from orders within date range
       const returnsList: ReturnedProduct[] = [];
-      const refundMap = new Map<number, { productId: number; quantity: number; refundAmount: number; reason: string; orderNumber: string; customerName: string }>();
       
       allOrders.forEach((order: any) => {
         const orderDate = order.orderDate ?? order.createdAt;
         const isWithinDateRange = orderDate && toLocalDateStr(orderDate) >= dateRange.start && toLocalDateStr(orderDate) <= dateRange.end;
         
-        // Process regular orders (completed/delivered)
-        if (isWithinDateRange && (order.status === 'delivered' || order.status === 'completed')) {
+        if (!isWithinDateRange) return;
+        
+        // Check if order is DELIVERED (sold)
+        if (order.status === 'delivered') {
+          deliveredOrdersCount++;
+          console.log(`✅ Delivered Order ${order.orderNumber}:`, order.items);
+          
           order.items?.forEach((item: any) => {
             const existing = productSalesMap.get(item.productId);
             if (existing) {
+              const itemRevenue = (item.unitPrice ?? item.price) * item.quantity;
               existing.sold += item.quantity;
-              existing.revenue += (item.unitPrice ?? item.price) * item.quantity;
+              existing.revenue += itemRevenue;
+              console.log(`  📦 Product ${item.productName}: +${item.quantity} sold, +₱${itemRevenue}`);
             }
           });
         }
         
-        // Process cancelled/refunded orders (these count as returns)
-        if (isWithinDateRange && order.status === 'cancelled' && order.paymentStatus === 'refunded') {
+        // Check if order is CANCELLED and REFUNDED (returned)
+        if (order.status === 'cancelled' && order.paymentStatus === 'refunded') {
+          cancelledOrdersCount++;
+          console.log(`❌ Cancelled/Refunded Order ${order.orderNumber}:`, order.items);
+          
           order.items?.forEach((item: any) => {
             const existing = productSalesMap.get(item.productId);
             if (existing) {
               existing.returned += item.quantity;
+              console.log(`  📦 Product ${item.productName}: +${item.quantity} returned`);
               
               // Add to returns list
               returnsList.push({
@@ -408,6 +426,8 @@ const ProductsReport: React.FC = () => {
         }
       });
       
+      console.log(`📊 Summary: ${deliveredOrdersCount} delivered orders, ${cancelledOrdersCount} cancelled orders`);
+      
       // Build product stats
       const stats: ProductStat[] = Array.from(productSalesMap.entries()).map(([id, sales]) => {
         const info = productInfoMap.get(id)!;
@@ -423,8 +443,17 @@ const ProductsReport: React.FC = () => {
         };
       }).filter(p => p.sold > 0 || p.stock > 0 || p.returned > 0);
       
+      console.log('📊 Final Product Stats:', stats);
+      
       setProductStats(stats);
       setReturnedProducts(returnsList);
+      setDebugInfo({
+        deliveredOrders: deliveredOrdersCount,
+        cancelledOrders: cancelledOrdersCount,
+        totalProducts: stats.length,
+        totalSold: stats.reduce((s, p) => s + p.sold, 0),
+        totalReturned: stats.reduce((s, p) => s + p.returned, 0)
+      });
       
       // Extract unique categories
       const uniqueCategories = Array.from(new Set(stats.map(p => p.category)));
@@ -599,6 +628,17 @@ const ProductsReport: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Inventory & Returns Report</h1>
         <p className="text-sm text-gray-500 mt-1">Track stock levels, product performance, and returned items</p>
       </div>
+
+      {/* Debug Info (can be removed after testing) */}
+      {debugInfo && (
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p className="text-xs text-blue-800 font-medium">Debug Info:</p>
+          <p className="text-xs text-blue-600">Delivered Orders: {debugInfo.deliveredOrders}</p>
+          <p className="text-xs text-blue-600">Cancelled Orders: {debugInfo.cancelledOrders}</p>
+          <p className="text-xs text-blue-600">Total Sold: {debugInfo.totalSold} units</p>
+          <p className="text-xs text-blue-600">Total Returned: {debugInfo.totalReturned} units</p>
+        </div>
+      )}
 
       {/* Date Range Filter */}
       <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
