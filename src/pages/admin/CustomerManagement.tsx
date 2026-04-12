@@ -58,7 +58,7 @@ interface QuickStats {
   conversionRate: number;
 }
 
-// Tier config
+// Tier config (PHP thresholds)
 const getTier = (spent: number) => {
   if (spent >= 50000) return { name: 'Diamond', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', icon: Crown };
   if (spent >= 25000) return { name: 'Platinum', color: '#818cf8', bg: 'rgba(129,140,248,0.12)', icon: Award };
@@ -71,7 +71,7 @@ const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(n);
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 const Avatar = ({ customer }: { customer: CustomerWithStats }) => {
@@ -295,7 +295,7 @@ const CustomerManagement = () => {
       const rows = data.map(c => [
         c.fullName||'', c.email, c.phoneNumber||'',
         c.isActive?'Active':'Inactive', c.emailConfirmed?'Yes':'No',
-        c.stats.totalOrders, c.stats.totalSpent,
+        c.stats.totalOrders, formatCurrency(c.stats.totalSpent),
         new Date(c.createdAt).toLocaleDateString()
       ]);
       const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -318,11 +318,10 @@ const CustomerManagement = () => {
   };
 
   const handlePageChange = (newPage: number) => {
-  setPageLoading(true);
-  setFilters(prev => ({ ...prev, page: newPage }));
-  // Scroll to top
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+    setPageLoading(true);
+    setFilters(prev => ({ ...prev, page: newPage }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     if (pageLoading) {
@@ -368,12 +367,13 @@ const CustomerManagement = () => {
     .cm-action-btn:hover { background: var(--bg); color: var(--text); }
     .fade-in { animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .spin { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   `;
 
   if (loading && !customers.length) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #dde3ea', borderTopColor: '#0d9488', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <p style={{ marginTop: 16, fontSize: 13, color: '#78746c' }}>Loading customers…</p>
     </div>
   );
@@ -405,10 +405,10 @@ const CustomerManagement = () => {
         {/* ── Stats ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
           <StatCard label="Total Revenue" value={formatCurrency(quickStats.totalRevenue)}
-            sub={`₱ ${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#0d9488" trend="+12% this month" />
-          <StatCard label="Conversion Rate" value={`₱ ${quickStats.conversionRate.toFixed(1)}%`}
+            sub={`${formatCurrency(quickStats.averageOrderValue)} avg`} accent="#0d9488" trend="+12% this month" />
+          <StatCard label="Conversion Rate" value={`${quickStats.conversionRate.toFixed(1)}%`}
             sub="visitors who purchased" accent="#0ea5e9" />
-          <StatCard label="Verified Rate" value={`₱ ${quickStats.verifiedRate.toFixed(1)}%`}
+          <StatCard label="Verified Rate" value={`${quickStats.verifiedRate.toFixed(1)}%`}
             sub="email confirmed" accent="#22c55e" />
           <StatCard label="Active Today" value={String(quickStats.newCustomersToday)}
             sub="new signups" accent="#f59e0b" />
@@ -467,7 +467,7 @@ const CustomerManagement = () => {
               </div>
               <div>
                 <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Min. Spent</label>
-                <input className="cm-input" type="number" placeholder="$0" />
+                <input className="cm-input" type="number" placeholder="0" />
               </div>
             </div>
           )}
@@ -561,13 +561,13 @@ const CustomerManagement = () => {
                         </p>
                         {customer.stats.totalOrders > 0 && (
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
-                            ₱ {formatCurrency(customer.stats.averageOrderValue)} avg
+                            {formatCurrency(customer.stats.averageOrderValue)} avg
                           </p>
                         )}
                       </td>
                       <td style={{ padding: '14px 16px' }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)', fontFamily: "'DM Mono', monospace" }}>
-                          ₱ {formatCurrency(customer.stats.totalSpent)}
+                          {formatCurrency(customer.stats.totalSpent)}
                         </p>
                         {customer.stats.lastOrderDate && (
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -635,7 +635,7 @@ const CustomerManagement = () => {
             </div>
           )}
 
-          {/* ── Pagination (FIXED) ── */}
+          {/* ── Pagination ── */}
           {pagination.totalPages > 1 && (
             <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
@@ -660,7 +660,7 @@ const CustomerManagement = () => {
                     <button 
                       key={p} 
                       className={`cm-page-btn${pagination.currentPage === p ? ' active' : ''}`}
-                      onClick={() => setFilters(prev => ({ ...prev, page: p }))}
+                      onClick={() => handlePageChange(p)}
                     >
                       {p}
                     </button>
