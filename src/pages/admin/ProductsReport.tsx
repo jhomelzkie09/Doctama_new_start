@@ -21,7 +21,6 @@ interface ProductStat {
   sold: number;
   revenue: number;
   returned: number;
-  stockMovements: Array<{ date: string; type: 'in' | 'out'; quantity: number; reason?: string }>;
 }
 
 interface ReturnedProduct {
@@ -271,16 +270,17 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, stats }) => {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
-            {['Product name', 'Category', 'Price', 'Stock', 'Sold', 'Returned', 'Revenue', 'Status'].map((h) => (
+            {['Product name', 'Category', 'Price', 'Stock', 'Sold', 'Returned', 'Net Sales', 'Status'].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {h}
               </th>
             ))}
-           </tr>
+          </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {products.map((product) => {
             const status = stockStatus(product.stock);
+            const netSales = product.revenue - (product.returned * product.price);
             return (
               <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
@@ -299,7 +299,7 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, stats }) => {
                     <span className="text-gray-400">0</span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-medium text-gray-900">{peso(product.revenue)}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">{peso(netSales)}</td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full font-medium ${status.className}`}>
                     {status.icon}
@@ -319,7 +319,7 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, stats }) => {
             <td className="px-4 py-3 font-semibold text-gray-900">{stats.totalStock}</td>
             <td className="px-4 py-3 font-semibold text-gray-900">{stats.totalSold}</td>
             <td className="px-4 py-3 font-semibold text-orange-600">{stats.totalReturned}</td>
-            <td className="px-4 py-3 font-semibold text-gray-900">{peso(stats.totalRevenue)}</td>
+            <td className="px-4 py-3 font-semibold text-gray-900">{peso(stats.totalRevenue - (stats.totalReturned * (stats.totalRevenue / stats.totalSold) || 0))}</td>
             <td className="px-4 py-3 text-sm text-gray-500">{stats.lowStock + stats.outOfStock} need attention</td>
           </tr>
         </tfoot>
@@ -348,8 +348,6 @@ const ProductsReport: React.FC = () => {
     setLoading(true);
     try {
       const allProducts = await productService.getProducts();
-      
-      // Fetch orders to calculate actual sales and returns
       const allOrders = await orderService.getAllOrders();
       
       // Calculate product stats from actual orders
@@ -369,10 +367,14 @@ const ProductsReport: React.FC = () => {
       
       // Calculate sales and returns from orders within date range
       const returnsList: ReturnedProduct[] = [];
+      const refundMap = new Map<number, { productId: number; quantity: number; refundAmount: number; reason: string; orderNumber: string; customerName: string }>();
       
       allOrders.forEach((order: any) => {
         const orderDate = order.orderDate ?? order.createdAt;
-        if (orderDate && toLocalDateStr(orderDate) >= dateRange.start && toLocalDateStr(orderDate) <= dateRange.end) {
+        const isWithinDateRange = orderDate && toLocalDateStr(orderDate) >= dateRange.start && toLocalDateStr(orderDate) <= dateRange.end;
+        
+        // Process regular orders (completed/delivered)
+        if (isWithinDateRange && (order.status === 'delivered' || order.status === 'completed')) {
           order.items?.forEach((item: any) => {
             const existing = productSalesMap.get(item.productId);
             if (existing) {
@@ -382,25 +384,25 @@ const ProductsReport: React.FC = () => {
           });
         }
         
-        // Process returns (if any - you'll need to add a returns endpoint)
-        // For now, using mock data structure
-        if (order.status === 'returned' && order.returnItems) {
-          order.returnItems.forEach((ret: any) => {
-            returnsList.push({
-              id: ret.id || `RET-${Date.now()}`,
-              orderNumber: order.orderNumber,
-              productName: ret.productName,
-              quantity: ret.quantity,
-              reason: ret.reason,
-              returnDate: ret.returnDate || order.orderDate,
-              status: ret.status || 'pending',
-              customerName: order.customerName,
-              refundAmount: ret.refundAmount
-            });
-            
-            const productStat = productSalesMap.get(ret.productId);
-            if (productStat) {
-              productStat.returned += ret.quantity;
+        // Process cancelled/refunded orders (these count as returns)
+        if (isWithinDateRange && order.status === 'cancelled' && order.paymentStatus === 'refunded') {
+          order.items?.forEach((item: any) => {
+            const existing = productSalesMap.get(item.productId);
+            if (existing) {
+              existing.returned += item.quantity;
+              
+              // Add to returns list
+              returnsList.push({
+                id: `RET-${order.id}-${item.productId}-${Date.now()}`,
+                orderNumber: order.orderNumber,
+                productName: item.productName,
+                quantity: item.quantity,
+                reason: order.rejectionReason || 'Order cancelled and refunded',
+                returnDate: order.updatedAt || order.orderDate,
+                status: 'approved',
+                customerName: order.customerName || 'Guest',
+                refundAmount: (item.unitPrice ?? item.price) * item.quantity
+              });
             }
           });
         }
@@ -417,10 +419,9 @@ const ProductsReport: React.FC = () => {
           stock: info.stock,
           sold: sales.sold,
           revenue: sales.revenue,
-          returned: sales.returned,
-          stockMovements: [] // You can populate this from a stock movement API
+          returned: sales.returned
         };
-      }).filter(p => p.sold > 0 || p.stock > 0);
+      }).filter(p => p.sold > 0 || p.stock > 0 || p.returned > 0);
       
       setProductStats(stats);
       setReturnedProducts(returnsList);
@@ -445,10 +446,10 @@ const ProductsReport: React.FC = () => {
     ? productStats 
     : productStats.filter(p => p.category === filterCategory);
 
-  // ── Derived totals (memoised) ──────────────────────────────────────────────
+  // ── Derived totals ──────────────────────────────────────────────────────────
   const stats = useCallback((): TotalStats => {
     const filtered = filteredProducts;
-    const totalReturned = returnedProducts.length;
+    const totalReturned = returnedProducts.reduce((sum, r) => sum + r.quantity, 0);
     const totalRefundAmount = returnedProducts.reduce((sum, r) => sum + r.refundAmount, 0);
     const pendingReturns = returnedProducts.filter(r => r.status === 'pending').length;
     
@@ -476,7 +477,7 @@ const ProductsReport: React.FC = () => {
       'Current stock': p.stock,
       'Units sold': p.sold,
       'Units returned': p.returned,
-      Revenue: peso(p.revenue),
+      'Net Revenue': peso(p.revenue - (p.returned * p.price)),
       Status: stockStatus(p.stock).label,
     }));
     const name = `inventory_report_${dateRange.start}_to_${dateRange.end}`;
@@ -515,7 +516,7 @@ const ProductsReport: React.FC = () => {
             <p><strong>Total Products:</strong> ${stats.totalProducts}</p>
             <p><strong>Total Stock:</strong> ${stats.totalStock}</p>
             <p><strong>Total Revenue:</strong> ${peso(stats.totalRevenue)}</p>
-            <p><strong>Total Returns:</strong> ${stats.totalReturned} (₱${peso(stats.totalRefundAmount)})</p>
+            <p><strong>Total Returns:</strong> ${stats.totalReturned} (${peso(stats.totalRefundAmount)})</p>
           </div>
           ${stats.lowStock + stats.outOfStock > 0 ? `
             <div class="alert">
