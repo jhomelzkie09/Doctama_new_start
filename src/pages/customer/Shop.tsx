@@ -204,7 +204,7 @@ const Shop: React.FC = () => {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  const itemsPerPage = 12; // Increased from 9 for smaller cards
+  const itemsPerPage = 12;
 
   // Add this after your state declarations:
   const highestPrice = useMemo(() => {
@@ -857,21 +857,21 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </h3>
         </Link>
 
-        {/* Rating and Sales Count Row */}
-        <div className="flex items-center justify-between mb-2 md:mb-3">
-          <div className="flex items-center gap-1 md:gap-2">
-            {renderStars(averageRating)}
-            <span className="text-[10px] md:text-xs text-slate-400">
-              {reviewCount > 0 ? `(${reviewCount})` : 'No reviews'}
-            </span>
-          </div>
-          {salesCount > 0 && (
-            <div className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs text-emerald-600">
-              <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
-              <span className="font-medium">{salesCount} sold</span>
-            </div>
-          )}
+        {/* Rating Row - Always visible */}
+        <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+          {renderStars(averageRating)}
+          <span className="text-[10px] md:text-xs text-slate-400">
+            {reviewCount > 0 ? `(${reviewCount})` : 'No reviews'}
+          </span>
         </div>
+
+        {/* Sales Count - Below reviews on mobile, inline on desktop */}
+        {salesCount > 0 && (
+          <div className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs text-emerald-600 mb-2">
+            <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
+            <span className="font-medium">{salesCount} units sold</span>
+          </div>
+        )}
 
         {isGrid && (
           <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
