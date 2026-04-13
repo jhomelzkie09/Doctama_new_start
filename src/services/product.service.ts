@@ -109,6 +109,9 @@ class ProductService {
         colorsArray = productData.colorsVariant.filter((c: string) => c && c.trim() !== '');
       }
       
+      // Auto-deactivate if stock becomes 0
+      const shouldDeactivate = productData.stockQuantity === 0 && productData.isActive !== false;
+      
       const backendData = {
         Name: productData.name || '',
         Description: productData.description || '',
@@ -121,8 +124,15 @@ class ProductService {
         Width: typeof productData.width === 'number' ? productData.width : parseFloat(productData.width) || 0,
         Length: typeof productData.length === 'number' ? productData.length : parseFloat(productData.length) || 0,
         ColorsVariant: colorsArray,
-        IsActive: productData.isActive === true || productData.isActive === 'true' ? true : false
-      };    
+        // Auto-deactivate if stock is 0, otherwise use the provided value
+        IsActive: shouldDeactivate ? false : (productData.isActive === true || productData.isActive === 'true' ? true : false)
+      };
+      
+      // If auto-deactivation happened, add a note in the console
+      if (shouldDeactivate && (productData.isActive === true || productData.isActive === 'true')) {
+        console.log(`🔄 Product ${id} has been automatically deactivated because stock quantity is 0.`);
+      }
+      
       const response = await api.put(`/products/simple/${id}`, backendData);
       return response.data;
     } catch (error: any) {
@@ -132,6 +142,32 @@ class ProductService {
         error.response?.data?.title || 
         'Failed to update product'
       );
+    }
+  }
+
+  // Update product stock only (useful for quick stock updates)
+  async updateProductStock(id: number, stockQuantity: number, autoDeactivate: boolean = true): Promise<Product> {
+    try {
+      // First get the current product to check its active status
+      const currentProduct = await this.getProductById(id);
+      
+      if (!currentProduct) {
+        throw new Error('Product not found');
+      }
+      
+      const updateData: any = { stockQuantity };
+      
+      // Auto-deactivate if stock becomes 0 and autoDeactivate is true
+      if (autoDeactivate && stockQuantity === 0 && currentProduct.isActive) {
+        updateData.isActive = false;
+        console.log(`🔄 Product ${id} has been automatically deactivated because stock quantity is 0.`);
+      }
+      
+      const response = await api.patch(`/products/simple/${id}/stock`, updateData);
+      return response.data;
+    } catch (error: any) {
+      console.error(`❌ Error updating product stock ${id}:`, error.response?.data || error.message);
+      throw error;
     }
   }
 
