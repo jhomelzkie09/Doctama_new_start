@@ -204,7 +204,7 @@ const Shop: React.FC = () => {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  const itemsPerPage = 9;
+  const itemsPerPage = 12; // Increased from 9 for smaller cards
 
   // Add this after your state declarations:
   const highestPrice = useMemo(() => {
@@ -336,7 +336,7 @@ const Shop: React.FC = () => {
   const renderStars = (rating: number = 0) => (
     <div className="flex gap-0.5">
       {[...Array(5)].map((_, i) => (
-        <Star key={i} className={`w-3.5 h-3.5 ${i < Math.floor(rating) ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
+        <Star key={i} className={`w-3 h-3 ${i < Math.floor(rating) ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
       ))}
     </div>
   );
@@ -649,7 +649,7 @@ const Shop: React.FC = () => {
               </div>
             </aside>
 
-            {/* Product Grid */}
+            {/* Product Grid - Smaller cards for mobile */}
             <main className="flex-1 min-w-0">
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-32 bg-white rounded-2xl border border-stone-100">
@@ -674,7 +674,7 @@ const Shop: React.FC = () => {
                 <>
                   <div className={
                     viewMode === 'grid'
-                      ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6'
+                      ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-4 lg:gap-6'
                       : 'space-y-4'
                   }>
                     {paginatedProducts.map((product) => (
@@ -794,10 +794,10 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
   const isTopRated = averageRating >= 4.5 && reviewCount > 10 && !isBestSeller;
 
   return (
-    <div className={`group bg-white rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300 ${!isGrid && 'flex'}`}>
+    <div className={`group bg-white rounded-xl md:rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300 ${!isGrid && 'flex'}`}>
       
       {/* Image */}
-      <div className={`relative overflow-hidden bg-stone-50 ${isGrid ? 'aspect-[4/3]' : 'w-52 flex-shrink-0'}`}>
+      <div className={`relative overflow-hidden bg-stone-50 ${isGrid ? 'aspect-square' : 'w-52 flex-shrink-0'}`}>
         <Link to={`/products/${product.id}`} className="block w-full h-full">
           <img
             src={product.imageUrl || 'https://via.placeholder.com/400'}
@@ -808,86 +808,79 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
 
         {/* Badges */}
         {isBestSeller && (
-          <div className="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-amber-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Best Seller
           </div>
         )}
         {isTopRated && (
-          <div className="absolute top-3 left-3 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-emerald-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Top Rated
           </div>
         )}
         {product.stockQuantity === 0 && (
-          <div className="absolute top-3 left-3 bg-slate-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-slate-800 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Sold Out
           </div>
         )}
         {product.stockQuantity > 0 && product.stockQuantity < 5 && (
-          <div className="absolute top-3 left-3 bg-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-orange-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Only {product.stockQuantity} left
-          </div>
-        )}
-
-        {/* Sales count badge - New addition */}
-        {salesCount > 0 && (
-          <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            {salesCount}+ sold
           </div>
         )}
 
         {/* Wishlist button */}
         <button
           onClick={(e) => onToggleWishlist(e, product.id)}
-          className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur rounded-full shadow-sm hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
+          className="absolute top-2 right-2 md:top-3 md:right-3 p-1.5 md:p-2 bg-white/90 backdrop-blur rounded-full shadow-sm hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
         >
-          <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-rose-600 text-rose-600' : 'text-slate-400'}`} />
+          <Heart className={`w-3 h-3 md:w-4 md:h-4 ${isWishlisted ? 'fill-rose-600 text-rose-600' : 'text-slate-400'}`} />
         </button>
 
         {/* Add to cart overlay on hover */}
-        <div className="absolute bottom-0 inset-x-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+        <div className="absolute bottom-0 inset-x-0 p-2 md:p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
-            className="w-full py-2.5 bg-rose-950 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-rose-900 disabled:bg-slate-300 disabled:text-slate-500 transition"
+            className="w-full py-1.5 md:py-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold flex items-center justify-center gap-1 md:gap-2 hover:bg-rose-900 disabled:bg-slate-300 disabled:text-slate-500 transition"
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
+            <ShoppingBag className="w-3 h-3 md:w-3.5 md:h-3.5" />
             {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </div>
       </div>
 
       {/* Info */}
-      <div className={`p-5 flex flex-col flex-1 ${!isGrid && 'justify-center'}`}>
+      <div className={`p-3 md:p-5 flex flex-col flex-1 ${!isGrid && 'justify-center'}`}>
         <Link to={`/products/${product.id}`}>
-          <h3 className="font-bold text-slate-900 text-base mb-1 line-clamp-1 hover:text-rose-800 transition-colors">
+          <h3 className="font-bold text-slate-900 text-sm md:text-base mb-0.5 md:mb-1 line-clamp-1 hover:text-rose-800 transition-colors">
             {product.name}
           </h3>
         </Link>
 
-        <div className="flex items-center gap-2 mb-3">
-          {renderStars(averageRating)}
-          <span className="text-xs text-slate-400">
-            {reviewCount > 0 ? `(${reviewCount})` : 'No reviews'}
-          </span>
+        {/* Rating and Sales Count Row */}
+        <div className="flex items-center justify-between mb-2 md:mb-3">
+          <div className="flex items-center gap-1 md:gap-2">
+            {renderStars(averageRating)}
+            <span className="text-[10px] md:text-xs text-slate-400">
+              {reviewCount > 0 ? `(${reviewCount})` : 'No reviews'}
+            </span>
+          </div>
+          {salesCount > 0 && (
+            <div className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs text-emerald-600">
+              <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              <span className="font-medium">{salesCount} sold</span>
+            </div>
+          )}
         </div>
 
-        {/* Sales count text in info section - New addition */}
-        {salesCount > 0 && (
-          <div className="flex items-center gap-1 mb-2 text-xs text-emerald-600">
-            <TrendingUp className="w-3 h-3" />
-            <span className="font-medium">{salesCount} units sold</span>
-          </div>
-        )}
-
         {isGrid && (
-          <p className="text-slate-400 text-xs leading-relaxed line-clamp-2 mb-4">{product.description}</p>
+          <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-stone-50">
+        <div className="flex items-center justify-between mt-auto pt-2 md:pt-4 border-t border-stone-50">
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
+            <div className="flex items-baseline gap-1 md:gap-2">
+              <span className="text-sm md:text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
             </div>
           </div>
 
@@ -895,9 +888,9 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
-            className={`p-2.5 bg-rose-950 text-white rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 ${isGrid ? 'lg:hidden' : ''}`}
+            className={`p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 ${isGrid ? 'lg:hidden' : ''}`}
           >
-            <ShoppingBag className="w-4 h-4" />
+            <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
           </button>
         </div>
       </div>
