@@ -486,9 +486,97 @@ const Layout = () => {
         <Outlet context={{ onAuthRequired: handleAuthRequired }} />
       </main>
 
-      {/* Footer - Rest remains the same */}
+      {/* Footer */}
       <footer className="bg-slate-900 text-white pt-12 pb-6">
-        {/* ... existing footer code ... */}
+        <div className="container mx-auto px-4">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            {/* Brand Column */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 bg-white-600 rounded-lg flex items-center justify-center">
+                  <img src={logo} alt="Doctama Logo" className="w-13 h-13 object-contain" />
+                </div>
+                <span className="font-black text-lg tracking-tight uppercase">Doctama's</span>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                Defining the standard of modern living in the Philippines since 2024.
+              </p>
+              <div className="flex gap-4">
+                {socialLinks.map((social, idx) => (
+                  <a
+                    key={idx}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`text-slate-400 ${social.color} transition-colors`}
+                  >
+                    <social.icon className="w-5 h-5" />
+                  </a>
+                ))}
+              </div>
+            </div>
+            
+            {/* Shop Links */}
+            <div>
+              <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Shop</h4>
+              <ul className="space-y-2 text-slate-400 text-sm">
+                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> New Arrivals</Link></li>
+                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Best Sellers</Link></li>
+                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Living Room</Link></li>
+                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Bedroom</Link></li>
+                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Dining Room</Link></li>
+                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Office</Link></li>
+              </ul>
+            </div>
+
+            {/* Company Links */}
+            <div>
+              <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Company</h4>
+              <ul className="space-y-2 text-slate-400 text-sm">
+                <li><Link to="/about" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Our Story</Link></li>
+                <li><Link to="/contact" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Contact</Link></li>
+                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Showrooms</Link></li>
+                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Careers</Link></li>
+                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Blog</Link></li>
+              </ul>
+            </div>
+
+            {/* Contact Info */}
+            <div>
+              <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Visit Us</h4>
+              <div className="space-y-3 text-slate-400 text-sm">
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                  <p>Gabao, Bacon, Sorsogon City,<br />Sorsogon, Philippines 4700</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <PhoneIcon className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                  <div>
+                    <p>+63 998 586 8888</p>
+                    <p className="text-xs text-slate-500">Mon-Sat: 9AM - 7PM</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                  <div>
+                    <p>doctamasmarketing@gmail.com</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Bottom */}
+          <div className="pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-slate-500 text-xs">© 2026 Doctama's Marketing. All rights reserved.</p>
+            <div className="flex gap-6">
+              <Link to="/privacy" className="text-slate-500 text-xs hover:text-white transition">Privacy Policy</Link>
+              <Link to="/terms" className="text-slate-500 text-xs hover:text-white transition">Terms of Service</Link>
+              <Link to="/returns" className="text-slate-500 text-xs hover:text-white transition">Return Policy</Link>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
