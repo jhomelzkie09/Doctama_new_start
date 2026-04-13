@@ -90,7 +90,6 @@ const AdminProducts = () => {
         setProducts(products.map(p => 
           p.id === product.id ? { ...p, isActive: false } : p
         ));
-        console.log(`Product ${product.name} has been automatically deactivated due to zero stock.`);
       } catch (err) {
         console.error('Failed to auto-deactivate product:', err);
       }
@@ -137,6 +136,15 @@ const AdminProducts = () => {
     const matchesCategory = selectedCategory === 'all' || product.categoryId.toString() === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Run auto-deactivation check on filtered products
+  useEffect(() => {
+    filteredProducts.forEach(product => {
+      if (product.stockQuantity === 0 && product.isActive) {
+        checkAndDeactivateProduct(product);
+      }
+    });
+  }, [filteredProducts]);
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -236,11 +244,6 @@ const AdminProducts = () => {
                 const additionalImages = getAdditionalImages(product);
                 const totalImages = getAllImageUrls(product).length;
                 const stockStatus = getStockStatus(product.stockQuantity);
-                
-                // Check and auto-deactivate if out of stock
-                if (product.stockQuantity === 0 && product.isActive) {
-                  checkAndDeactivateProduct(product);
-                }
                 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50">
