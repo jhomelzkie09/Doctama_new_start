@@ -175,6 +175,23 @@ const ProductsManagement = () => {
     }
   };
 
+  // Auto-deactivate product when stock becomes 0
+  const handleUpdateProduct = async (product: Product) => {
+    // If stock is 0 and product is active, auto-deactivate
+    if (product.stockQuantity === 0 && product.isActive) {
+      try {
+        await productService.toggleProductStatus(product.id, false);
+        setProducts(products.map(p => 
+          p.id === product.id ? { ...p, isActive: false } : p
+        ));
+        // Show notification to admin
+        alert(`Product "${product.name}" has been automatically deactivated because stock is 0.`);
+      } catch (err) {
+        console.error('Failed to auto-deactivate product:', err);
+      }
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `₱${amount.toFixed(2).toLocaleString()}`;
   };
@@ -185,6 +202,15 @@ const ProductsManagement = () => {
     const matchesCategory = selectedCategory === 'all' || product.categoryId.toString() === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Run auto-deactivation check on all products
+  useEffect(() => {
+    filteredProducts.forEach(product => {
+      if (product.stockQuantity === 0 && product.isActive) {
+        handleUpdateProduct(product);
+      }
+    });
+  }, [filteredProducts]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -375,7 +401,7 @@ const ProductsManagement = () => {
                             <p className="text-xs text-slate-400">{getCategoryName(product.categoryId)}</p>
                           </div>
                         </div>
-                       </td>
+                        </td>
                       <td className="px-6 py-4">
                         {isOutOfStock ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
@@ -393,7 +419,7 @@ const ProductsManagement = () => {
                             {product.stockQuantity} in stock
                           </span>
                         )}
-                       </td>
+                        </td>
                       <td className="px-6 py-4 font-bold text-slate-900">{formatCurrency(product.price)}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
@@ -417,7 +443,7 @@ const ProductsManagement = () => {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                       </td>
+                        </td>
                     </tr>
                   );
                 })}
