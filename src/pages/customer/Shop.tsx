@@ -9,6 +9,7 @@ import {
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
 import orderService from '../../services/order.service';
+import reviewService from '../../services/review.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { Product, Category } from '../../types';
@@ -212,6 +213,9 @@ const Shop: React.FC = () => {
     return Math.max(...products.map(p => p.price), 150000);
   }, [products]);
 
+  // Track if price filter has been manually changed
+  const [priceFilterChanged, setPriceFilterChanged] = useState(false);
+
   // Function to calculate sales count for a product
   const calculateProductSales = async (productId: number): Promise<number> => {
     try {
@@ -236,6 +240,21 @@ const Shop: React.FC = () => {
     }
   };
 
+  // Function to fetch product reviews and calculate average rating
+  const fetchProductReviews = async (productId: number): Promise<{ averageRating: number; reviewCount: number }> => {
+    try {
+      const reviews = await reviewService.getProductReviews(productId);
+      const reviewCount = reviews.length;
+      const averageRating = reviewCount > 0 
+        ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviewCount 
+        : 0;
+      return { averageRating, reviewCount };
+    } catch (error) {
+      console.error('Failed to fetch reviews for product:', productId, error);
+      return { averageRating: 0, reviewCount: 0 };
+    }
+  };
+
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
@@ -253,13 +272,19 @@ const Shop: React.FC = () => {
         categoryService.getCategories()
       ]);
       
-      // Calculate sales counts for each product
-      const productsWithSales = await Promise.all(productsData.map(async (product) => {
+      // Calculate sales counts and reviews for each product
+      const productsWithDetails = await Promise.all(productsData.map(async (product) => {
         const salesCount = await calculateProductSales(product.id);
-        return { ...product, salesCount };
+        const { averageRating, reviewCount } = await fetchProductReviews(product.id);
+        return { 
+          ...product, 
+          salesCount,
+          rating: averageRating,
+          reviewCount
+        };
       }));
       
-      setProducts(productsWithSales);
+      setProducts(productsWithDetails);
       setCategories(categoriesData);
       
       // Set max price based on actual products
@@ -341,9 +366,10 @@ const Shop: React.FC = () => {
     </div>
   );
 
+  // Fix: Only count price filter as active if it has been changed by the user
   const activeFilterCount = [
     selectedCategory !== null,
-    minPrice > 0 || maxPrice < highestPrice,
+    priceFilterChanged && (minPrice > 0 || maxPrice < highestPrice),
     selectedRating !== null,
     inStockOnly
   ].filter(Boolean).length;
@@ -394,7 +420,10 @@ const Shop: React.FC = () => {
             <input
               type="number"
               value={minPrice}
-              onChange={(e) => setMinPrice(Math.max(0, parseInt(e.target.value) || 0))}
+              onChange={(e) => {
+                setMinPrice(Math.max(0, parseInt(e.target.value) || 0));
+                setPriceFilterChanged(true);
+              }}
               className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent"
               min={0}
               max={maxPrice}
@@ -406,7 +435,10 @@ const Shop: React.FC = () => {
             <input
               type="number"
               value={maxPrice}
-              onChange={(e) => setMaxPrice(Math.min(highestPrice, parseInt(e.target.value) || highestPrice))}
+              onChange={(e) => {
+                setMaxPrice(Math.min(highestPrice, parseInt(e.target.value) || highestPrice));
+                setPriceFilterChanged(true);
+              }}
               className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent"
               min={minPrice}
               max={highestPrice}
@@ -423,7 +455,10 @@ const Shop: React.FC = () => {
             max={highestPrice}
             step={1000}
             value={maxPrice}
-            onChange={(e) => setMaxPrice(parseInt(e.target.value))}
+            onChange={(e) => {
+              setMaxPrice(parseInt(e.target.value));
+              setPriceFilterChanged(true);
+            }}
             className="w-full accent-rose-700"
           />
           <div className="flex justify-between mt-2 text-xs">
@@ -501,6 +536,7 @@ const Shop: React.FC = () => {
             setSelectedCategory(null); 
             setMinPrice(0);
             setMaxPrice(highestPrice);
+            setPriceFilterChanged(false);
             setSelectedRating(null); 
             setInStockOnly(false); 
           }}
@@ -662,6 +698,7 @@ const Shop: React.FC = () => {
                       setSelectedCategory(null); 
                       setMinPrice(0);
                       setMaxPrice(highestPrice);
+                      setPriceFilterChanged(false);
                       setSelectedRating(null); 
                       setInStockOnly(false); 
                     }}
