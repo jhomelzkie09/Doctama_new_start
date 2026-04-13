@@ -261,10 +261,13 @@ const Shop: React.FC = () => {
     setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
 
-  // Filter logic with min and max price
+  // Filter logic with min and max price - includes filter for inactive products
   const filteredProducts = useMemo(() => {
     return products
       .filter(p => {
+        // Filter out inactive/deactivated products
+        if (!p.isActive) return false;
+        
         // Category filter
         if (selectedCategory && p.categoryId !== selectedCategory) return false;
         
@@ -328,7 +331,7 @@ const Shop: React.FC = () => {
           >
             All Products
             <span className={`ml-2 text-xs ${!selectedCategory ? 'text-rose-200' : 'text-slate-400'}`}>
-              ({products.length})
+              ({products.filter(p => p.isActive).length})
             </span>
           </button>
           {categories.map(cat => (
@@ -341,7 +344,7 @@ const Shop: React.FC = () => {
             >
               {cat.name}
               <span className={`ml-2 text-xs ${selectedCategory === cat.id ? 'text-rose-200' : 'text-slate-400'}`}>
-                ({products.filter(p => p.categoryId === cat.id).length})
+                ({products.filter(p => p.categoryId === cat.id && p.isActive).length})
               </span>
             </button>
           ))}
