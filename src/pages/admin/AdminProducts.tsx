@@ -14,7 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
-  Images
+  Images,
+  AlertTriangle,
+  Package
 } from 'lucide-react';
 import { Product, Category } from '../../types';
 
@@ -80,18 +82,30 @@ const AdminProducts = () => {
     }
   };
 
+  // Auto-deactivate product if stock becomes 0
+  const checkAndDeactivateProduct = async (product: Product) => {
+    if (product.stockQuantity === 0 && product.isActive) {
+      try {
+        await productService.toggleProductStatus(product.id, false);
+        setProducts(products.map(p => 
+          p.id === product.id ? { ...p, isActive: false } : p
+        ));
+        console.log(`Product ${product.name} has been automatically deactivated due to zero stock.`);
+      } catch (err) {
+        console.error('Failed to auto-deactivate product:', err);
+      }
+    }
+  };
+
   // Get all image URLs for a product (main + additional)
   const getAllImageUrls = (product: Product): string[] => {
     const urls: string[] = [];
     
-    // Add main image if it exists
     if (product.imageUrl) {
       urls.push(product.imageUrl);
     }
     
-    // Add additional images
     if (product.images && Array.isArray(product.images)) {
-      // Handle both string[] and ProductImage[] types
       const imageUrls = product.images.map(img => 
         typeof img === 'string' ? img : img.imageUrl
       );
@@ -101,19 +115,16 @@ const AdminProducts = () => {
     return urls.filter(url => url && url.trim() !== '');
   };
 
-  // Get main image URL (first image)
   const getMainImageUrl = (product: Product): string => {
     const allUrls = getAllImageUrls(product);
     return allUrls.length > 0 ? allUrls[0] : '';
   };
 
-  // Get additional images (all except first)
   const getAdditionalImages = (product: Product): string[] => {
     const allUrls = getAllImageUrls(product);
     return allUrls.slice(1);
   };
 
-  // Handle image error with simple fallback
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
     target.src = 'https://via.placeholder.com/400x300?text=No+Image';
@@ -122,7 +133,7 @@ const AdminProducts = () => {
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
+                         product.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.categoryId.toString() === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -133,6 +144,17 @@ const AdminProducts = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Get stock status display
+  const getStockStatus = (stock: number) => {
+    if (stock === 0) {
+      return { text: 'Out of Stock', className: 'bg-red-100 text-red-800', icon: <AlertTriangle className="w-3 h-3 mr-1" /> };
+    } else if (stock < 10) {
+      return { text: `${stock} left`, className: 'bg-yellow-100 text-yellow-800', icon: <AlertTriangle className="w-3 h-3 mr-1" /> };
+    } else {
+      return { text: `${stock} in stock`, className: 'bg-green-100 text-green-800', icon: <Package className="w-3 h-3 mr-1" /> };
+    }
+  };
 
   if (loading) {
     return (
@@ -213,12 +235,17 @@ const AdminProducts = () => {
                 const mainImageUrl = getMainImageUrl(product);
                 const additionalImages = getAdditionalImages(product);
                 const totalImages = getAllImageUrls(product).length;
+                const stockStatus = getStockStatus(product.stockQuantity);
+                
+                // Check and auto-deactivate if out of stock
+                if (product.stockQuantity === 0 && product.isActive) {
+                  checkAndDeactivateProduct(product);
+                }
                 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-start space-x-3">
-                        {/* Main image */}
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {mainImageUrl ? (
                             <img 
@@ -235,12 +262,10 @@ const AdminProducts = () => {
                           )}
                         </div>
                         
-                        {/* Additional images preview */}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
                           <div className="text-xs text-gray-500 mb-2">{product.description}</div>
                           
-                          {/* Thumbnail gallery */}
                           {additionalImages.length > 0 && (
                             <div className="flex items-center space-x-1">
                               {additionalImages.slice(0, 3).map((url, index) => (
@@ -273,28 +298,31 @@ const AdminProducts = () => {
                     </td>
                     
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        product.stockQuantity > 10 
-                          ? 'bg-green-100 text-green-800'
-                          : product.stockQuantity > 0
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {product.stockQuantity}
+                      <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${stockStatus.className}`}>
+                        {stockStatus.icon}
+                        {stockStatus.text}
                       </span>
                     </td>
                     
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleToggleStatus(product.id, product.isActive)}
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          product.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {product.isActive ? 'Active' : 'Inactive'}
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => handleToggleStatus(product.id, product.isActive)}
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            product.isActive
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {product.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                        {product.stockQuantity === 0 && !product.isActive && (
+                          <span className="text-[10px] text-red-500 flex items-center gap-1">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Auto-deactivated
+                          </span>
+                        )}
+                      </div>
                     </td>
                     
                     <td className="px-6 py-4">
