@@ -31,6 +31,22 @@ export const showError = (message: string) => {
   });
 };
 
+// Warning toast
+export const showWarning = (message: string) => {
+  toast(message, {
+    icon: '⚠️',
+    duration: 4000,
+    style: {
+      background: '#f59e0b',
+      color: '#fff',
+      borderRadius: '12px',
+      padding: '12px 20px',
+      fontSize: '14px',
+      fontWeight: '500',
+    },
+  });
+};
+
 // Info toast
 export const showInfo = (message: string) => {
   toast(message, {

@@ -12,6 +12,7 @@ import {
   Clock, Award, Star, Zap
 } from 'lucide-react';
 import { Product, Category } from '../../types';
+import { showSuccess, showError, showWarning, showInfo } from '../../utils/toast';
 
 interface ProductStats {
   totalSold: number;
@@ -70,6 +71,7 @@ const ProductsManagement = () => {
       setCategories(categoriesData);
     } catch (err: any) {
       setError('Failed to load products');
+      showError('Failed to load products');
     } finally {
       setLoading(false);
     }
@@ -160,6 +162,7 @@ const ProductsManagement = () => {
       setProductStats(stats);
     } catch (error) {
       console.error('Failed to load stats:', error);
+      showError('Failed to load product statistics');
     } finally {
       setStatsLoading(false);
     }
@@ -170,22 +173,21 @@ const ProductsManagement = () => {
     try {
       await productService.deleteProduct(id);
       setProducts(products.filter(p => p.id !== id));
+      showSuccess('Product deleted successfully');
     } catch (err: any) {
-      alert('Failed to delete product');
+      showError('Failed to delete product');
     }
   };
 
   // Auto-deactivate product when stock becomes 0
-  const handleUpdateProduct = async (product: Product) => {
-    // If stock is 0 and product is active, auto-deactivate
+  const handleAutoDeactivate = async (product: Product) => {
     if (product.stockQuantity === 0 && product.isActive) {
       try {
         await productService.toggleProductStatus(product.id, false);
         setProducts(products.map(p => 
           p.id === product.id ? { ...p, isActive: false } : p
         ));
-        // Show notification to admin
-        alert(`Product "${product.name}" has been automatically deactivated because stock is 0.`);
+        showWarning(`${product.name} has been auto-deactivated (out of stock)`);
       } catch (err) {
         console.error('Failed to auto-deactivate product:', err);
       }
@@ -207,7 +209,7 @@ const ProductsManagement = () => {
   useEffect(() => {
     filteredProducts.forEach(product => {
       if (product.stockQuantity === 0 && product.isActive) {
-        handleUpdateProduct(product);
+        handleAutoDeactivate(product);
       }
     });
   }, [filteredProducts]);
