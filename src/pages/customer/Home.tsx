@@ -126,8 +126,13 @@ const Home = () => {
         categoryService.getCategories()
       ]);
       
-      // Calculate sales counts and reviews for each product
-      const productsWithDetails = await Promise.all(productsData.map(async (product) => {
+      // Filter out inactive products (deactivated or out of stock)
+      const activeProducts = productsData.filter(product => 
+        product.isActive === true && product.stockQuantity > 0
+      );
+      
+      // Calculate sales counts and reviews for each active product
+      const productsWithDetails = await Promise.all(activeProducts.map(async (product) => {
         const salesCount = await calculateProductSales(product.id);
         const { averageRating, reviewCount } = await fetchProductReviews(product.id);
         return { 
@@ -143,11 +148,12 @@ const Home = () => {
       
       setProducts(productsWithDetails);
       setFeaturedProducts(sortedBySales.slice(0, 4)); // Featured = top 4 best sellers
-      setNewArrivals(productsWithDetails.slice(-4).reverse()); // New arrivals = latest 4 products
+      setNewArrivals(productsWithDetails.slice(-4).reverse()); // New arrivals = latest 4 active products
       setBestSellers(sortedBySales.slice(0, 8)); // Best sellers = top 8 best sellers
       
+      // Update category counts to only include active products
       const categoriesWithCounts = categoriesData.map(category => {
-        const productCount = productsData.filter(product => product.categoryId === category.id).length;
+        const productCount = productsWithDetails.filter(product => product.categoryId === category.id).length;
         return { ...category, productCount };
       });
       

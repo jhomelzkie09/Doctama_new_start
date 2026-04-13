@@ -288,9 +288,7 @@ const Checkout = () => {
   
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [showSavedAddresses, setShowSavedAddresses] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [useSavedAddress, setUseSavedAddress] = useState(false);
   
   // Shipping Info
   const [shippingInfo, setShippingInfo] = useState({
@@ -324,6 +322,14 @@ const Checkout = () => {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Helper function to check if two addresses are similar
+  const areAddressesSimilar = (addr1: SavedAddress, addr2: SavedAddress): boolean => {
+    return addr1.address === addr2.address && 
+           addr1.city === addr2.city && 
+           addr1.province === addr2.province &&
+           addr1.zipCode === addr2.zipCode;
+  };
+
   // Load saved addresses from localStorage and user's order history (only for current user)
   useEffect(() => {
     const loadSavedAddresses = async () => {
@@ -332,57 +338,53 @@ const Checkout = () => {
         return;
       }
       
-      const addresses: SavedAddress[] = [];
+      const addressesMap = new Map<string, SavedAddress>();
       
       // Load from localStorage with user-specific key
       const savedKey = `saved_addresses_${user.id}`;
       const saved = localStorage.getItem(savedKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        addresses.push(...parsed);
+        parsed.forEach((addr: SavedAddress) => {
+          addressesMap.set(`${addr.address}|${addr.city}|${addr.province}`, addr);
+        });
       }
       
-      // Load addresses from user's order history (only orders belonging to this user)
+      // Load addresses from user's order history
       try {
         const orders = await orderService.getMyOrders(1, 50);
-        const orderAddresses = orders.orders
-          .filter(order => order.userId === user.id) // Only current user's orders
-          .map(order => ({
-            id: `order-${order.id}`,
-            fullName: order.customerName || user.fullName || '',
-            address: order.shippingAddress?.split(',')[0] || '',
-            barangay: order.shippingAddress?.split(',')[1]?.trim() || '',
-            city: order.shippingAddress?.split(',')[2]?.trim() || '',
-            province: order.shippingAddress?.split(',')[3]?.trim()?.split(' ')[0] || '',
-            zipCode: order.shippingAddress?.match(/\d{4}/)?.[0] || '',
-            phone: order.customerPhone || '',
-            email: order.customerEmail || user.email || '',
-            label: 'Previous Order'
-          }));
-        
-        // Add unique addresses (avoid duplicates)
-        orderAddresses.forEach(addr => {
-          const exists = addresses.some(a => 
-            a.address === addr.address && a.city === addr.city
-          );
-          if (!exists && addr.address) {
-            addresses.push(addr);
-          }
-        });
+        orders.orders
+          .filter(order => order.userId === user.id && order.shippingAddress)
+          .forEach(order => {
+            const addr: SavedAddress = {
+              id: `order-${order.id}`,
+              fullName: order.customerName || user.fullName || '',
+              address: order.shippingAddress?.split(',')[0] || '',
+              barangay: order.shippingAddress?.split(',')[1]?.trim() || '',
+              city: order.shippingAddress?.split(',')[2]?.trim() || '',
+              province: order.shippingAddress?.split(',')[3]?.trim()?.split(' ')[0] || '',
+              zipCode: order.shippingAddress?.match(/\d{4}/)?.[0] || '',
+              phone: order.customerPhone || '',
+              email: order.customerEmail || user.email || '',
+              label: 'Previous Order'
+            };
+            const key = `${addr.address}|${addr.city}|${addr.province}`;
+            if (!addressesMap.has(key) && addr.address) {
+              addressesMap.set(key, addr);
+            }
+          });
       } catch (error) {
         console.error('Failed to load order addresses:', error);
       }
       
-      // Load saved shipping from previous checkout (user-specific)
+      // Load saved shipping from previous checkout
       const savedShippingKey = `checkout_shipping_${user.id}`;
       const savedShipping = localStorage.getItem(savedShippingKey);
       if (savedShipping) {
         const shipping = JSON.parse(savedShipping);
-        const exists = addresses.some(a => 
-          a.address === shipping.address && a.city === shipping.city
-        );
-        if (!exists && shipping.address) {
-          addresses.unshift({
+        const key = `${shipping.address}|${shipping.city}|${shipping.province}`;
+        if (!addressesMap.has(key) && shipping.address) {
+          addressesMap.set(key, {
             id: 'recent',
             fullName: shipping.fullName,
             address: shipping.address,
@@ -397,20 +399,29 @@ const Checkout = () => {
         }
       }
       
+      // Convert map to array and sort by most recent first
+      const addresses = Array.from(addressesMap.values());
+      // Move 'Recently Used' to the top if exists
+      const recentIndex = addresses.findIndex(a => a.id === 'recent');
+      if (recentIndex > 0) {
+        const recent = addresses.splice(recentIndex, 1)[0];
+        addresses.unshift(recent);
+      }
+      
       setSavedAddresses(addresses);
     };
     
     loadSavedAddresses();
   }, [user]);
 
-  // Also update the saveShippingInfo useEffect to use user-specific key:
+  // Save shipping info to localStorage
   useEffect(() => {
     if (user) {
       localStorage.setItem(`checkout_shipping_${user.id}`, JSON.stringify(shippingInfo));
     }
   }, [shippingInfo, user]);
 
-  // Update the saveAddressToStorage function to use user-specific key:
+  // Save address to saved addresses when order is placed
   const saveAddressToStorage = () => {
     if (!user) return;
     
@@ -431,10 +442,8 @@ const Checkout = () => {
     const existing = localStorage.getItem(savedKey);
     let addresses: SavedAddress[] = existing ? JSON.parse(existing) : [];
     
-    // Check if address already exists
-    const exists = addresses.some(a => 
-      a.address === newAddress.address && a.city === newAddress.city
-    );
+    // Check if similar address already exists
+    const exists = addresses.some(a => areAddressesSimilar(a, newAddress));
     
     if (!exists) {
       addresses.unshift(newAddress);
@@ -443,9 +452,6 @@ const Checkout = () => {
       localStorage.setItem(savedKey, JSON.stringify(addresses));
     }
   };
-
-  // Update the remove checkout shipping line in handlePlaceOrder:
-  localStorage.removeItem(`checkout_shipping_${user?.id}`);
 
   // Calculate shipping fee when city or barangay changes
   useEffect(() => {
@@ -541,26 +547,11 @@ const Checkout = () => {
       deliveryInstructions: shippingInfo.deliveryInstructions
     });
     setSelectedAddressId(address.id);
-    setUseSavedAddress(true);
-    setShowSavedAddresses(false);
     
     // Clear any address-related errors
     if (errors.address) {
       setErrors(prev => ({ ...prev, address: '', barangay: '', city: '', province: '', zipCode: '' }));
     }
-  };
-
-  const handleNewAddress = () => {
-    setUseSavedAddress(false);
-    setSelectedAddressId(null);
-    setShippingInfo({
-      ...shippingInfo,
-      address: '',
-      barangay: '',
-      city: '',
-      province: '',
-      zipCode: ''
-    });
   };
 
   const handleShippingSubmit = (e: React.FormEvent) => {
@@ -696,7 +687,7 @@ const Checkout = () => {
       dismissToast(loadingToast);
       showSuccess('Order placed successfully!');
       
-      localStorage.removeItem('checkout_shipping');
+      localStorage.removeItem(`checkout_shipping_${user?.id}`);
       
       clearCart();
       navigate(`/account/orders/${order.id}?success=true`);
@@ -807,69 +798,55 @@ const Checkout = () => {
                     Shipping Information
                   </h2>
                   
-                  {/* Saved Addresses Section */}
+                  {/* Saved Addresses Section - Always visible */}
                   {savedAddresses.length > 0 && (
                     <div className="mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <button
-                          onClick={() => setShowSavedAddresses(!showSavedAddresses)}
-                          className="flex items-center gap-2 text-sm font-medium text-rose-600 hover:text-rose-700"
-                        >
-                          <History className="w-4 h-4" />
-                          {showSavedAddresses ? 'Hide saved addresses' : 'Use a saved address'}
-                        </button>
-                        {useSavedAddress && (
-                          <button
-                            onClick={handleNewAddress}
-                            className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Use new address
-                          </button>
-                        )}
+                      <div className="flex items-center gap-2 mb-3">
+                        <History className="w-4 h-4 text-rose-600" />
+                        <span className="text-sm font-medium text-gray-700">Recent Addresses</span>
                       </div>
-                      
-                      {showSavedAddresses && (
-                        <div className="space-y-3 max-h-80 overflow-y-auto">
-                          {savedAddresses.map((address) => (
-                            <div
-                              key={address.id}
-                              onClick={() => handleUseSavedAddress(address)}
-                              className={`p-4 border rounded-xl cursor-pointer transition-all ${
-                                selectedAddressId === address.id
-                                  ? 'border-rose-500 bg-rose-50'
-                                  : 'border-gray-200 hover:border-rose-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Home className="w-4 h-4 text-gray-400" />
-                                    <span className="text-xs font-medium text-gray-500">
-                                      {address.label || 'Saved Address'}
-                                    </span>
-                                  </div>
-                                  <p className="font-medium text-gray-900">{address.fullName}</p>
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    {address.address}, {address.barangay}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    {address.city}, {address.province} {address.zipCode}
-                                  </p>
-                                  <p className="text-sm text-gray-500 mt-1">📞 {address.phone}</p>
-                                  <p className="text-sm text-gray-500">✉️ {address.email}</p>
+                      <div className="space-y-3">
+                        {savedAddresses.map((address) => (
+                          <div
+                            key={address.id}
+                            onClick={() => handleUseSavedAddress(address)}
+                            className={`p-4 border rounded-xl cursor-pointer transition-all ${
+                              selectedAddressId === address.id
+                                ? 'border-rose-500 bg-rose-50'
+                                : 'border-gray-200 hover:border-rose-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Home className="w-4 h-4 text-gray-400" />
+                                  <span className="text-xs font-medium text-gray-500">
+                                    {address.label || 'Saved Address'}
+                                  </span>
                                 </div>
-                                <CheckCircle className={`w-5 h-5 ${selectedAddressId === address.id ? 'text-rose-600' : 'text-gray-300'}`} />
+                                <p className="font-medium text-gray-900">{address.fullName}</p>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {address.address}, {address.barangay}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {address.city}, {address.province} {address.zipCode}
+                                </p>
+                                <p className="text-sm text-gray-500 mt-1">📞 {address.phone}</p>
+                                <p className="text-sm text-gray-500">✉️ {address.email}</p>
                               </div>
+                              {selectedAddressId === address.id && (
+                                <CheckCircle className="w-5 h-5 text-rose-600" />
+                              )}
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   
                   <form onSubmit={handleShippingSubmit}>
                     <div className="space-y-5">
+                      {/* Rest of the form remains the same */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1035,7 +1012,7 @@ const Checkout = () => {
                 </div>
               )}
 
-              {/* Step 2 and 3 remain the same */}
+              {/* Steps 2 and 3 remain the same */}
               {step === 2 && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   {/* ... existing step 2 code ... */}
