@@ -15,10 +15,17 @@ import { useOutletContext } from 'react-router-dom';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
 import orderService from '../../services/order.service';
+import reviewService from '../../services/review.service';
 import { Product, Category } from '../../types';
 
 interface OutletContextType {
   onAuthRequired?: (mode: 'login' | 'register') => void;
+}
+
+interface ProductWithDetails extends Product {
+  salesCount: number;
+  averageRating: number;
+  reviewCount: number;
 }
 
 const Home = () => {
@@ -27,11 +34,11 @@ const Home = () => {
   const outletContext = useOutletContext<OutletContextType>();
   const onAuthRequired = outletContext?.onAuthRequired;
   
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
-  const [bestSellers, setBestSellers] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<ProductWithDetails[]>([]);
+  const [newArrivals, setNewArrivals] = useState<ProductWithDetails[]>([]);
+  const [bestSellers, setBestSellers] = useState<ProductWithDetails[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
   
@@ -61,6 +68,21 @@ const Home = () => {
     } catch (error) {
       console.error('Failed to calculate product sales:', error);
       return 0;
+    }
+  };
+
+  // Function to fetch product reviews
+  const fetchProductReviews = async (productId: number): Promise<{ averageRating: number; reviewCount: number }> => {
+    try {
+      const reviews = await reviewService.getProductReviews(productId);
+      const reviewCount = reviews.length;
+      const averageRating = reviewCount > 0 
+        ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviewCount 
+        : 0;
+      return { averageRating, reviewCount };
+    } catch (error) {
+      console.error('Failed to fetch reviews for product:', productId, error);
+      return { averageRating: 0, reviewCount: 0 };
     }
   };
 
@@ -104,18 +126,24 @@ const Home = () => {
         categoryService.getCategories()
       ]);
       
-      // Calculate sales counts for each product to determine best sellers
-      const productsWithSales = await Promise.all(productsData.map(async (product) => {
+      // Calculate sales counts and reviews for each product
+      const productsWithDetails = await Promise.all(productsData.map(async (product) => {
         const salesCount = await calculateProductSales(product.id);
-        return { ...product, salesCount };
+        const { averageRating, reviewCount } = await fetchProductReviews(product.id);
+        return { 
+          ...product, 
+          salesCount,
+          averageRating,
+          reviewCount
+        };
       }));
       
       // Sort by sales count to get best sellers (highest sold first)
-      const sortedBySales = [...productsWithSales].sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
+      const sortedBySales = [...productsWithDetails].sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
       
-      setProducts(productsWithSales);
+      setProducts(productsWithDetails);
       setFeaturedProducts(sortedBySales.slice(0, 4)); // Featured = top 4 best sellers
-      setNewArrivals(productsData.slice(-4).reverse()); // New arrivals = latest 4 products
+      setNewArrivals(productsWithDetails.slice(-4).reverse()); // New arrivals = latest 4 products
       setBestSellers(sortedBySales.slice(0, 8)); // Best sellers = top 8 best sellers
       
       const categoriesWithCounts = categoriesData.map(category => {
@@ -131,7 +159,7 @@ const Home = () => {
     }
   };
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+  const handleAddToCart = (e: React.MouseEvent, product: ProductWithDetails) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
@@ -232,7 +260,7 @@ const Home = () => {
   const renderStars = (rating: number) => (
     <div className="flex gap-0.5">
       {[...Array(5)].map((_, i) => (
-        <Star key={i} className={`w-3.5 h-3.5 ${i < rating ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
+        <Star key={i} className={`w-3.5 h-3.5 ${i < Math.floor(rating) ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
       ))}
     </div>
   );
@@ -485,7 +513,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Trending Now - Mobile Optimized ─── */}
+      {/* ─── Trending Now - Mobile Optimized with Reviews and Sales Count ─── */}
       <section className="py-16 md:py-24 bg-[#FBFBFA]">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-8 md:mb-16">
@@ -548,7 +576,22 @@ const Home = () => {
                       </h3>
                       <span className="font-serif text-rose-900 font-bold text-xs md:text-base">₱{product.price.toLocaleString()}</span>
                     </div>
-                    {renderStars(4)}
+                    
+                    {/* Rating and Reviews */}
+                    <div className="flex items-center gap-1 mb-1 md:mb-2">
+                      {renderStars(product.averageRating)}
+                      <span className="text-[9px] md:text-xs text-slate-400">
+                        ({product.reviewCount})
+                      </span>
+                    </div>
+                    
+                    {/* Sales Count */}
+                    {product.salesCount > 0 && (
+                      <div className="flex items-center gap-1 text-[9px] md:text-xs text-emerald-600 mb-1 md:mb-2">
+                        <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                        <span className="font-medium">{product.salesCount} sold</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
