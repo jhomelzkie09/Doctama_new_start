@@ -649,7 +649,7 @@ const Shop: React.FC = () => {
               </div>
             </aside>
 
-            {/* Product Grid - Smaller cards for mobile */}
+            {/* Product Grid */}
             <main className="flex-1 min-w-0">
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-32 bg-white rounded-2xl border border-stone-100">
@@ -675,7 +675,7 @@ const Shop: React.FC = () => {
                   <div className={
                     viewMode === 'grid'
                       ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-4 lg:gap-6'
-                      : 'space-y-4'
+                      : 'space-y-3 sm:space-y-4'
                   }>
                     {paginatedProducts.map((product) => (
                       <ProductCard
@@ -793,11 +793,72 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
   const isBestSeller = salesCount > 100;
   const isTopRated = averageRating >= 4.5 && reviewCount > 10 && !isBestSeller;
 
+  // For list view, make it more compact on mobile
+  if (!isGrid) {
+    return (
+      <div className="group bg-white rounded-xl border border-stone-100 overflow-hidden hover:shadow-md transition-all duration-300">
+        <div className="flex flex-row gap-3 p-3">
+          {/* Image - Smaller on mobile */}
+          <Link to={`/products/${product.id}`} className="block w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
+            <img
+              src={product.imageUrl || 'https://via.placeholder.com/400'}
+              alt={product.name}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </Link>
+
+          {/* Info - Compact layout */}
+          <div className="flex-1 flex flex-col">
+            <Link to={`/products/${product.id}`}>
+              <h3 className="font-bold text-slate-900 text-sm line-clamp-2 hover:text-rose-800 transition-colors">
+                {product.name}
+              </h3>
+            </Link>
+
+            {/* Rating and sales row */}
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
+              <div className="flex items-center gap-0.5">
+                {renderStars(averageRating)}
+                <span className="text-[10px] text-slate-400 ml-1">
+                  ({reviewCount})
+                </span>
+              </div>
+              {salesCount > 0 && (
+                <div className="flex items-center gap-0.5 text-[10px] text-emerald-600">
+                  <TrendingUp className="w-2.5 h-2.5" />
+                  <span>{salesCount} sold</span>
+                </div>
+              )}
+            </div>
+
+            {/* Price */}
+            <div className="flex items-center justify-between mt-2">
+              <div>
+                <span className="text-sm font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
+              </div>
+              
+              {/* Add to cart button - Always visible in list view */}
+              <button
+                disabled={product.stockQuantity === 0}
+                onClick={(e) => onOpenModal(e, product)}
+                className="p-1.5 bg-rose-950 text-white rounded-lg hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95"
+                title="Add to Cart"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Grid view remains the same
   return (
-    <div className={`group bg-white rounded-xl md:rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300 ${!isGrid && 'flex'}`}>
+    <div className={`group bg-white rounded-xl md:rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300`}>
       
       {/* Image */}
-      <div className={`relative overflow-hidden bg-stone-50 ${isGrid ? 'aspect-square' : 'w-52 flex-shrink-0'}`}>
+      <div className="relative overflow-hidden bg-stone-50 aspect-square">
         <Link to={`/products/${product.id}`} className="block w-full h-full">
           <img
             src={product.imageUrl || 'https://via.placeholder.com/400'}
@@ -850,7 +911,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
       </div>
 
       {/* Info */}
-      <div className={`p-3 md:p-5 flex flex-col flex-1 ${!isGrid && 'justify-center'}`}>
+      <div className="p-3 md:p-5 flex flex-col flex-1">
         <Link to={`/products/${product.id}`}>
           <h3 className="font-bold text-slate-900 text-sm md:text-base mb-0.5 md:mb-1 line-clamp-1 hover:text-rose-800 transition-colors">
             {product.name}
@@ -865,7 +926,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </span>
         </div>
 
-        {/* Sales Count - Below reviews on mobile, inline on desktop */}
+        {/* Sales Count - Below reviews */}
         {salesCount > 0 && (
           <div className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs text-emerald-600 mb-2">
             <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
@@ -873,9 +934,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </div>
         )}
 
-        {isGrid && (
-          <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
-        )}
+        <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
 
         <div className="flex items-center justify-between mt-auto pt-2 md:pt-4 border-t border-stone-50">
           <div>
@@ -888,7 +947,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
-            className={`p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 ${isGrid ? 'lg:hidden' : ''}`}
+            className={`p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 lg:hidden`}
           >
             <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
           </button>
