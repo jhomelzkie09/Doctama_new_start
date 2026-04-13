@@ -3,7 +3,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
-import orderService from '../../services/order.service';
 import { 
   Plus, 
   Search, 
@@ -15,28 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
-  Images,
-  TrendingUp,
-  Package,
-  DollarSign,
-  Calendar,
-  BarChart3,
-  X,
-  TrendingDown,
-  AlertTriangle,
-  CheckCircle
+  Images
 } from 'lucide-react';
 import { Product, Category } from '../../types';
-
-interface ProductStats {
-  totalSold: number;
-  totalRevenue: number;
-  averageMonthlySales: number;
-  lastSoldDate: string | null;
-  daysSinceLastSale: number | null;
-  salesTrend: 'increasing' | 'decreasing' | 'stable';
-  monthlyData: { month: string; sales: number }[];
-}
 
 const AdminProducts = () => {
   const { isAdmin } = useAuth();
@@ -49,10 +29,6 @@ const AdminProducts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [productStats, setProductStats] = useState<ProductStats | null>(null);
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [statsLoading, setStatsLoading] = useState(false);
   
   const itemsPerPage = 10;
 
@@ -71,118 +47,13 @@ const AdminProducts = () => {
         productService.getProducts(),
         categoryService.getCategories()
       ]);
-      
-      // Sort products by sold count (highest first)
-      const productsWithSales = await Promise.all(productsData.map(async (product) => {
-        const stats = await calculateProductStats(product.id);
-        return { ...product, _soldCount: stats.totalSold };
-      }));
-      
-      const sortedProducts = productsWithSales.sort((a, b) => (b._soldCount || 0) - (a._soldCount || 0));
-      setProducts(sortedProducts);
+      setProducts(productsData);
       setCategories(categoriesData);
     } catch (err: any) {
       setError('Failed to load products');
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const calculateProductStats = async (productId: number): Promise<ProductStats> => {
-    try {
-      const allOrders = await orderService.getAllOrders();
-      
-      let totalSold = 0;
-      let totalRevenue = 0;
-      let lastSoldDate: string | null = null;
-      const monthlySalesMap = new Map<string, number>();
-      
-      // Process delivered orders only
-      const deliveredOrders = allOrders.filter(order => order.status === 'delivered');
-      
-      deliveredOrders.forEach(order => {
-        order.items?.forEach(item => {
-          // Fix: Convert both to number for comparison
-          const itemProductId = typeof item.productId === 'string' ? parseInt(item.productId) : item.productId;
-          if (itemProductId === productId) {
-            const quantity = item.quantity;
-            const revenue = (item.unitPrice || item.price) * quantity;
-            totalSold += quantity;
-            totalRevenue += revenue;
-            
-            const orderDate = new Date(order.orderDate);
-            const monthKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
-            monthlySalesMap.set(monthKey, (monthlySalesMap.get(monthKey) || 0) + quantity);
-            
-            if (!lastSoldDate || new Date(order.orderDate) > new Date(lastSoldDate)) {
-              lastSoldDate = order.orderDate;
-            }
-          }
-        });
-      });
-      
-      // Calculate average monthly sales
-      const monthlyData = Array.from(monthlySalesMap.entries())
-        .map(([month, sales]) => ({ month, sales }))
-        .sort((a, b) => a.month.localeCompare(b.month));
-      
-      const averageMonthlySales = monthlyData.length > 0 
-        ? totalSold / monthlyData.length 
-        : 0;
-      
-      // Calculate days since last sale
-      let daysSinceLastSale = null;
-      if (lastSoldDate) {
-        const lastDate = new Date(lastSoldDate);
-        const today = new Date();
-        daysSinceLastSale = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-      }
-      
-      // Calculate sales trend (compare last 2 months vs previous 2 months)
-      let salesTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
-      if (monthlyData.length >= 4) {
-        const lastTwoMonths = monthlyData.slice(-2).reduce((sum, m) => sum + m.sales, 0);
-        const previousTwoMonths = monthlyData.slice(-4, -2).reduce((sum, m) => sum + m.sales, 0);
-        if (lastTwoMonths > previousTwoMonths) salesTrend = 'increasing';
-        else if (lastTwoMonths < previousTwoMonths) salesTrend = 'decreasing';
-      }
-      
-      return {
-        totalSold,
-        totalRevenue,
-        averageMonthlySales,
-        lastSoldDate,
-        daysSinceLastSale,
-        salesTrend,
-        monthlyData
-      };
-    } catch (error) {
-      console.error('Failed to calculate product stats:', error);
-      return {
-        totalSold: 0,
-        totalRevenue: 0,
-        averageMonthlySales: 0,
-        lastSoldDate: null,
-        daysSinceLastSale: null,
-        salesTrend: 'stable',
-        monthlyData: []
-      };
-    }
-  };
-
-  const handleViewStats = async (product: Product) => {
-    setSelectedProduct(product);
-    setStatsLoading(true);
-    setShowStatsModal(true);
-    
-    try {
-      const stats = await calculateProductStats(product.id);
-      setProductStats(stats);
-    } catch (error) {
-      console.error('Failed to load stats:', error);
-    } finally {
-      setStatsLoading(false);
     }
   };
 
@@ -209,14 +80,18 @@ const AdminProducts = () => {
     }
   };
 
+  // Get all image URLs for a product (main + additional)
   const getAllImageUrls = (product: Product): string[] => {
     const urls: string[] = [];
     
+    // Add main image if it exists
     if (product.imageUrl) {
       urls.push(product.imageUrl);
     }
     
+    // Add additional images
     if (product.images && Array.isArray(product.images)) {
+      // Handle both string[] and ProductImage[] types
       const imageUrls = product.images.map(img => 
         typeof img === 'string' ? img : img.imageUrl
       );
@@ -226,16 +101,19 @@ const AdminProducts = () => {
     return urls.filter(url => url && url.trim() !== '');
   };
 
+  // Get main image URL (first image)
   const getMainImageUrl = (product: Product): string => {
     const allUrls = getAllImageUrls(product);
     return allUrls.length > 0 ? allUrls[0] : '';
   };
 
+  // Get additional images (all except first)
   const getAdditionalImages = (product: Product): string[] => {
     const allUrls = getAllImageUrls(product);
     return allUrls.slice(1);
   };
 
+  // Handle image error with simple fallback
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
     target.src = 'https://via.placeholder.com/400x300?text=No+Image';
@@ -255,10 +133,6 @@ const AdminProducts = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  const formatCurrency = (amount: number) => {
-    return `₱${amount.toFixed(2).toLocaleString()}`;
-  };
 
   if (loading) {
     return (
@@ -339,13 +213,12 @@ const AdminProducts = () => {
                 const mainImageUrl = getMainImageUrl(product);
                 const additionalImages = getAdditionalImages(product);
                 const totalImages = getAllImageUrls(product).length;
-                const isOutOfStock = product.stockQuantity === 0;
-                const isLowStock = product.stockQuantity > 0 && product.stockQuantity < 10;
                 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-start space-x-3">
+                        {/* Main image */}
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {mainImageUrl ? (
                             <img 
@@ -362,10 +235,12 @@ const AdminProducts = () => {
                           )}
                         </div>
                         
+                        {/* Additional images preview */}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-xs text-gray-500 mb-2">{product.description?.substring(0, 60)}...</div>
+                          <div className="text-xs text-gray-500 mb-2">{product.description}</div>
                           
+                          {/* Thumbnail gallery */}
                           {additionalImages.length > 0 && (
                             <div className="flex items-center space-x-1">
                               {additionalImages.slice(0, 3).map((url, index) => (
@@ -394,26 +269,19 @@ const AdminProducts = () => {
                     </td>
                     
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {formatCurrency(product.price)}
+                      ₱{product.price.toFixed(2)}
                     </td>
                     
                     <td className="px-6 py-4">
-                      {isOutOfStock ? (
-                        <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          Out of Stock
-                        </span>
-                      ) : isLowStock ? (
-                        <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          {product.stockQuantity} left
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          {product.stockQuantity} in stock
-                        </span>
-                      )}
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        product.stockQuantity > 10 
+                          ? 'bg-green-100 text-green-800'
+                          : product.stockQuantity > 0
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {product.stockQuantity}
+                      </span>
                     </td>
                     
                     <td className="px-6 py-4">
@@ -442,13 +310,6 @@ const AdminProducts = () => {
                     
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleViewStats(product)}
-                          className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                          title="View Statistics"
-                        >
-                          <TrendingUp className="w-4 h-4" />
-                        </button>
                         <button
                           onClick={() => navigate(`/admin/products/${product.id}`)}
                           className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -526,180 +387,6 @@ const AdminProducts = () => {
           </div>
         )}
       </div>
-
-      {/* Product Statistics Modal */}
-      {showStatsModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Product Statistics</h2>
-                  <p className="text-sm text-gray-500">{selectedProduct.name}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowStatsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              {statsLoading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Loader className="w-10 h-10 animate-spin text-purple-600 mb-4" />
-                  <p className="text-gray-500">Loading statistics...</p>
-                </div>
-              ) : productStats ? (
-                <div className="space-y-6">
-                  {/* Key Metrics */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Package className="w-5 h-5 text-green-600" />
-                        <span className="text-xs font-medium text-green-600 uppercase">Units Sold</span>
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">{productStats.totalSold}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <DollarSign className="w-5 h-5 text-blue-600" />
-                        <span className="text-xs font-medium text-blue-600 uppercase">Total Revenue</span>
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">{formatCurrency(productStats.totalRevenue)}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <BarChart3 className="w-5 h-5 text-purple-600" />
-                        <span className="text-xs font-medium text-purple-600 uppercase">Avg Monthly Sales</span>
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">{Math.round(productStats.averageMonthlySales)}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-5 h-5 text-amber-600" />
-                        <span className="text-xs font-medium text-amber-600 uppercase">Sales Trend</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {productStats.salesTrend === 'increasing' ? (
-                          <TrendingUp className="w-5 h-5 text-green-600" />
-                        ) : productStats.salesTrend === 'decreasing' ? (
-                          <TrendingDown className="w-5 h-5 text-red-600" />
-                        ) : (
-                          <BarChart3 className="w-5 h-5 text-gray-600" />
-                        )}
-                        <p className={`text-xl font-bold ${
-                          productStats.salesTrend === 'increasing' ? 'text-green-600' :
-                          productStats.salesTrend === 'decreasing' ? 'text-red-600' :
-                          'text-gray-600'
-                        }`}>
-                          {productStats.salesTrend === 'increasing' ? '↑ Increasing' :
-                           productStats.salesTrend === 'decreasing' ? '↓ Decreasing' :
-                           '→ Stable'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Last Sale Info */}
-                  {productStats.lastSoldDate && (
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-500">Last Sold</p>
-                          <p className="font-medium text-gray-900">
-                            {new Date(productStats.lastSoldDate).toLocaleDateString('en-PH', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </p>
-                        </div>
-                        {productStats.daysSinceLastSale !== null && (
-                          <div className="text-right">
-                            <p className="text-sm text-gray-500">Days Since Last Sale</p>
-                            <p className={`font-bold ${
-                              productStats.daysSinceLastSale > 30 ? 'text-red-600' :
-                              productStats.daysSinceLastSale > 14 ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              {productStats.daysSinceLastSale} days ago
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Monthly Sales Chart */}
-                  {productStats.monthlyData.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Monthly Sales Performance</h3>
-                      <div className="space-y-2">
-                        {productStats.monthlyData.slice(-6).map((data) => {
-                          const maxSales = Math.max(...productStats.monthlyData.map(d => d.sales), 1);
-                          const percentage = (data.sales / maxSales) * 100;
-                          return (
-                            <div key={data.month}>
-                              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                <span>{data.month}</span>
-                                <span className="font-medium">{data.sales} units</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div 
-                                  className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Performance Note */}
-                  {productStats.totalSold === 0 && (
-                    <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-yellow-800">No Sales Yet</p>
-                          <p className="text-xs text-yellow-700 mt-1">
-                            This product hasn't been sold yet. Consider promoting it or adjusting the price to attract customers.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {productStats.totalSold > 0 && productStats.daysSinceLastSale && productStats.daysSinceLastSale > 60 && (
-                    <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-orange-800">Slow Moving Product</p>
-                          <p className="text-xs text-orange-700 mt-1">
-                            This product hasn't been sold in over 60 days. Consider running a promotion or discount.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
