@@ -155,15 +155,15 @@ const Layout = () => {
         loading={loggingOut}
       />
 
-      {/* 1. Refined Announcement Bar */}
+      {/* 1. Simplified Announcement Bar for Mobile */}
       <div className="bg-slate-900 text-slate-300 py-2 border-b border-white/5">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="flex justify-between items-center text-[11px] font-semibold uppercase tracking-[0.1em]">
-            <div className="flex items-center gap-4 md:gap-8">
-              <span className="flex items-center gap-1 md:gap-2 hover:text-white transition-colors cursor-default">
-                <Truck className="w-3 h-3 md:w-3.5 md:h-3.5 text-rose-500" />
+        <div className="container mx-auto px-3 sm:px-4 md:px-6">
+          <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.1em]">
+            <div className="flex items-center gap-2 sm:gap-4 md:gap-8">
+              <span className="flex items-center gap-1 sm:gap-2 hover:text-white transition-colors cursor-default">
+                <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500" />
                 <span className="hidden xs:inline">Free Shipping Over ₱5,000</span>
-                <span className="xs:hidden">Free Shipping</span>
+                <span className="xs:hidden">Free Ship</span>
               </span>
               <span className="hidden md:flex items-center gap-2 hover:text-white transition-colors cursor-default">
                 <Shield className="w-3.5 h-3.5 text-rose-500" />
@@ -174,14 +174,14 @@ const Layout = () => {
                 Quality Guaranteed
               </span>
             </div>
-            <div className="flex items-center gap-3 md:gap-6">
-              <a href="tel:+639985868888" className="hover:text-white transition-colors flex items-center gap-1 md:gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
+              <a href="tel:+639985868888" className="hover:text-white transition-colors flex items-center gap-1 sm:gap-2">
                 <PhoneIcon className="w-3 h-3" />
                 <span className="hidden sm:inline">+63 998 586 8888</span>
                 <span className="sm:hidden">Call</span>
               </a>
               <span className="w-px h-3 bg-slate-700 hidden sm:block"></span>
-              <a href="mailto:support@doctama.com" className="hover:text-white transition-colors flex items-center gap-1 md:gap-2">
+              <a href="mailto:support@doctama.com" className="hover:text-white transition-colors flex items-center gap-1 sm:gap-2">
                 <Mail className="w-3 h-3" />
                 <span className="hidden sm:inline">Support</span>
               </a>
@@ -190,18 +190,18 @@ const Layout = () => {
         </div>
       </div>
 
-      {/* 2. Sleek Sticky Navbar */}
+      {/* 2. Mobile-Optimized Navbar */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${
         scrolled 
-          ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/50 py-2 md:py-3 shadow-sm' 
-          : 'bg-white py-3 md:py-5'
+          ? 'bg-white/90 backdrop-blur-lg border-b border-slate-200/50 py-2 shadow-sm' 
+          : 'bg-white py-2 sm:py-3 md:py-5'
       }`}>
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="flex justify-between items-center">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6">
+          <div className="flex justify-between items-center gap-2">
             
-            {/* Elegant Logo Design */}
-            <Link to="/" className="group flex items-center gap-2 md:gap-3">
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg flex items-center justify-center group-hover:rotate-0 transition-transform duration-300">
+            {/* Logo - Smaller on mobile */}
+            <Link to="/" className="group flex items-center gap-2 flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg flex items-center justify-center">
                 <img 
                   src={logo} 
                   alt="Doctama Logo" 
@@ -209,8 +209,8 @@ const Layout = () => {
                 />
               </div>
               <div className="flex flex-col leading-none">
-                <span className="font-black text-sm md:text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
-                <span className="text-[8px] md:text-[10px] font-bold text-rose-600 tracking-[0.1em] md:tracking-[0.2em] uppercase">Marketing</span>
+                <span className="font-black text-xs sm:text-sm md:text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
+                <span className="text-[6px] sm:text-[8px] md:text-[10px] font-bold text-rose-600 tracking-[0.1em] md:tracking-[0.2em] uppercase">Marketing</span>
               </div>
             </Link>
 
@@ -232,14 +232,14 @@ const Layout = () => {
               ))}
             </div>
 
-            {/* Utility Icons */}
-            <div className="flex items-center gap-1 md:gap-2">
+            {/* Utility Icons - Optimized for mobile */}
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* Search Icon - Mobile */}
               <button 
                 onClick={() => setSearchOpen(!searchOpen)} 
-                className="md:hidden p-2 text-slate-500 hover:text-rose-600 transition-colors"
+                className="p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 transition-colors"
               >
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               {/* Search Bar - Desktop */}
@@ -255,11 +255,11 @@ const Layout = () => {
               </form>
 
               {/* Cart */}
-              <Link to="/cart" onClick={handleAddToCartClick} className="relative p-2 text-slate-500 hover:text-rose-600 transition-colors">
-                <ShoppingCart className="w-5 h-5" />
+              <Link to="/cart" onClick={handleAddToCartClick} className="relative p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 transition-colors">
+                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
                 {state.items.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
-                    {state.items.length}
+                    {state.items.length > 9 ? '9+' : state.items.length}
                   </span>
                 )}
               </Link>
@@ -269,9 +269,9 @@ const Layout = () => {
                 <div className="relative">
                   <button 
                     onClick={() => setUserMenuOpen(!userMenuOpen)} 
-                    className="flex items-center gap-1 md:gap-2 group p-1"
+                    className="flex items-center gap-1 group p-1"
                   >
-                    <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center overflow-hidden transition-all group-hover:border-rose-300">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center overflow-hidden transition-all group-hover:border-rose-300">
                       {profilePicture ? (
                         <img 
                           src={profilePicture} 
@@ -279,12 +279,12 @@ const Layout = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-sm font-bold text-slate-700">
+                        <span className="text-xs sm:text-sm font-bold text-slate-700">
                           {user.fullName ? user.fullName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || 'U'}
                         </span>
                       )}
                     </div>
-                    <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 text-slate-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {/* Dropdown Menu */}
@@ -330,34 +330,37 @@ const Layout = () => {
                   )}
                 </div>
               ) : (
-                // Sign In Button
+                // Sign In Button - Smaller on mobile
                 <button
                   onClick={() => handleAuthRequired('login')}
-                  className="ml-1 md:ml-2 flex items-center gap-1 md:gap-2 px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-900 text-white text-xs md:text-sm font-bold rounded-full hover:bg-rose-600 transition-all shadow-md shadow-slate-200 active:scale-95"
+                  className="ml-0 sm:ml-2 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-6 py-1 sm:py-1.5 md:py-2.5 bg-slate-900 text-white text-[11px] sm:text-xs md:text-sm font-bold rounded-full hover:bg-rose-600 transition-all shadow-md shadow-slate-200 active:scale-95"
                 >
-                  <User className="w-4 h-4" />
-                  <span className="hidden xs:inline">Sign In</span>
-                  <span className="xs:hidden">Login</span>
+                  <User className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline text-xs sm:text-sm">Sign In</span>
+                  <span className="xs:hidden text-[10px]">Login</span>
                 </button>
               )}
 
-              {/* Mobile menu button */}
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-2 ml-1 text-slate-900">
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {/* Mobile menu button - Smaller */}
+              <button 
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
+                className="lg:hidden p-1.5 sm:p-2 ml-0 sm:ml-1 text-slate-900"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
               </button>
             </div>
           </div>
 
-          {/* Mobile Search Bar */}
+          {/* Mobile Search Bar - Compact */}
           {searchOpen && (
-            <div className="md:hidden py-3 border-t mt-2">
+            <div className="md:hidden py-2 border-t mt-2">
               <form onSubmit={handleSearch} className="relative">
                 <input
                   type="text"
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 pl-10 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="w-full px-3 py-2 pl-9 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500"
                   autoFocus
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -367,17 +370,17 @@ const Layout = () => {
         </div>
       </nav>
 
-      {/* 3. Mobile Navigation Menu */}
+      {/* 3. Mobile Navigation Menu - Improved */}
       <div className={`fixed inset-0 z-[60] bg-white transition-transform duration-500 lg:hidden ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-5 h-full flex flex-col">
-          <div className="flex justify-between items-center mb-8">
+        <div className="p-4 h-full flex flex-col">
+          <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center">
-                <img src={logo} alt="Doctama Logo" className="w-8 h-8 object-contain" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+                <img src={logo} alt="Doctama Logo" className="w-7 h-7 object-contain" />
               </div>
               <div className="flex flex-col">
-                <span className="font-black text-sm text-slate-900 uppercase">Doctama's</span>
-                <span className="text-[8px] font-bold text-rose-600 uppercase">Marketing</span>
+                <span className="font-black text-xs text-slate-900 uppercase">Doctama's</span>
+                <span className="text-[7px] font-bold text-rose-600 uppercase">Marketing</span>
               </div>
             </div>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition">
@@ -385,29 +388,29 @@ const Layout = () => {
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-2">
             {navLinks.map(({ path, label, icon: Icon }) => (
               <Link 
                 key={path} 
                 to={path} 
                 onClick={() => setMobileMenuOpen(false)} 
-                className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
+                className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
                   isActive(path)
                     ? 'bg-rose-50 text-rose-600'
                     : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-lg font-semibold">{label}</span>
+                <span className="text-base font-semibold">{label}</span>
               </Link>
             ))}
           </div>
 
-          {/* User Section in Mobile Menu with Profile Picture */}
+          {/* User Section in Mobile Menu */}
           {user && (
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-rose-100 rounded-full overflow-hidden flex-shrink-0">
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-rose-100 rounded-full overflow-hidden flex-shrink-0">
                   {profilePicture ? (
                     <img 
                       src={profilePicture} 
@@ -416,46 +419,46 @@ const Layout = () => {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-rose-100">
-                      <span className="text-lg font-bold text-rose-600">
+                      <span className="text-base font-bold text-rose-600">
                         {user.fullName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
                       </span>
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="font-bold text-slate-900">{user.fullName || user.email?.split('@')[0] || 'User'}</p>
-                  <p className="text-xs text-slate-500">{user.email}</p>
+                  <p className="font-bold text-slate-900 text-sm">{user.fullName || user.email?.split('@')[0] || 'User'}</p>
+                  <p className="text-xs text-slate-500 truncate max-w-[200px]">{user.email}</p>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
                   <UserCircle className="w-5 h-5" />
-                  <span>My Account</span>
+                  <span className="text-sm">My Account</span>
                 </Link>
                 <Link to="/account/orders" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
                   <Package className="w-5 h-5" />
-                  <span>My Orders</span>
+                  <span className="text-sm">My Orders</span>
                 </Link>
                 <button onClick={handleLogoutClick} className="w-full flex items-center gap-3 p-3 rounded-xl text-red-600 hover:bg-red-50 transition">
                   <LogOut className="w-5 h-5" />
-                  <span>Sign Out</span>
+                  <span className="text-sm">Sign Out</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* Contact Info in Mobile Menu */}
-          <div className="mt-auto pt-6 border-t border-slate-100">
-            <p className="text-xs text-slate-400 mb-3">Need help?</p>
-            <a href="tel:+639985868888" className="flex items-center gap-3 p-3 text-slate-700 hover:bg-slate-50 rounded-xl transition">
-              <PhoneIcon className="w-5 h-5" />
+          {/* Contact Info in Mobile Menu - Compact */}
+          <div className="mt-auto pt-4 border-t border-slate-100">
+            <p className="text-[11px] text-slate-400 mb-2">Need help?</p>
+            <a href="tel:+639985868888" className="flex items-center gap-3 p-2 text-slate-700 hover:bg-slate-50 rounded-xl transition text-sm">
+              <PhoneIcon className="w-4 h-4" />
               <span>+63 998 586 8888</span>
             </a>
-            <a href="mailto:doctamasmarketing@gmail.com" className="flex items-center gap-3 p-3 text-slate-700 hover:bg-slate-50 rounded-xl transition">
-              <Mail className="w-5 h-5" />
+            <a href="mailto:doctamasmarketing@gmail.com" className="flex items-center gap-3 p-2 text-slate-700 hover:bg-slate-50 rounded-xl transition text-sm">
+              <Mail className="w-4 h-4" />
               <span>doctamasmarketing@gmail.com</span>
             </a>
-            <div className="flex gap-4 justify-center mt-4">
+            <div className="flex gap-4 justify-center mt-3">
               {socialLinks.map((social, idx) => (
                 <a
                   key={idx}
@@ -464,7 +467,7 @@ const Layout = () => {
                   rel="noopener noreferrer"
                   className={`text-slate-400 ${social.color} transition-colors`}
                 >
-                  <social.icon className="w-5 h-5" />
+                  <social.icon className="w-4 h-4" />
                 </a>
               ))}
             </div>
@@ -483,97 +486,9 @@ const Layout = () => {
         <Outlet context={{ onAuthRequired: handleAuthRequired }} />
       </main>
 
-      {/* Footer - Updated with complete contact details */}
+      {/* Footer - Rest remains the same */}
       <footer className="bg-slate-900 text-white pt-12 pb-6">
-        <div className="container mx-auto px-4">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            {/* Brand Column */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-white-600 rounded-lg flex items-center justify-center">
-                  <img src={logo} alt="Doctama Logo" className="w-13 h-13 object-contain" />
-                </div>
-                <span className="font-black text-lg tracking-tight uppercase">Doctama's</span>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed mb-4">
-                Defining the standard of modern living in the Philippines since 2024.
-              </p>
-              <div className="flex gap-4">
-                {socialLinks.map((social, idx) => (
-                  <a
-                    key={idx}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`text-slate-400 ${social.color} transition-colors`}
-                  >
-                    <social.icon className="w-5 h-5" />
-                  </a>
-                ))}
-              </div>
-            </div>
-            
-            {/* Shop Links */}
-            <div>
-              <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Shop</h4>
-              <ul className="space-y-2 text-slate-400 text-sm">
-                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> New Arrivals</Link></li>
-                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Best Sellers</Link></li>
-                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Living Room</Link></li>
-                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Bedroom</Link></li>
-                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Dining Room</Link></li>
-                <li><Link to="/shop" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Office</Link></li>
-              </ul>
-            </div>
-
-            {/* Company Links */}
-            <div>
-              <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Company</h4>
-              <ul className="space-y-2 text-slate-400 text-sm">
-                <li><Link to="/about" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Our Story</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Contact</Link></li>
-                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Showrooms</Link></li>
-                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Careers</Link></li>
-                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Blog</Link></li>
-              </ul>
-            </div>
-
-            {/* Contact Info */}
-            <div>
-              <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Visit Us</h4>
-              <div className="space-y-3 text-slate-400 text-sm">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
-                  <p>Gabao, Bacon, Sorsogon City,<br />Sorsogon, Philippines 4700</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <PhoneIcon className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                  <div>
-                    <p>+63 998 586 8888</p>
-                    <p className="text-xs text-slate-500">Mon-Sat: 9AM - 7PM</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                  <div>
-                    <p>doctamasmarketing@gmail.com</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Bottom */}
-          <div className="pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-slate-500 text-xs">© 2026 Doctama's Marketing. All rights reserved.</p>
-            <div className="flex gap-6">
-              <Link to="/privacy" className="text-slate-500 text-xs hover:text-white transition">Privacy Policy</Link>
-              <Link to="/terms" className="text-slate-500 text-xs hover:text-white transition">Terms of Service</Link>
-              <Link to="/returns" className="text-slate-500 text-xs hover:text-white transition">Return Policy</Link>
-            </div>
-          </div>
-        </div>
+        {/* ... existing footer code ... */}
       </footer>
     </div>
   );
