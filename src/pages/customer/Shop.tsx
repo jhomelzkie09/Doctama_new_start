@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
+import orderService from '../../services/order.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { Product, Category } from '../../types';
@@ -211,6 +212,30 @@ const Shop: React.FC = () => {
     return Math.max(...products.map(p => p.price), 150000);
   }, [products]);
 
+  // Function to calculate sales count for a product
+  const calculateProductSales = async (productId: number): Promise<number> => {
+    try {
+      const allOrders = await orderService.getAllOrders();
+      let totalSold = 0;
+      
+      const deliveredOrders = allOrders.filter(order => order.status === 'delivered');
+      
+      deliveredOrders.forEach(order => {
+        order.items?.forEach(item => {
+          const itemProductId = typeof item.productId === 'string' ? parseInt(item.productId) : item.productId;
+          if (itemProductId === productId) {
+            totalSold += item.quantity;
+          }
+        });
+      });
+      
+      return totalSold;
+    } catch (error) {
+      console.error('Failed to calculate product sales:', error);
+      return 0;
+    }
+  };
+
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
@@ -227,7 +252,14 @@ const Shop: React.FC = () => {
         productService.getProducts(),
         categoryService.getCategories()
       ]);
-      setProducts(productsData);
+      
+      // Calculate sales counts for each product
+      const productsWithSales = await Promise.all(productsData.map(async (product) => {
+        const salesCount = await calculateProductSales(product.id);
+        return { ...product, salesCount };
+      }));
+      
+      setProducts(productsWithSales);
       setCategories(categoriesData);
       
       // Set max price based on actual products
@@ -796,7 +828,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </div>
         )}
 
-        {/* Sales count */}
+        {/* Sales count badge - New addition */}
         {salesCount > 0 && (
           <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
             <TrendingUp className="w-3 h-3" />
@@ -839,6 +871,14 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
             {reviewCount > 0 ? `(${reviewCount})` : 'No reviews'}
           </span>
         </div>
+
+        {/* Sales count text in info section - New addition */}
+        {salesCount > 0 && (
+          <div className="flex items-center gap-1 mb-2 text-xs text-emerald-600">
+            <TrendingUp className="w-3 h-3" />
+            <span className="font-medium">{salesCount} units sold</span>
+          </div>
+        )}
 
         {isGrid && (
           <p className="text-slate-400 text-xs leading-relaxed line-clamp-2 mb-4">{product.description}</p>
