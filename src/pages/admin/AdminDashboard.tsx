@@ -50,6 +50,21 @@ const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
 
 const ITEMS_PER_PAGE = 8;
 
+// Helper to convert date to local date string (YYYY-MM-DD)
+const toLocalDateStr = (value: string | Date | undefined): string => {
+  if (!value) return '';
+  try {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return '';
+  }
+};
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -70,63 +85,88 @@ const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const getDateRange = (filter: TimeFilter): { start: Date; end: Date } => {
+  const getDateRange = (filter: TimeFilter): { start: Date; end: Date; startStr: string; endStr: string } => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
+    let start: Date;
+    let end: Date;
+    
     switch (filter) {
       case 'today':
-        return { start: today, end: now };
+        start = today;
+        end = now;
+        break;
       case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayEnd = new Date(today);
-        yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+        start = yesterday;
+        const yesterdayEnd = new Date(yesterday);
         yesterdayEnd.setHours(23, 59, 59, 999);
-        return { start: yesterday, end: yesterdayEnd };
+        end = yesterdayEnd;
+        break;
       }
       case 'this_week': {
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
-        return { start: startOfWeek, end: now };
+        start = startOfWeek;
+        end = now;
+        break;
       }
       case 'last_week': {
         const startOfLastWeek = new Date(today);
         startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
         startOfLastWeek.setHours(0, 0, 0, 0);
+        start = startOfLastWeek;
         const endOfLastWeek = new Date(startOfLastWeek);
         endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
         endOfLastWeek.setHours(23, 59, 59, 999);
-        return { start: startOfLastWeek, end: endOfLastWeek };
+        end = endOfLastWeek;
+        break;
       }
       case 'this_month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         startOfMonth.setHours(0, 0, 0, 0);
-        return { start: startOfMonth, end: now };
+        start = startOfMonth;
+        end = now;
+        break;
       }
       case 'last_month': {
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         startOfLastMonth.setHours(0, 0, 0, 0);
+        start = startOfLastMonth;
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
         endOfLastMonth.setHours(23, 59, 59, 999);
-        return { start: startOfLastMonth, end: endOfLastMonth };
+        end = endOfLastMonth;
+        break;
       }
       case 'this_year': {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         startOfYear.setHours(0, 0, 0, 0);
-        return { start: startOfYear, end: now };
+        start = startOfYear;
+        end = now;
+        break;
       }
       default:
-        return { start: today, end: now };
+        start = today;
+        end = now;
     }
+    
+    return {
+      start,
+      end,
+      startStr: toLocalDateStr(start),
+      endStr: toLocalDateStr(end)
+    };
   };
 
   const filterOrdersByDate = (orders: Order[], filter: TimeFilter): Order[] => {
-    const { start, end } = getDateRange(filter);
+    const { startStr, endStr } = getDateRange(filter);
     return orders.filter(order => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate >= start && orderDate <= end;
+      const orderDateStr = toLocalDateStr(order.orderDate);
+      if (!orderDateStr) return false;
+      return orderDateStr >= startStr && orderDateStr <= endStr;
     });
   };
 
@@ -134,35 +174,45 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      const [ordersResponse, products, users] = await Promise.all([
-        orderService.getMyOrders(1, 500).catch(() => ({ orders: [] })),
+      // FIXED: Use getAllOrders instead of getMyOrders to get ALL orders
+      const [ordersData, products, users] = await Promise.all([
+        orderService.getAllOrders().catch(() => []),
         productService.getProducts().catch(() => []),
         userService.getAllUsers().catch(() => [])
       ]);
 
-      const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
+      const allOrdersData = ordersData || [];
       setAllOrders(allOrdersData);
       
+      console.log('=== ALL ORDERS ===');
+      console.log('Total orders:', allOrdersData.length);
+      
       const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
+      
+      console.log('=== FILTERED ORDERS ===');
+      console.log('Time filter:', timeFilter);
+      console.log('Filtered orders count:', filteredPeriodOrders.length);
+      
       const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
       const periodOrdersCount = filteredPeriodOrders.length;
       
-      const periodDeliveries = filteredPeriodOrders.filter(
+      // ONLY DELIVERED ORDERS COUNT AS SOLD (matching ProductsReport)
+      const deliveredOrders = filteredPeriodOrders.filter(
         order => order.status?.toLowerCase() === 'delivered'
-      ).length;
+      );
+      
+      console.log('=== DELIVERED ORDERS ===');
+      console.log('Delivered orders count:', deliveredOrders.length);
+      
+      const periodDeliveries = deliveredOrders.length;
+      const deliveredSales = deliveredOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
       
       const totalProducts = products.length;
       const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
       const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
       const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-      // ========== ONLY COUNT DELIVERED ORDERS AS "SOLD" ==========
-      const deliveredOrders = filteredPeriodOrders.filter(
-        order => order.status?.toLowerCase() === 'delivered'
-      );
-      
-      const deliveredSales = deliveredOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-      
+      // ONLY COUNT DELIVERED ORDERS AS "SOLD" (matching ProductsReport exactly)
       const productSalesMap = new Map<string, { 
         name: string; 
         sold: number; 
@@ -170,7 +220,6 @@ const AdminDashboard = () => {
         product: Product;
       }>();
       
-      // Only iterate through DELIVERED orders for "sold" products
       deliveredOrders.forEach(order => {
         order.items?.forEach((item: OrderItem) => {
           const productId = String(item.productId);
@@ -196,7 +245,16 @@ const AdminDashboard = () => {
         });
       });
       
-      // Sort by units sold (from delivered orders only)
+      console.log('=== PRODUCT SALES MAP ===');
+      const allProductsWithSales = Array.from(productSalesMap.entries()).map(([id, data]) => ({
+        id,
+        name: data.name,
+        sold: data.sold,
+        revenue: data.revenue
+      }));
+      console.log('All products with sales:', allProductsWithSales);
+      
+      // Sort by units sold (matching ProductsReport)
       const sortedProducts = Array.from(productSalesMap.values())
         .map((data) => ({
           ...data.product,
@@ -206,6 +264,11 @@ const AdminDashboard = () => {
         }))
         .sort((a, b) => b.sold - a.sold)
         .slice(0, 5);
+      
+      console.log('=== TOP 5 PRODUCTS ===');
+      sortedProducts.forEach((p, i) => {
+        console.log(`${i + 1}. ${p.name}: ${p.sold} sold`);
+      });
 
       const periodOrdersWithDetails = filteredPeriodOrders
         .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
@@ -238,6 +301,7 @@ const AdminDashboard = () => {
       setPeriodOrders(periodOrdersWithDetails);
       setTopProducts(sortedProducts);
     } catch (err: any) {
+      console.error('Dashboard error:', err);
       setError('System synchronization failed. Please refresh.');
     } finally {
       setLoading(false);
