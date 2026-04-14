@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast'; // Add this import
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { OrderProvider } from './contexts/OrderContext';
@@ -37,6 +37,7 @@ import SalesReport from './pages/admin/SalesReport';
 import OrdersReport from './pages/admin/OrdersReport';
 import ProductsReport from './pages/admin/ProductsReport';
 import PromoCodeManagement from './pages/admin/PromoCodeManagement';
+import StockDelivery from './pages/admin/StockDelivery'; // Add this import
 
 function App() {
   return (
@@ -150,6 +151,7 @@ function App() {
                     <Route path="reports/orders" element={<OrdersReport />} />
                     <Route path="reports/products" element={<ProductsReport />} />
                     <Route path="promo-codes" element={<PromoCodeManagement />} />
+                    <Route path="deliveries" element={<StockDelivery />} /> {/* Add this route */}
                   </Route>
                 </Route>
                 

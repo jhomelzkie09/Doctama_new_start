@@ -79,7 +79,8 @@ const AdminLayout = () => {
       submenu: [
         { title: 'All Products', path: '/admin/products' },
         { title: 'Add Product', path: '/admin/products/new' },
-        { title: 'Categories', path: '/admin/categories' }
+        { title: 'Categories', path: '/admin/categories' },
+        { title: 'Stock Deliveries', path: '/admin/stock-deliveries' }
       ]
     },
     {
