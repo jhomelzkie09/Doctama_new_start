@@ -80,7 +80,7 @@ const AdminLayout = () => {
         { title: 'All Products', path: '/admin/products' },
         { title: 'Add Product', path: '/admin/products/new' },
         { title: 'Categories', path: '/admin/categories' },
-        { title: 'Stock Deliveries', path: '/admin/stock-deliveries' }
+        { title: 'Stock Deliveries', path: '/admin/deliveries' }
       ]
     },
     {

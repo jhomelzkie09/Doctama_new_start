@@ -37,7 +37,8 @@ import SalesReport from './pages/admin/SalesReport';
 import OrdersReport from './pages/admin/OrdersReport';
 import ProductsReport from './pages/admin/ProductsReport';
 import PromoCodeManagement from './pages/admin/PromoCodeManagement';
-import StockDelivery from './pages/admin/StockDelivery'; // Add this import
+import StockDelivery from './pages/admin/StockDelivery';
+import CreateDelivery from './pages/admin/CreateDelivery';
 
 function App() {
   return (
@@ -151,7 +152,8 @@ function App() {
                     <Route path="reports/orders" element={<OrdersReport />} />
                     <Route path="reports/products" element={<ProductsReport />} />
                     <Route path="promo-codes" element={<PromoCodeManagement />} />
-                    <Route path="deliveries" element={<StockDelivery />} /> {/* Add this route */}
+                    <Route path="deliveries" element={<StockDelivery />} />
+                    <Route path="deliveries/new" element={<CreateDelivery />} />
                   </Route>
                 </Route>
                 
