@@ -1,35 +1,26 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Loader } from 'lucide-react';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  requireAdmin?: boolean;
-}
+const ProtectedRoute = () => {
+  const { user, isAuthenticated, loading } = useAuth();
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
-
+  // Show loading spinner while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+        <Loader className="w-8 h-8 animate-spin text-rose-600" />
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+  // Only redirect to login if NOT authenticated AND NOT loading
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/" replace />;  // Redirect to home, not login!
   }
 
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/" />;
-  }
-
-  return <>{children}</>;
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, RegisterData } from '../types';
 import authService from '../services/auth.service';
-import api from '../../src/api/config'; // Import the API instance for token validation
+import api from '../../src/api/config';
 import { isAdmin as checkIsAdmin, isCustomer, isManager } from '../utils/roleUtils';
 
 interface AuthContextType {
@@ -39,27 +39,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isCustomerValue = isCustomer(user);
   const isManagerValue = isManager(user);
 
-  // Check token validity on mount and set up refresh interval
+  // Check token validity on mount
   useEffect(() => {
     const initAuth = async () => {
       const token = authService.getToken();
-      const currentUser = authService.getCurrentUser();
+      const storedUser = authService.getCurrentUser();
       
-      if (token && currentUser) {
+      console.log('🔐 Auth init - token exists:', !!token);
+      console.log('🔐 Auth init - stored user exists:', !!storedUser);
+      
+      if (token && storedUser) {
         // Validate token with backend
         try {
-          await api.get('/auth/validate');
-          setUser(currentUser);
-        } catch (error) {
-          // Token invalid, try to refresh
-          const newToken = await authService.refreshToken();
-          if (newToken) {
-            setUser(currentUser);
+          const isValid = await authService.validateToken();
+          console.log('🔐 Token validation result:', isValid);
+          
+          if (isValid) {
+            setUser(storedUser);
           } else {
-            authService.logout();
-            setUser(null);
+            // Token invalid, try to refresh
+            const newToken = await authService.refreshToken();
+            if (newToken) {
+              setUser(storedUser);
+            } else {
+              authService.logout();
+              setUser(null);
+            }
           }
+        } catch (error) {
+          console.error('Auth validation error:', error);
+          authService.logout();
+          setUser(null);
         }
+      } else {
+        console.log('🔐 No token or user found');
       }
       setLoading(false);
     };
@@ -73,14 +86,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const refreshInterval = setInterval(async () => {
       try {
-        await authService.refreshToken();
+        const newToken = await authService.refreshToken();
+        if (!newToken) {
+          // Refresh failed, logout
+          authService.logout();
+          setUser(null);
+          navigate('/');
+        }
       } catch (error) {
         console.error('Token refresh failed:', error);
       }
     }, 5 * 60 * 1000); // 5 minutes
     
     return () => clearInterval(refreshInterval);
-  }, [user]);
+  }, [user, navigate]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -91,6 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const currentUser = authService.getCurrentUser();
       setUser(currentUser);
+      
+      // Don't navigate here - let the component handle it
     } catch (err: any) {
       console.error('❌ Login error:', err);
       setError(err.message || 'Login failed');
@@ -103,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     authService.logout();
     setUser(null);
-    window.location.href = '/';
+    navigate('/');
   };
 
   const register = async (data: RegisterData) => {
