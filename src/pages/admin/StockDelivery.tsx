@@ -2,23 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/product.service';
+import deliveryService, { DeliveryOrder, DeliveryItem, DeliveryStats } from '../../services/delivery.service';
 import {
   Package,
   Truck,
   Plus,
   Search,
-  Filter,
   X,
-  Check,
   AlertCircle,
   Loader,
   Calendar,
   DollarSign,
-  MapPin,
-  User,
-  FileText,
-  Download,
-  Printer,
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -26,61 +20,10 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertTriangle,
-  Box,
-  TrendingUp,
-  TrendingDown,
-  BarChart3
+  AlertTriangle
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import { Product } from '../../types';
-
-// Types
-type DeliveryStatus = 'pending' | 'received' | 'cancelled' | 'partial';
-
-interface DeliveryOrder {
-  id: string;
-  deliveryNumber: string;
-  supplierName: string;
-  supplierContact: string;
-  deliveryDate: string;
-  expectedDate: string;
-  status: DeliveryStatus;
-  items: DeliveryItem[];
-  totalItems: number;
-  totalQuantity: number;
-  notes: string;
-  receivedBy?: string;
-  receivedAt?: string;
-  trackingNumber?: string;
-}
-
-interface DeliveryItem {
-  productId: number;
-  productName: string;
-  orderedQuantity: number;
-  receivedQuantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  status: 'pending' | 'received' | 'partial';
-  notes?: string;
-}
-
-interface Supplier {
-  id: string;
-  name: string;
-  contactPerson: string;
-  email: string;
-  phone: string;
-  address: string;
-}
-
-// Mock Suppliers (replace with API call)
-const mockSuppliers: Supplier[] = [
-  { id: '1', name: 'Furniture World Inc.', contactPerson: 'John Santos', email: 'john@furnitureworld.com', phone: '09123456789', address: 'Manila, Philippines' },
-  { id: '2', name: 'Home Decor Supply', contactPerson: 'Maria Reyes', email: 'maria@homedecor.com', phone: '09876543210', address: 'Cebu City, Philippines' },
-  { id: '3', name: 'Quality Furniture Co.', contactPerson: 'Robert Cruz', email: 'robert@qualityfurniture.com', phone: '09123456788', address: 'Davao City, Philippines' },
-];
 
 const StockDelivery = () => {
   const { isAdmin } = useAuth();
@@ -97,16 +40,16 @@ const StockDelivery = () => {
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrder | null>(null);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [updatingStock, setUpdatingStock] = useState(false);
-  
-  const itemsPerPage = 10;
-
-  // Stats
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DeliveryStats>({
     pendingDeliveries: 0,
     receivedThisMonth: 0,
     totalItemsReceived: 0,
-    totalValue: 0
+    totalValue: 0,
+    totalDeliveries: 0,
+    averageOrderValue: 0
   });
+  
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (!isAdmin) {
@@ -119,87 +62,22 @@ const StockDelivery = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const productsData = await productService.getProducts();
+      // Load products and deliveries in parallel
+      const [productsData, deliveriesData, statsData] = await Promise.all([
+        productService.getProducts(),
+        deliveryService.getAllDeliveries(),
+        deliveryService.getDeliveryStats()
+      ]);
+      
       setProducts(productsData);
-      
-      // Load deliveries from localStorage (mock data for now)
-      const savedDeliveries = localStorage.getItem('stock_deliveries');
-      if (savedDeliveries) {
-        setDeliveries(JSON.parse(savedDeliveries));
-      } else {
-        // Mock delivery orders
-        const mockDeliveries: DeliveryOrder[] = [
-          {
-            id: 'DEL-001',
-            deliveryNumber: 'PO-2024-001',
-            supplierName: 'Furniture World Inc.',
-            supplierContact: 'John Santos',
-            deliveryDate: new Date().toISOString(),
-            expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'pending',
-            items: [
-              { productId: 1, productName: 'Modern Sofa', orderedQuantity: 10, receivedQuantity: 0, unitPrice: 15000, totalPrice: 150000, status: 'pending' },
-              { productId: 2, productName: 'Dining Table', orderedQuantity: 5, receivedQuantity: 0, unitPrice: 8000, totalPrice: 40000, status: 'pending' },
-            ],
-            totalItems: 2,
-            totalQuantity: 15,
-            notes: 'Please deliver before the weekend',
-          },
-          {
-            id: 'DEL-002',
-            deliveryNumber: 'PO-2024-002',
-            supplierName: 'Home Decor Supply',
-            supplierContact: 'Maria Reyes',
-            deliveryDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            expectedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'received',
-            items: [
-              { productId: 3, productName: 'Bed Frame', orderedQuantity: 8, receivedQuantity: 8, unitPrice: 12000, totalPrice: 96000, status: 'received' },
-            ],
-            totalItems: 1,
-            totalQuantity: 8,
-            notes: '',
-            receivedBy: 'Admin User',
-            receivedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-        ];
-        setDeliveries(mockDeliveries);
-        localStorage.setItem('stock_deliveries', JSON.stringify(mockDeliveries));
-      }
-      
-      calculateStats(deliveries);
+      setDeliveries(deliveriesData);
+      setStats(statsData);
     } catch (err) {
       console.error('Failed to load data:', err);
       setError('Failed to load delivery data');
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = (deliveriesList: DeliveryOrder[]) => {
-    const pending = deliveriesList.filter(d => d.status === 'pending').length;
-    const receivedThisMonth = deliveriesList.filter(d => {
-      if (d.status !== 'received') return false;
-      const receivedDate = new Date(d.receivedAt || d.deliveryDate);
-      const now = new Date();
-      return receivedDate.getMonth() === now.getMonth() && receivedDate.getFullYear() === now.getFullYear();
-    }).length;
-    
-    const totalItemsReceived = deliveriesList.reduce((sum, d) => {
-      if (d.status === 'received') {
-        return sum + d.items.reduce((itemSum, item) => itemSum + item.receivedQuantity, 0);
-      }
-      return sum;
-    }, 0);
-    
-    const totalValue = deliveriesList.reduce((sum, d) => {
-      if (d.status === 'received') {
-        return sum + d.items.reduce((itemSum, item) => itemSum + (item.receivedQuantity * item.unitPrice), 0);
-      }
-      return sum;
-    }, 0);
-    
-    setStats({ pendingDeliveries: pending, receivedThisMonth, totalItemsReceived, totalValue });
   };
 
   const handleReceiveDelivery = (delivery: DeliveryOrder) => {
@@ -212,48 +90,21 @@ const StockDelivery = () => {
     const loadingToast = showLoading('Processing delivery...');
     
     try {
-      // Update product stock quantities
-      for (const item of receivedItems) {
-        if (item.receivedQuantity > 0) {
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            const newStock = product.stockQuantity + item.receivedQuantity;
-            await productService.updateProduct(item.productId, { ...product, stockQuantity: newStock });
-          }
-        }
-      }
+      // Prepare received quantities for API
+      const itemsToReceive = receivedItems.map(item => ({
+        productId: item.productId,
+        receivedQuantity: item.receivedQuantity
+      }));
       
-      // Update delivery status with proper typing
-      const allReceived = receivedItems.every(item => item.receivedQuantity === item.orderedQuantity);
-      const partialReceived = receivedItems.some(item => item.receivedQuantity > 0 && item.receivedQuantity < item.orderedQuantity);
-      
-      let newStatus: DeliveryStatus = 'pending';
-      if (allReceived) newStatus = 'received';
-      else if (partialReceived) newStatus = 'partial';
-      
-      const updatedDeliveries: DeliveryOrder[] = deliveries.map(d => {
-        if (d.id === delivery.id) {
-          return {
-            ...d,
-            status: newStatus,
-            items: receivedItems,
-            receivedBy: 'Admin User',
-            receivedAt: new Date().toISOString(),
-          };
-        }
-        return d;
-      });
-      
-      setDeliveries(updatedDeliveries);
-      localStorage.setItem('stock_deliveries', JSON.stringify(updatedDeliveries));
-      calculateStats(updatedDeliveries);
+      // Call API to receive delivery and update stock
+      await deliveryService.receiveDelivery(delivery.id, itemsToReceive);
       
       dismissToast(loadingToast);
       showSuccess('Delivery received successfully! Stock updated.');
       setShowReceiveModal(false);
       setSelectedDelivery(null);
       
-      // Refresh products list
+      // Refresh all data
       await loadData();
     } catch (error) {
       dismissToast(loadingToast);
@@ -280,7 +131,7 @@ const StockDelivery = () => {
     return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getStatusBadge = (status: DeliveryStatus) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'received':
         return { label: 'Received', className: 'bg-green-100 text-green-800', icon: CheckCircle };
@@ -296,8 +147,9 @@ const StockDelivery = () => {
   };
 
   const filteredDeliveries = deliveries.filter(delivery => {
-    const matchesSearch = delivery.deliveryNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         delivery.supplierName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = delivery.deliveryNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         delivery.supplierName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         delivery.purchaseOrderNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || delivery.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -380,7 +232,7 @@ const StockDelivery = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by PO number or supplier..."
+              placeholder="Search by PO number, delivery number or supplier..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -420,11 +272,11 @@ const StockDelivery = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO Number</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery #</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
@@ -437,13 +289,13 @@ const StockDelivery = () => {
                 
                 return (
                   <tr key={delivery.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{delivery.deliveryNumber}</div>
-                      <div className="text-xs text-gray-500">{delivery.id}</div>
-                    </td>
+                    <td className="px-6 py-4 font-mono text-sm text-gray-900">{delivery.deliveryNumber}</td>
+                    <td className="px-6 py-4 font-mono text-sm text-gray-600">{delivery.purchaseOrderNumber}</td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{delivery.supplierName}</div>
-                      <div className="text-xs text-gray-500">{delivery.supplierContact}</div>
+                      {delivery.supplierContact && (
+                        <div className="text-xs text-gray-500">{delivery.supplierContact}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className={`flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
@@ -452,8 +304,7 @@ const StockDelivery = () => {
                       </div>
                       {isOverdue && <span className="text-xs text-red-500 mt-1 block">Overdue</span>}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{delivery.totalItems} items</td>
-                    <td className="px-6 py-4 text-gray-600">{delivery.totalQuantity} units</td>
+                    <td className="px-6 py-4 text-gray-600">{delivery.totalItems} items / {delivery.totalQuantity} units</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${status.className}`}>
                         <StatusIcon className="w-3 h-3" />
@@ -462,7 +313,7 @@ const StockDelivery = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        {delivery.status !== 'received' && (
+                        {delivery.status !== 'received' && delivery.status !== 'cancelled' && (
                           <button
                             onClick={() => handleReceiveDelivery(delivery)}
                             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -539,7 +390,7 @@ const StockDelivery = () => {
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Delivery Details</h2>
-                <p className="text-sm text-gray-500">PO #{selectedDelivery.deliveryNumber}</p>
+                <p className="text-sm text-gray-500">Delivery #{selectedDelivery.deliveryNumber}</p>
               </div>
               <button
                 onClick={() => setShowDeliveryModal(false)}
@@ -550,21 +401,25 @@ const StockDelivery = () => {
             </div>
             
             <div className="p-6 space-y-6">
-              {/* Delivery Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-500">Supplier</p>
                   <p className="font-medium text-gray-900">{selectedDelivery.supplierName}</p>
                   <p className="text-sm text-gray-600">{selectedDelivery.supplierContact}</p>
+                  {selectedDelivery.supplierEmail && <p className="text-sm text-gray-600">{selectedDelivery.supplierEmail}</p>}
+                  {selectedDelivery.supplierPhone && <p className="text-sm text-gray-600">{selectedDelivery.supplierPhone}</p>}
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Delivery Date</p>
-                  <p className="font-medium text-gray-900">{formatDate(selectedDelivery.deliveryDate)}</p>
+                  <p className="text-sm text-gray-500">Order Details</p>
+                  <p className="font-medium text-gray-900">PO: {selectedDelivery.purchaseOrderNumber}</p>
+                  <p className="text-sm text-gray-600">Delivery Date: {formatDate(selectedDelivery.deliveryDate)}</p>
                   <p className="text-sm text-gray-600">Expected: {formatDate(selectedDelivery.expectedDate)}</p>
+                  {selectedDelivery.trackingNumber && (
+                    <p className="text-sm text-gray-600">Tracking: {selectedDelivery.trackingNumber}</p>
+                  )}
                 </div>
               </div>
 
-              {/* Items Table */}
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Order Items</h3>
                 <div className="overflow-x-auto">
@@ -661,7 +516,6 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
 
   const totalOrdered = receivedItems.reduce((sum, item) => sum + item.orderedQuantity, 0);
   const totalReceived = receivedItems.reduce((sum, item) => sum + item.receivedQuantity, 0);
-  const allReceived = receivedItems.every(item => item.receivedQuantity === item.orderedQuantity);
 
   const formatCurrency = (amount: number) => {
     return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -673,7 +527,7 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Receive Delivery</h2>
-            <p className="text-sm text-gray-500">PO #{delivery.deliveryNumber} from {delivery.supplierName}</p>
+            <p className="text-sm text-gray-500">PO #{delivery.purchaseOrderNumber} from {delivery.supplierName}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
             <X className="w-5 h-5" />
@@ -682,7 +536,7 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
         
         <div className="p-6 space-y-6">
           <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-800">Enter the actual quantities received for each item.</p>
+            <p className="text-sm text-blue-800">Enter the actual quantities received for each item. Stock will be updated automatically.</p>
           </div>
 
           <div className="space-y-4">
