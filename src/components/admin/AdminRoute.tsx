@@ -23,7 +23,7 @@ const AdminRoute = () => {
 
   if (!user) {
     console.log('❌ No user, redirecting to login');
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (!isAdmin) {

@@ -1,8 +1,6 @@
 import axios from 'axios';
 
 // Get API URL from environment or use default
-//const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapisimple-production.up.railway.app/api';
-
 const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapi-simple.onrender.com/api';
 
 // Clean up URL if it has spaces
@@ -14,7 +12,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 10 second timeout
+  timeout: 30000, // 30 second timeout
 });
 
 // Request interceptor to add auth token
@@ -24,7 +22,6 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
   (error) => {
@@ -46,30 +43,21 @@ api.interceptors.response.use(
       data: error.response?.data
     });
     
+    // Only redirect on 401 for non-auth endpoints
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const isAuthEndpoint = error.config?.url?.includes('/auth/');
+      
+      if (!isAuthEndpoint) {
+        // Token expired or invalid - clear storage and redirect to home
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Redirect to home instead of login
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+      }
     }
-    return Promise.reject(error);
-  }
-);
-
-// Request interceptor - add more logging
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.warn('⚠️ No token found for request:', config.url);
-    }
-    return config;
-  },
-  (error) => {
-    console.error('❌ Request error:', error);
     return Promise.reject(error);
   }
 );

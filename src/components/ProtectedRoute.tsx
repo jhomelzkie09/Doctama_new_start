@@ -3,10 +3,13 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader } from 'lucide-react';
 
-const ProtectedRoute = () => {
+interface ProtectedRouteProps {
+  children?: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, isAuthenticated, loading } = useAuth();
 
-  // Show loading spinner while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -15,12 +18,13 @@ const ProtectedRoute = () => {
     );
   }
 
-  // Only redirect to login if NOT authenticated AND NOT loading
+  // Redirect to home if not authenticated
   if (!isAuthenticated || !user) {
-    return <Navigate to="/" replace />;  // Redirect to home, not login!
+    return <Navigate to="/" replace />;
   }
 
-  return <Outlet />;
+  // If children are provided, render them, otherwise render Outlet
+  return children ? <>{children}</> : <Outlet />;
 };
 
 export default ProtectedRoute;

@@ -65,16 +65,17 @@ class DeliveryService {
     }
   }
 
+
   // Create delivery order
-  async createDelivery(deliveryData: any): Promise<DeliveryOrder> {
+    async createDelivery(deliveryData: any): Promise<DeliveryOrder> {
     try {
-      const response = await api.post(this.baseUrl, deliveryData);
-      return response.data;
+        const response = await api.post(this.baseUrl, deliveryData);
+        return response.data;
     } catch (error: any) {
-      console.error('Error creating delivery:', error);
-      throw error;
+        console.error('Error creating delivery:', error);
+        throw error;
     }
-  }
+    }
 
   // Receive delivery (update stock)
   async receiveDelivery(id: number, items: { productId: number; receivedQuantity: number }[]): Promise<any> {
