@@ -66,7 +66,7 @@ const AdminDashboard = () => {
   const [topProducts, setTopProducts] = useState<ProductWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('this_week');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('this_month');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -102,16 +102,19 @@ const AdminDashboard = () => {
       }
       case 'this_month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
         return { start: startOfMonth, end: now };
       }
       case 'last_month': {
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        startOfLastMonth.setHours(0, 0, 0, 0);
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
         endOfLastMonth.setHours(23, 59, 59, 999);
         return { start: startOfLastMonth, end: endOfLastMonth };
       }
       case 'this_year': {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
+        startOfYear.setHours(0, 0, 0, 0);
         return { start: startOfYear, end: now };
       }
       default:
@@ -153,6 +156,13 @@ const AdminDashboard = () => {
       const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
       const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
+      // ========== ONLY COUNT DELIVERED ORDERS AS "SOLD" ==========
+      const deliveredOrders = filteredPeriodOrders.filter(
+        order => order.status?.toLowerCase() === 'delivered'
+      );
+      
+      const deliveredSales = deliveredOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      
       const productSalesMap = new Map<string, { 
         name: string; 
         sold: number; 
@@ -160,7 +170,8 @@ const AdminDashboard = () => {
         product: Product;
       }>();
       
-      filteredPeriodOrders.forEach(order => {
+      // Only iterate through DELIVERED orders for "sold" products
+      deliveredOrders.forEach(order => {
         order.items?.forEach((item: OrderItem) => {
           const productId = String(item.productId);
           const quantity = item.quantity || 0;
@@ -185,12 +196,13 @@ const AdminDashboard = () => {
         });
       });
       
+      // Sort by units sold (from delivered orders only)
       const sortedProducts = Array.from(productSalesMap.values())
         .map((data) => ({
           ...data.product,
           sold: data.sold,
           revenue: data.revenue,
-          percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
+          percentageOfTotal: deliveredSales > 0 ? (data.revenue / deliveredSales) * 100 : 0,
         }))
         .sort((a, b) => b.sold - a.sold)
         .slice(0, 5);
@@ -489,7 +501,7 @@ const AdminDashboard = () => {
                 <div className="py-10 text-center">
                   <Package className="w-10 h-10 text-amber-200 mx-auto mb-3" />
                   <p className="text-amber-600 font-bold text-sm">No sales data yet</p>
-                  <p className="text-amber-500 text-xs mt-1">Products will appear once sold</p>
+                  <p className="text-amber-500 text-xs mt-1">Products will appear once delivered</p>
                 </div>
               )}
             </div>
