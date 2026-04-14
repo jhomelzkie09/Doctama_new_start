@@ -158,7 +158,7 @@ const AdminDashboard = () => {
     // Average order value for the period
     const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-    // ========== FIXED: Best Sellers based on PERIOD-FILTERED SOLD products ==========
+    // ========== FIXED: Best Sellers based on UNITS SOLD ==========
     // Filter completed orders from the SELECTED TIME PERIOD only
     const periodCompletedOrders = filteredPeriodOrders.filter(order => 
       order.status?.toLowerCase() === 'delivered' || 
@@ -201,7 +201,7 @@ const AdminDashboard = () => {
       });
     });
     
-    // Convert map to array and sort by REVENUE (same as Sales Report)
+    // Convert map to array and sort by UNITS SOLD (sold count) - FIXED
     const sortedProducts = Array.from(productSalesMap.values())
       .map((data) => ({
         ...data.product,
@@ -209,7 +209,7 @@ const AdminDashboard = () => {
         revenue: data.revenue,
         percentageOfTotal: periodCompletedRevenue > 0 ? (data.revenue / periodCompletedRevenue) * 100 : 0,
       }))
-      .sort((a, b) => b.revenue - a.revenue) // Sort by revenue (highest grossing first)
+      .sort((a, b) => b.sold - a.sold) // FIXED: Sort by units sold instead of revenue
       .slice(0, 5);
 
     // Build period orders with actual customer details
