@@ -31,8 +31,9 @@ interface OrderWithDetails extends Order {
 }
 
 interface ProductWithStats extends Product {
-  salesCount: number;
+  sold: number;
   revenue: number;
+  percentageOfTotal?: number;
 }
 
 type TimeFilter = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'this_year';
@@ -157,54 +158,76 @@ const AdminDashboard = () => {
       // Average order value for the period
       const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-      // FIXED: Product sales map - ONLY count items from DELIVERED/COMPLETED orders (actual sold products)
-      // This ensures "Best Sellers" shows products that have actually been sold and delivered
-      const productSales = new Map<string, number>();
-      const productRevenue = new Map<string, number>();
-      
-      // Only count items from delivered/shipped orders (actual sales)
+      // Only count items from DELIVERED and SHIPPED orders (actual completed sales)
       const completedOrders = allOrdersData.filter(order => 
         order.status?.toLowerCase() === 'delivered' || 
         order.status?.toLowerCase() === 'shipped'
       );
       
+      // Calculate total revenue from completed orders for percentage calculation
+      const totalCompletedRevenue = completedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      
+      // Map to track product sales (units sold and revenue)
+      // Use string keys for product IDs to avoid type issues
+      const productSalesMap = new Map<string, { 
+        name: string; 
+        sold: number; 
+        revenue: number;
+        product: Product;
+      }>();
+      
       completedOrders.forEach(order => {
         order.items?.forEach((item: OrderItem) => {
-          const productId = item.productId.toString();
+          // Convert productId to string for consistent comparison
+          const productId = String(item.productId);
           const quantity = item.quantity || 0;
-          const price = item.unitPrice || item.price || 0;
+          const unitPrice = item.unitPrice || item.price || 0;
+          const itemRevenue = quantity * unitPrice;
           
-          // Add to sales count
-          productSales.set(productId, (productSales.get(productId) || 0) + quantity);
-          
-          // Add to revenue (actual sold revenue)
-          productRevenue.set(productId, (productRevenue.get(productId) || 0) + (quantity * price));
+          const existing = productSalesMap.get(productId);
+          if (existing) {
+            existing.sold += quantity;
+            existing.revenue += itemRevenue;
+          } else {
+            // Find the full product details from products list
+            // Compare as string to avoid type mismatches
+            const fullProduct = products.find(p => String(p.id) === productId);
+            if (fullProduct) {
+              productSalesMap.set(productId, {
+                name: item.productName || fullProduct.name,
+                sold: quantity,
+                revenue: itemRevenue,
+                product: fullProduct
+              });
+            }
+          }
         });
       });
-
-      // Sort products by actual sales count (sold units)
-      const sortedProducts = products
-        .map(p => {
-          const salesCount = productSales.get(p.id.toString()) || 0;
-          const revenue = productRevenue.get(p.id.toString()) || 0;
-          return {
-            ...p,
-            salesCount,
-            revenue
-          };
-        })
-        .filter(p => p.salesCount > 0) // Only show products that have actually sold
-        .sort((a, b) => b.salesCount - a.salesCount) // Sort by sales count (units sold)
-        .slice(0, 5); // Top 5 best sellers
+      
+      // Convert map to array and sort by revenue
+      const sortedProducts = Array.from(productSalesMap.values())
+        .map((data) => ({
+          ...data.product,
+          sold: data.sold,
+          revenue: data.revenue,
+          percentageOfTotal: totalCompletedRevenue > 0 ? (data.revenue / totalCompletedRevenue) * 100 : 0,
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
 
       // Build period orders with actual customer details
       const periodOrdersWithDetails = filteredPeriodOrders
         .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
         .map(order => {
           const customer = users.find((u: User) => u.id === order.userId);
+          // Use fullName or fallback to name, or generate from email
+          const customerName = customer?.fullName || 
+                              (customer as any)?.name || 
+                              (customer?.email ? customer.email.split('@')[0] : null) ||
+                              `Customer #${String(order.userId).substring(0, 8)}`;
           return {
             ...order,
-            customerName: customer?.fullName || customer?.fullName || `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
+            customerName,
             customerEmail: customer?.email || 'No email provided',
             itemCount: order.items?.length || 0
           };
@@ -560,16 +583,16 @@ const AdminDashboard = () => {
             )}
           </div>
 
-          {/* Sidebar Area - Best Sellers */}
+          {/* Sidebar Area - Best Sellers (Now matches Sales Report logic) */}
           <div className="space-y-8">
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-100 p-6">
               <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
                 <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-xl">
                   <Award className="w-5 h-5 text-white" />
                 </div>
-                Best Sellers
+                Top Selling Products
                 <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full ml-auto">
-                  Based on Sold Items
+                  By Revenue
                 </span>
               </h2>
               <div className="space-y-4">
@@ -610,8 +633,13 @@ const AdminDashboard = () => {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-[10px] font-black uppercase tracking-widest ${idx === 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                          {product.salesCount} Sold
+                          {product.sold} Sold
                         </span>
+                        {product.percentageOfTotal !== undefined && (
+                          <span className="text-[9px] font-bold text-slate-400">
+                            {product.percentageOfTotal.toFixed(1)}% of sales
+                          </span>
+                        )}
                         {idx === 0 && (
                           <span className="text-[9px] font-black uppercase tracking-widest text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded">
                             Top Seller
@@ -623,8 +651,8 @@ const AdminDashboard = () => {
                       <p className={`text-sm font-black ${idx === 0 ? 'text-amber-700' : 'text-indigo-600'}`}>
                         {formatCurrency(product.price)}
                       </p>
-                      <p className="text-[10px] font-bold text-slate-400">
-                        {formatCurrency(product.revenue)} rev
+                      <p className="text-[10px] font-bold text-emerald-600">
+                        {formatCurrency(product.revenue)}
                       </p>
                     </div>
                   </div>
@@ -633,7 +661,7 @@ const AdminDashboard = () => {
                   <div className="py-10 text-center">
                     <Package className="w-10 h-10 text-amber-200 mx-auto mb-3" />
                     <p className="text-amber-600 font-bold text-sm">No sales data yet</p>
-                    <p className="text-amber-500 text-xs mt-1">Products will appear here once sold</p>
+                    <p className="text-amber-500 text-xs mt-1">Products will appear once sold</p>
                   </div>
                 )}
               </div>
