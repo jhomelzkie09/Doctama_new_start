@@ -77,16 +77,27 @@ class DeliveryService {
     }
     }
 
+
   // Receive delivery (update stock)
-  async receiveDelivery(id: number, items: { productId: number; receivedQuantity: number }[]): Promise<any> {
-    try {
-      const response = await api.put(`${this.baseUrl}/${id}/receive`, { items });
-      return response.data;
-    } catch (error: any) {
-      console.error('Error receiving delivery:', error);
-      throw error;
-    }
+async receiveDelivery(id: number, items: { productId: number; receivedQuantity: number }[]): Promise<any> {
+  try {
+    console.log(`📤 Receiving delivery ${id}...`);
+    console.log('Items to receive:', items);
+    
+    // Make sure we're sending the correct structure
+    const payload = { items };
+    console.log('Payload being sent:', payload);
+    
+    const response = await api.put(`${this.baseUrl}/${id}/receive`, payload);
+    
+    console.log('✅ Delivery received:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error receiving delivery:', error.response?.data || error.message);
+    console.error('Full error:', error);
+    throw error;
   }
+}
 
   // Update delivery
   async updateDelivery(id: number, deliveryData: any): Promise<DeliveryOrder> {
