@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -128,134 +127,114 @@ const AdminDashboard = () => {
     });
   };
 
- const fetchDashboardData = useCallback(async () => {
-  setLoading(true);
-  setError('');
-  try {
-    const [ordersResponse, products, users] = await Promise.all([
-      orderService.getMyOrders(1, 500).catch(() => ({ orders: [] })),
-      productService.getProducts().catch(() => []),
-      userService.getAllUsers().catch(() => [])
-    ]);
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [ordersResponse, products, users] = await Promise.all([
+        orderService.getMyOrders(1, 500).catch(() => ({ orders: [] })),
+        productService.getProducts().catch(() => []),
+        userService.getAllUsers().catch(() => [])
+      ]);
 
-    const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
-    setAllOrders(allOrdersData);
-    
-    // Filter orders by selected time period
-    const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
-    const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-    const periodOrdersCount = filteredPeriodOrders.length;
-    
-    // Calculate period deliveries (for the Stock Deliveries card)
-    const periodDeliveries = filteredPeriodOrders.filter(
-      order => order.status?.toLowerCase() === 'delivered'
-    ).length;
-    
-    // Total products
-    const totalProducts = products.length;
-    const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
-    const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
-    
-    // Average order value for the period
-    const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
+      const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
+      setAllOrders(allOrdersData);
+      
+      const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
+      const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      const periodOrdersCount = filteredPeriodOrders.length;
+      
+      const periodDeliveries = filteredPeriodOrders.filter(
+        order => order.status?.toLowerCase() === 'delivered'
+      ).length;
+      
+      const totalProducts = products.length;
+      const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
+      const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
+      const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-    // ========== FIXED: Use ALL period orders for Best Sellers (same as Sales Report) ==========
-    // Sales Report uses ALL filtered orders, not just delivered/shipped
-    // This ensures the numbers match exactly
-    
-    // Map to track product sales (units sold and revenue) from ALL period orders
-    const productSalesMap = new Map<string, { 
-      name: string; 
-      sold: number; 
-      revenue: number;
-      product: Product;
-    }>();
-    
-    // Use ALL filteredPeriodOrders (same as Sales Report)
-    filteredPeriodOrders.forEach(order => {
-      order.items?.forEach((item: OrderItem) => {
-        const productId = String(item.productId);
-        const quantity = item.quantity || 0;
-        const unitPrice = item.unitPrice || item.price || 0;
-        const itemRevenue = quantity * unitPrice;
-        
-        const existing = productSalesMap.get(productId);
-        if (existing) {
-          existing.sold += quantity;
-          existing.revenue += itemRevenue;
-        } else {
-          const fullProduct = products.find(p => String(p.id) === productId);
-          if (fullProduct) {
-            productSalesMap.set(productId, {
-              name: item.productName || fullProduct.name,
-              sold: quantity,
-              revenue: itemRevenue,
-              product: fullProduct
-            });
+      const productSalesMap = new Map<string, { 
+        name: string; 
+        sold: number; 
+        revenue: number;
+        product: Product;
+      }>();
+      
+      filteredPeriodOrders.forEach(order => {
+        order.items?.forEach((item: OrderItem) => {
+          const productId = String(item.productId);
+          const quantity = item.quantity || 0;
+          const unitPrice = item.unitPrice || item.price || 0;
+          const itemRevenue = quantity * unitPrice;
+          
+          const existing = productSalesMap.get(productId);
+          if (existing) {
+            existing.sold += quantity;
+            existing.revenue += itemRevenue;
+          } else {
+            const fullProduct = products.find(p => String(p.id) === productId);
+            if (fullProduct) {
+              productSalesMap.set(productId, {
+                name: item.productName || fullProduct.name,
+                sold: quantity,
+                revenue: itemRevenue,
+                product: fullProduct
+              });
+            }
           }
-        }
+        });
       });
-    });
-    
-    // Convert map to array and sort by UNITS SOLD (same as what we want to display)
-    const sortedProducts = Array.from(productSalesMap.values())
-      .map((data) => ({
-        ...data.product,
-        sold: data.sold,
-        revenue: data.revenue,
-        percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
-      }))
-      .sort((a, b) => b.sold - a.sold) // Sort by units sold
-      .slice(0, 5);
+      
+      const sortedProducts = Array.from(productSalesMap.values())
+        .map((data) => ({
+          ...data.product,
+          sold: data.sold,
+          revenue: data.revenue,
+          percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
+        }))
+        .sort((a, b) => b.sold - a.sold)
+        .slice(0, 5);
 
-    // Build period orders with actual customer details
-    const periodOrdersWithDetails = filteredPeriodOrders
-      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-      .map(order => {
-        const customer = users.find((u: User) => u.id === order.userId);
-        const customerName = customer?.fullName || 
-                            (customer as any)?.name || 
-                            (customer?.email ? customer.email.split('@')[0] : null) ||
-                            `Customer #${String(order.userId).substring(0, 8)}`;
-        return {
-          ...order,
-          customerName,
-          customerEmail: customer?.email || 'No email provided',
-          itemCount: order.items?.length || 0
-        };
+      const periodOrdersWithDetails = filteredPeriodOrders
+        .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+        .map(order => {
+          const customer = users.find((u: User) => u.id === order.userId);
+          const customerName = customer?.fullName || 
+                              (customer as any)?.name || 
+                              (customer?.email ? customer.email.split('@')[0] : null) ||
+                              `Customer #${String(order.userId).substring(0, 8)}`;
+          return {
+            ...order,
+            customerName,
+            customerEmail: customer?.email || 'No email provided',
+            itemCount: order.items?.length || 0
+          };
+        });
+
+      setStats({
+        totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
+        totalOrders: allOrdersData.length,
+        totalProducts,
+        averageOrderValue,
+        periodSales,
+        periodOrders: periodOrdersCount,
+        lowStockCount,
+        outOfStockCount,
+        periodDeliveries
       });
-
-    setStats({
-      totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
-      totalOrders: allOrdersData.length,
-      totalProducts,
-      averageOrderValue,
-      periodSales,
-      periodOrders: periodOrdersCount,
-      lowStockCount,
-      outOfStockCount,
-      periodDeliveries
-    });
-    
-    setPeriodOrders(periodOrdersWithDetails);
-    setTopProducts(sortedProducts);
-    
-    // Debug log to verify data
-    console.log('Period Orders Count:', periodOrdersCount);
-    console.log('Top Products by Units Sold:', sortedProducts.map(p => ({ name: p.name, sold: p.sold })));
-  } catch (err: any) {
-    setError('System synchronization failed. Please refresh.');
-  } finally {
-    setLoading(false);
-  }
-}, [timeFilter]);
+      
+      setPeriodOrders(periodOrdersWithDetails);
+      setTopProducts(sortedProducts);
+    } catch (err: any) {
+      setError('System synchronization failed. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  }, [timeFilter]);
 
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
-
-  // Reset to page 1 when search query changes
   useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
-  // Filter and paginate period orders
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return periodOrders;
     const query = searchQuery.toLowerCase();
@@ -348,6 +327,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
           <div>
@@ -377,7 +357,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Sales Stats Cards */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
             <div className="flex justify-between items-start mb-4">
@@ -429,9 +409,93 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Main Section */}
+        {/* Main Section — Top Sellers LEFT, Transactions RIGHT */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-          {/* Recent Transactions Table */}
+
+          {/* Top Selling Products — col 1 */}
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-100 p-6">
+            <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+              <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-xl">
+                <Award className="w-5 h-5 text-white" />
+              </div>
+              Top Selling Products
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full ml-auto">
+                {getFilterLabel()}
+              </span>
+            </h2>
+            <div className="space-y-4">
+              {topProducts.map((product, idx) => (
+                <div 
+                  key={product.id} 
+                  className={`flex items-center gap-4 group cursor-pointer p-3 rounded-2xl transition-all ${
+                    idx === 0 
+                      ? 'bg-gradient-to-r from-amber-100 to-orange-100 border-2 border-amber-200 shadow-lg shadow-amber-100' 
+                      : 'bg-white/60 hover:bg-white border border-transparent hover:border-slate-100'
+                  }`}
+                  onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                >
+                  <div className="relative">
+                    <img 
+                      src={product.imageUrl} 
+                      className={`w-14 h-14 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform ${
+                        idx === 0 ? 'ring-2 ring-amber-300 ring-offset-2' : ''
+                      }`} 
+                      alt={product.name} 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/56';
+                      }}
+                    />
+                    {idx === 0 ? (
+                      <span className="absolute -top-2 -left-2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] font-black flex items-center justify-center rounded-lg border-2 border-white shadow-md">
+                        <Crown className="w-3 h-3" />
+                      </span>
+                    ) : (
+                      <span className="absolute -top-2 -left-2 w-5 h-5 bg-slate-800 text-white text-[10px] font-black flex items-center justify-center rounded-lg border-2 border-white">
+                        {idx + 1}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold truncate ${idx === 0 ? 'text-amber-900' : 'text-slate-900'}`}>
+                      {product.name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${idx === 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {product.sold} Sold
+                      </span>
+                      {product.percentageOfTotal !== undefined && (
+                        <span className="text-[9px] font-bold text-slate-400">
+                          {product.percentageOfTotal.toFixed(1)}% of sales
+                        </span>
+                      )}
+                      {idx === 0 && (
+                        <span className="text-[9px] font-black uppercase tracking-widest text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded">
+                          Top Seller
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`text-sm font-black ${idx === 0 ? 'text-amber-700' : 'text-indigo-600'}`}>
+                      {formatCurrency(product.price)}
+                    </p>
+                    <p className="text-[10px] font-bold text-emerald-600">
+                      {formatCurrency(product.revenue)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {topProducts.length === 0 && (
+                <div className="py-10 text-center">
+                  <Package className="w-10 h-10 text-amber-200 mx-auto mb-3" />
+                  <p className="text-amber-600 font-bold text-sm">No sales data yet</p>
+                  <p className="text-amber-500 text-xs mt-1">Products will appear once sold</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Transactions — col 2 & 3 */}
           <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
@@ -470,11 +534,11 @@ const AdminDashboard = () => {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs flex-shrink-0">
-                              {order.customerName?.substring(0,2).toUpperCase() || 'CU'}
+                              {order.customerName?.substring(0, 2).toUpperCase() || 'CU'}
                             </div>
                             <div className="min-w-0">
                               <p className="text-sm font-bold text-slate-900 truncate">{order.customerName}</p>
-                              <p className="text-[10px] font-bold text-slate-400">#{order.id.substring(0,8).toUpperCase()}</p>
+                              <p className="text-[10px] font-bold text-slate-400">#{order.id.substring(0, 8).toUpperCase()}</p>
                             </div>
                           </div>
                         </td>
@@ -516,7 +580,7 @@ const AdminDashboard = () => {
               </table>
               {filteredOrders.length === 0 && (
                 <div className="py-20 text-center">
-                  <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-3" />
                   <p className="text-slate-400 font-bold">
                     {searchQuery 
                       ? 'No orders match your search' 
@@ -530,7 +594,7 @@ const AdminDashboard = () => {
             {totalPages > 1 && (
               <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between">
                 <p className="text-xs font-bold text-slate-400">
-                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length}
+                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} – {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -579,90 +643,6 @@ const AdminDashboard = () => {
             )}
           </div>
 
-          {/* Sidebar Area - Best Sellers (Now matches Sales Report logic) */}
-          <div className="space-y-8">
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-100 p-6">
-              <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-xl">
-                  <Award className="w-5 h-5 text-white" />
-                </div>
-                Top Selling Products
-                <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full ml-auto">
-                  By Revenue
-                </span>
-              </h2>
-              <div className="space-y-4">
-                {topProducts.map((product, idx) => (
-                  <div 
-                    key={product.id} 
-                    className={`flex items-center gap-4 group cursor-pointer p-3 rounded-2xl transition-all ${
-                      idx === 0 
-                        ? 'bg-gradient-to-r from-amber-100 to-orange-100 border-2 border-amber-200 shadow-lg shadow-amber-100' 
-                        : 'bg-white/60 hover:bg-white border border-transparent hover:border-slate-100'
-                    }`}
-                    onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                  >
-                    <div className="relative">
-                      <img 
-                        src={product.imageUrl} 
-                        className={`w-14 h-14 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform ${
-                          idx === 0 ? 'ring-2 ring-amber-300 ring-offset-2' : ''
-                        }`} 
-                        alt={product.name} 
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/56';
-                        }}
-                      />
-                      {idx === 0 ? (
-                        <span className="absolute -top-2 -left-2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] font-black flex items-center justify-center rounded-lg border-2 border-white shadow-md">
-                          <Crown className="w-3 h-3" />
-                        </span>
-                      ) : (
-                        <span className="absolute -top-2 -left-2 w-5 h-5 bg-slate-800 text-white text-[10px] font-black flex items-center justify-center rounded-lg border-2 border-white">
-                          {idx + 1}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold truncate ${idx === 0 ? 'text-amber-900' : 'text-slate-900'}`}>
-                        {product.name}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${idx === 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                          {product.sold} Sold
-                        </span>
-                        {product.percentageOfTotal !== undefined && (
-                          <span className="text-[9px] font-bold text-slate-400">
-                            {product.percentageOfTotal.toFixed(1)}% of sales
-                          </span>
-                        )}
-                        {idx === 0 && (
-                          <span className="text-[9px] font-black uppercase tracking-widest text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded">
-                            Top Seller
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${idx === 0 ? 'text-amber-700' : 'text-indigo-600'}`}>
-                        {formatCurrency(product.price)}
-                      </p>
-                      <p className="text-[10px] font-bold text-emerald-600">
-                        {formatCurrency(product.revenue)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {topProducts.length === 0 && (
-                  <div className="py-10 text-center">
-                    <Package className="w-10 h-10 text-amber-200 mx-auto mb-3" />
-                    <p className="text-amber-600 font-bold text-sm">No sales data yet</p>
-                    <p className="text-amber-500 text-xs mt-1">Products will appear once sold</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
