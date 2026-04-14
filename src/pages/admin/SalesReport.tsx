@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { TrendingUp, DollarSign, ShoppingBag, Users, Eye, Download, Printer, Calendar, BarChart3, Package, Crown, ArrowUp, ArrowDown, Filter, RefreshCw, ChevronRight, Loader } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Eye, Download, Printer, Calendar, Filter, ChevronRight, Loader, ChevronLeft, CreditCard, Wallet, Banknote } from 'lucide-react';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 import PDFReportModal from '../../components/admin/PDFReportModal';
@@ -11,37 +11,6 @@ type PeriodType = 'daily' | 'weekly' | 'monthly';
 interface DateRange {
   start: string;
   end: string;
-}
-
-interface SalesStats {
-  totalRevenue: number;
-  totalOrders: number;
-  averageOrderValue: number;
-  previousPeriodRevenue: number;
-  revenueGrowth: number;
-  previousPeriodOrders: number;
-  ordersGrowth: number;
-}
-
-interface PeriodSales {
-  period: string;
-  revenue: number;
-  orders: number;
-  averageOrderValue: number;
-}
-
-interface TopProduct {
-  id: number;
-  name: string;
-  sold: number;
-  revenue: number;
-  percentageOfTotal: number;
-}
-
-interface DailySales {
-  date: string;
-  revenue: number;
-  orders: number;
 }
 
 // ─── Loading Overlay Component ────────────────────────────────────────────────
@@ -90,226 +59,29 @@ const toDisplayDate = (value: string | Date | undefined): string => {
   }
 };
 
-const formatShortDate = (dateStr: string): string => {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-};
-
 const peso = (n: number) => `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const getPeriodKey = (date: Date, periodType: PeriodType): string => {
-  if (periodType === 'daily') {
-    return date.toISOString().split('T')[0];
-  } else if (periodType === 'weekly') {
-    const weekStart = new Date(date);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    weekStart.setDate(diff);
-    return `${weekStart.getFullYear()}-W${Math.ceil((weekStart.getDate() - weekStart.getDay() + 10) / 7)}`;
-  } else {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+const getPaymentMethodIcon = (method: string) => {
+  switch (method?.toLowerCase()) {
+    case 'card': case 'credit_card': case 'debit_card': return CreditCard;
+    case 'gcash': case 'wallet': case 'ewallet': return Wallet;
+    case 'cod': case 'cash': return Banknote;
+    default: return CreditCard;
   }
 };
 
-const formatPeriodLabel = (periodKey: string, periodType: PeriodType): string => {
-  if (periodType === 'daily') {
-    return toDisplayDate(periodKey);
-  } else if (periodType === 'weekly') {
-    const [year, week] = periodKey.split('-W');
-    return `Week ${week}, ${year}`;
-  } else {
-    const [year, month] = periodKey.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-    return date.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+const formatPaymentMethod = (method: string) => {
+  switch (method?.toLowerCase()) {
+    case 'cod': return 'Cash on Delivery';
+    case 'gcash': return 'GCash';
+    case 'paymaya': return 'Maya';
+    case 'card': case 'credit_card': return 'Credit Card';
+    case 'debit_card': return 'Debit Card';
+    default: return method || 'N/A';
   }
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-interface StatCardProps {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  trend?: number;
-  trendLabel?: string;
-  colorTheme: 'emerald' | 'indigo' | 'violet' | 'amber';
-}
-
-const StatCard: React.FC<StatCardProps> = ({ label, value, icon, trend, trendLabel, colorTheme }) => {
-  const themeStyles = {
-    emerald: 'bg-emerald-50 text-emerald-600',
-    indigo: 'bg-indigo-50 text-indigo-600',
-    violet: 'bg-violet-50 text-violet-600',
-    amber: 'bg-amber-50 text-amber-600',
-  };
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-6 border border-slate-100 group flex flex-col justify-between">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-xl transition-transform duration-300 group-hover:scale-110 ${themeStyles[colorTheme]}`}>
-          {icon}
-        </div>
-        {trend !== undefined && (
-          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${trend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-            {trend >= 0 ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-            {Math.abs(trend).toFixed(1)}%
-          </div>
-        )}
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500 mb-1">{label}</p>
-        <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
-        {trendLabel && <p className="text-xs text-slate-400 mt-2 font-medium">{trendLabel}</p>}
-      </div>
-    </div>
-  );
-};
-
-interface RevenueChartProps {
-  data: PeriodSales[];
-  periodType: PeriodType;
-  isLoading?: boolean;
-}
-
-const RevenueChart: React.FC<RevenueChartProps> = ({ data, periodType, isLoading }) => {
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-sm text-slate-400">Loading chart data...</p>
-      </div>
-    );
-  }
-  
-  if (data.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-        <BarChart3 className="w-16 h-16 mb-4 opacity-20" />
-        <p className="text-sm font-medium">No sales data available for this period</p>
-      </div>
-    );
-  }
-  
-  const maxRevenue = Math.max(...data.map(d => d.revenue), 1);
-  
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-base font-bold text-slate-800">
-          {periodType === 'daily' ? 'Daily Sales Trend' : periodType === 'weekly' ? 'Weekly Sales Trend' : 'Monthly Sales Trend'}
-        </h3>
-        <div className="flex items-center gap-4 text-xs font-medium">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 bg-indigo-500 rounded-sm"></div>
-            <span className="text-slate-500">Revenue</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 bg-slate-300 rounded-sm"></div>
-            <span className="text-slate-500">Orders</span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-        {data.map((item, idx) => (
-          <div key={idx} className="group">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-slate-600 font-medium">{formatPeriodLabel(item.period, periodType)}</span>
-              <div className="flex items-center gap-4">
-                <span className="font-bold text-slate-900">{peso(item.revenue)}</span>
-                <span className="text-slate-400 text-xs w-16 text-right">{item.orders} orders</span>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-700 ease-out"
-                  style={{ width: `${(item.revenue / maxRevenue) * 100}%` }}
-                />
-              </div>
-              <div className="text-right">
-                <span className="text-[11px] font-medium text-slate-400">
-                  Avg: {peso(item.averageOrderValue)}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-interface TopProductsTableProps {
-  products: TopProduct[];
-  totalRevenue: number;
-  isLoading?: boolean;
-}
-
-const TopProductsTable: React.FC<TopProductsTableProps> = ({ products, totalRevenue, isLoading }) => {
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-sm text-slate-400">Loading product data...</p>
-      </div>
-    );
-  }
-  
-  if (products.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-        <Package className="w-16 h-16 mb-4 opacity-20" />
-        <p className="text-sm font-medium">No product sales data available</p>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200">
-            <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Rank</th>
-            <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</th>
-            <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Units Sold</th>
-            <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Revenue</th>
-            <th className="px-4 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">% of Total</th>
-           </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {products.map((product, idx) => (
-            <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
-              <td className="px-4 py-4">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 group-hover:bg-white transition-colors border border-slate-100">
-                  {idx === 0 ? (
-                    <Crown className="w-4 h-4 text-amber-500" />
-                  ) : (
-                    <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-4 font-semibold text-slate-800">{product.name}</td>
-              <td className="px-4 py-4 text-right text-slate-600 font-medium">{product.sold}</td>
-              <td className="px-4 py-4 text-right font-bold text-slate-900">{peso(product.revenue)}</td>
-              <td className="px-4 py-4 text-right">
-                <div className="flex items-center justify-end gap-3">
-                  <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-full rounded-full"
-                      style={{ width: `${product.percentageOfTotal}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-500 w-8">{product.percentageOfTotal.toFixed(1)}%</span>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+// ─── Sales Transactions Table with Pagination ─────────────────────────────────
 
 interface SalesTransactionsTableProps {
   orders: any[];
@@ -317,6 +89,9 @@ interface SalesTransactionsTableProps {
 }
 
 const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders, isLoading }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -329,53 +104,162 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
   if (orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-        <ShoppingBag className="w-16 h-16 mb-4 opacity-20" />
-        <p className="text-sm font-medium">No transactions found</p>
+        <Calendar className="w-16 h-16 mb-4 opacity-20" />
+        <p className="text-sm font-medium">No transactions found for this period</p>
       </div>
     );
   }
+
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-slate-50/50 border-y border-slate-200">
-            {['Date', 'Order #', 'Customer', 'Items', 'Payment', 'Status', 'Total'].map((h) => (
-              <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {orders.map((order) => (
-            <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
-              <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">{toDisplayDate(order.orderDate ?? order.createdAt)}</td>
-              <td className="px-6 py-4 font-mono text-xs font-medium text-indigo-600 bg-indigo-50/30 rounded inline-block mt-3 ml-2 px-2">#{order.orderNumber?.slice(-8) ?? order.id}</td>
-              <td className="px-6 py-4 text-slate-800 font-medium">{order.customerName ?? 'Guest'}</td>
-              <td className="px-6 py-4 text-slate-600">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-xs font-bold">{order.items?.length ?? 0}</span>
-              </td>
-              <td className="px-6 py-4 text-slate-600 capitalize font-medium">{order.paymentMethod ?? 'N/A'}</td>
-              <td className="px-6 py-4">
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold border ${
-                  order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                  order.status === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                  'bg-amber-50 text-amber-700 border-amber-200'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${
-                    order.status === 'delivered' ? 'bg-emerald-500' :
-                    order.status === 'cancelled' ? 'bg-rose-500' :
-                    'bg-amber-500'
-                  }`}></span>
-                  {order.status ?? 'N/A'}
-                </span>
-              </td>
-              <td className="px-6 py-4 font-bold text-slate-900">{peso(order.totalAmount ?? 0)}</td>
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50/50 border-y border-slate-200">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Order #</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Items</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Payment Method</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Payment Status</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Order Status</th>
+              <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {paginatedOrders.map((order) => {
+              const PaymentIcon = getPaymentMethodIcon(order.paymentMethod || '');
+              return (
+                <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                    {toDisplayDate(order.orderDate ?? order.createdAt)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="font-mono text-xs font-medium text-indigo-600 bg-indigo-50/50 px-2 py-1 rounded">
+                      #{order.orderNumber?.slice(-8) ?? String(order.id).slice(-8)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-800 font-medium">{order.customerName ?? 'Guest'}</td>
+                  <td className="px-6 py-4 text-slate-600">
+                    <span className="inline-flex items-center justify-center min-w-[28px] h-7 rounded-full bg-slate-100 text-xs font-bold px-2">
+                      {order.items?.length ?? 0} items
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-1.5">
+                      <PaymentIcon className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-slate-600 font-medium text-xs">{formatPaymentMethod(order.paymentMethod || '')}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold border ${
+                      order.paymentStatus === 'paid' || order.paymentStatus === 'completed' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : order.paymentStatus === 'failed' 
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        order.paymentStatus === 'paid' || order.paymentStatus === 'completed' 
+                          ? 'bg-emerald-500' 
+                          : order.paymentStatus === 'failed' 
+                            ? 'bg-rose-500'
+                            : 'bg-amber-500'
+                      }`}></span>
+                      {order.paymentStatus || 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold border ${
+                      order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      order.status === 'shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      order.status === 'processing' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      order.status === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        order.status === 'delivered' ? 'bg-emerald-500' :
+                        order.status === 'shipped' ? 'bg-blue-500' :
+                        order.status === 'processing' ? 'bg-purple-500' :
+                        order.status === 'cancelled' ? 'bg-rose-500' :
+                        'bg-amber-500'
+                      }`}></span>
+                      {order.status || 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right font-bold text-slate-900">{peso(order.totalAmount ?? 0)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+          <p className="text-xs font-medium text-slate-500">
+            Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} transactions
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              {totalPages > 5 && currentPage < totalPages - 2 && (
+                <>
+                  <span className="text-slate-400">...</span>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    className="w-8 h-8 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -392,51 +276,25 @@ const SalesReport: React.FC = () => {
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
-  const [previousDateRange, setPreviousDateRange] = useState<DateRange>({
-    start: '',
-    end: '',
-  });
   const [exportLoading, setExportLoading] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
-  const [isProcessingData, setIsProcessingData] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     getAllOrders();
   }, []);
 
-  // Calculate previous period for comparison
-  useEffect(() => {
-    const start = new Date(dateRange.start);
-    const end = new Date(dateRange.end);
-    const duration = end.getTime() - start.getTime();
-    
-    const prevEnd = new Date(start);
-    prevEnd.setDate(prevEnd.getDate() - 1);
-    const prevStart = new Date(prevEnd);
-    prevStart.setTime(prevStart.getTime() - duration);
-    
-    setPreviousDateRange({
-      start: prevStart.toISOString().split('T')[0],
-      end: prevEnd.toISOString().split('T')[0],
-    });
-  }, [dateRange]);
-
   // Filter orders when date range changes
   useEffect(() => {
     const applyFilter = async () => {
       setIsFiltering(true);
-      // Simulate a small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 300));
       
       const filtered = orders.filter((order) => {
         const orderDate = toLocalDateStr(order.orderDate ?? order.createdAt);
         if (!orderDate) return false;
-        
-        const isAfterStart = orderDate >= dateRange.start;
-        const isBeforeEnd = orderDate <= dateRange.end;
-        
-        return isAfterStart && isBeforeEnd;
+        return orderDate >= dateRange.start && orderDate <= dateRange.end;
       });
       setFilteredOrders(filtered);
       setIsFiltering(false);
@@ -444,133 +302,6 @@ const SalesReport: React.FC = () => {
     
     applyFilter();
   }, [orders, dateRange]);
-
-  // Show processing indicator when calculating stats
-  useEffect(() => {
-    if (filteredOrders.length > 0) {
-      setIsProcessingData(true);
-      const timer = setTimeout(() => setIsProcessingData(false), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [filteredOrders, periodType]);
-
-  // Calculate current period stats
-  const currentStats = useMemo((): SalesStats => {
-    const totalRevenue = filteredOrders.reduce((s, o) => s + (o.totalAmount ?? 0), 0);
-    const totalOrders = filteredOrders.length;
-    
-    return {
-      totalRevenue,
-      totalOrders,
-      averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-      previousPeriodRevenue: 0,
-      revenueGrowth: 0,
-      previousPeriodOrders: 0,
-      ordersGrowth: 0,
-    };
-  }, [filteredOrders]);
-
-  // Calculate previous period stats for comparison
-  useEffect(() => {
-    const calculatePreviousStats = () => {
-      if (!previousDateRange.start || !previousDateRange.end) return;
-      
-      const prevOrders = orders.filter((order) => {
-        const d = toLocalDateStr(order.orderDate ?? order.createdAt);
-        return d && d >= previousDateRange.start && d <= previousDateRange.end;
-      });
-      
-      const prevRevenue = prevOrders.reduce((s, o) => s + (o.totalAmount ?? 0), 0);
-      const prevOrdersCount = prevOrders.length;
-      
-      const revenueGrowth = prevRevenue > 0 
-        ? ((currentStats.totalRevenue - prevRevenue) / prevRevenue) * 100 
-        : currentStats.totalRevenue > 0 ? 100 : 0;
-      
-      const ordersGrowth = prevOrdersCount > 0 
-        ? ((currentStats.totalOrders - prevOrdersCount) / prevOrdersCount) * 100 
-        : currentStats.totalOrders > 0 ? 100 : 0;
-      
-      currentStats.previousPeriodRevenue = prevRevenue;
-      currentStats.revenueGrowth = revenueGrowth;
-      currentStats.previousPeriodOrders = prevOrdersCount;
-      currentStats.ordersGrowth = ordersGrowth;
-    };
-    
-    calculatePreviousStats();
-  }, [orders, previousDateRange, currentStats]);
-
-  // Calculate period-based sales data
-  const periodSales = useMemo((): PeriodSales[] => {
-    const periodMap = new Map<string, { revenue: number; orders: number }>();
-    
-    filteredOrders.forEach(order => {
-      const orderDate = order.orderDate ?? order.createdAt;
-      if (!orderDate) return;
-      
-      const date = new Date(orderDate);
-      const periodKey = getPeriodKey(date, periodType);
-      const existing = periodMap.get(periodKey);
-      const amount = order.totalAmount ?? 0;
-      
-      if (existing) {
-        existing.revenue += amount;
-        existing.orders += 1;
-      } else {
-        periodMap.set(periodKey, { revenue: amount, orders: 1 });
-      }
-    });
-    
-    const result = Array.from(periodMap.entries())
-      .map(([period, data]) => ({
-        period,
-        revenue: data.revenue,
-        orders: data.orders,
-        averageOrderValue: data.revenue / data.orders,
-      }))
-      .sort((a, b) => a.period.localeCompare(b.period));
-    
-    return result;
-  }, [filteredOrders, periodType]);
-
-  // Calculate top selling products
-  const topProducts = useMemo((): TopProduct[] => {
-    const productSales = new Map<number, { name: string; sold: number; revenue: number }>();
-    
-    filteredOrders.forEach(order => {
-      order.items?.forEach((item: any) => {
-        const existing = productSales.get(item.productId);
-        const itemRevenue = (item.unitPrice ?? item.price) * item.quantity;
-        
-        if (existing) {
-          existing.sold += item.quantity;
-          existing.revenue += itemRevenue;
-        } else {
-          productSales.set(item.productId, {
-            name: item.productName,
-            sold: item.quantity,
-            revenue: itemRevenue,
-          });
-        }
-      });
-    });
-    
-    const totalRevenue = currentStats.totalRevenue;
-    return Array.from(productSales.entries())
-      .map(([id, data]) => ({
-        id,
-        name: data.name,
-        sold: data.sold,
-        revenue: data.revenue,
-        percentageOfTotal: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0,
-      }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
-  }, [filteredOrders, currentStats.totalRevenue]);
-
-  const uniqueCustomers = useMemo(() => {
-    return Array.from(new Set(filteredOrders.map(o => o.customerEmail ?? o.userId))).length;
-  }, [filteredOrders]);
 
   const handleDateRangeChange = (field: 'start' | 'end', value: string) => {
     setDateRange(prev => ({ ...prev, [field]: value }));
@@ -580,38 +311,26 @@ const SalesReport: React.FC = () => {
     setPeriodType(value);
   };
 
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setIsGenerating(false);
+    setShowPDFModal(true);
+  };
+
   const handleExport = async (format: 'excel' | 'csv' | 'json') => {
     setExportLoading(true);
     
     if (format === 'excel') {
-      const summaryRows = [
-        { Metric: 'Total Revenue', Value: peso(currentStats.totalRevenue) },
-        { Metric: 'Total Orders', Value: currentStats.totalOrders },
-        { Metric: 'Average Order Value', Value: peso(currentStats.averageOrderValue) },
-        { Metric: 'Revenue Growth', Value: `${currentStats.revenueGrowth.toFixed(1)}%` },
-        { Metric: 'Orders Growth', Value: `${currentStats.ordersGrowth.toFixed(1)}%` },
-        { Metric: 'Period', Value: `${toDisplayDate(dateRange.start)} - ${toDisplayDate(dateRange.end)}` },
-      ];
-      
-      reportService.exportToExcel(summaryRows, `sales_summary_${dateRange.start}_to_${dateRange.end}`);
-      
-      const productRows = topProducts.map(p => ({
-        'Product Name': p.name,
-        'Units Sold': p.sold,
-        Revenue: peso(p.revenue),
-        '% of Total': `${p.percentageOfTotal.toFixed(1)}%`,
-      }));
-      
-      reportService.exportToExcel(productRows, `top_products_${dateRange.start}_to_${dateRange.end}`);
-      
       const transactionRows = filteredOrders.map(order => ({
         Date: toDisplayDate(order.orderDate ?? order.createdAt),
         'Order #': order.orderNumber ?? order.id,
         Customer: order.customerName ?? 'Guest',
         Items: order.items?.length ?? 0,
-        'Payment Method': order.paymentMethod ?? 'N/A',
-        Status: order.status ?? 'N/A',
-        Total: peso(order.totalAmount ?? 0),
+        'Payment Method': formatPaymentMethod(order.paymentMethod ?? ''),
+        'Payment Status': order.paymentStatus ?? 'Pending',
+        'Order Status': order.status ?? 'Pending',
+        Total: order.totalAmount ?? 0,
       }));
       
       reportService.exportToExcel(transactionRows, `sales_transactions_${dateRange.start}_to_${dateRange.end}`);
@@ -620,8 +339,10 @@ const SalesReport: React.FC = () => {
         Date: toDisplayDate(order.orderDate ?? order.createdAt),
         'Order #': order.orderNumber ?? order.id,
         Customer: order.customerName ?? 'Guest',
+        'Payment Method': formatPaymentMethod(order.paymentMethod ?? ''),
+        'Payment Status': order.paymentStatus ?? 'Pending',
+        'Order Status': order.status ?? 'Pending',
         Total: peso(order.totalAmount ?? 0),
-        Status: order.status ?? 'N/A',
       }));
       reportService.exportToCSV(rows, `sales_report_${dateRange.start}_to_${dateRange.end}`);
     } else {
@@ -640,13 +361,11 @@ const SalesReport: React.FC = () => {
     win.document.write(`
       <html>
         <head>
-          <title>Sales Performance Report</title>
+          <title>Sales Transactions Report</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; color: #334155; }
             h1 { color: #0f172a; }
             .summary { margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
-            .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
-            .stat-card { padding: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
             th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; }
@@ -655,29 +374,16 @@ const SalesReport: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>Sales Performance Report</h1>
+          <h1>Sales Transactions Report</h1>
           <div class="summary">
             <p><strong>Period:</strong> ${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}</p>
-            <p><strong>Report Type:</strong> ${periodType.toUpperCase()} Sales Analysis</p>
+            <p><strong>Total Transactions:</strong> ${filteredOrders.length}</p>
+            <p><strong>Total Sales:</strong> ${peso(filteredOrders.reduce((s, o) => s + (o.totalAmount ?? 0), 0))}</p>
           </div>
-          <div class="stats-grid">
-            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Total Revenue</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${peso(currentStats.totalRevenue)}</span></div>
-            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Total Orders</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${currentStats.totalOrders}</span></div>
-            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Avg Order Value</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${peso(currentStats.averageOrderValue)}</span></div>
-            <div class="stat-card"><strong style="color: #64748b; font-size: 13px;">Revenue Growth</strong><br><span style="font-size: 20px; font-weight: bold; color: #0f172a;">${currentStats.revenueGrowth.toFixed(1)}%</span></div>
-          </div>
-          <h2>Top Selling Products</h2>
-          <table>
-            <thead><tr><th>Product</th><th>Units Sold</th><th>Revenue</th><th>% of Total</th></tr></thead>
-            <tbody>
-              ${topProducts.map(p => `<tr><td><strong>${p.name}</strong></td><td>${p.sold}</td><td>${peso(p.revenue)}</td><td>${p.percentageOfTotal.toFixed(1)}%</td></tr>`).join('')}
-            </tbody>
-          </table>
-          <h2 style="margin-top: 40px;">Sales Transactions</h2>
           ${content.innerHTML}
           <div class="footer">
             <p>Generated on ${new Date().toLocaleString()}</p>
-            <p>Doctama Furniture - Sales Performance Report</p>
+            <p>Doctama Furniture - Sales Report</p>
           </div>
         </body>
       </html>
@@ -687,37 +393,31 @@ const SalesReport: React.FC = () => {
     win.onafterprint = () => win.close();
   };
 
+  const totalSales = filteredOrders.reduce((s, o) => s + (o.totalAmount ?? 0), 0);
+  const totalOrders = filteredOrders.length;
+
   const summaryContent = (
     <div className="space-y-4">
       <div className="flex justify-between items-center pb-4 border-b border-slate-100">
         <div>
-          <p className="text-sm font-bold text-slate-800">Sales Performance</p>
+          <p className="text-sm font-bold text-slate-800">Sales Summary</p>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            {periodType === 'daily' ? 'Daily' : periodType === 'weekly' ? 'Weekly' : 'Monthly'} Analysis
+            {periodType === 'daily' ? 'Daily' : periodType === 'weekly' ? 'Weekly' : 'Monthly'} Report
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-500 mb-1">Total Revenue</p>
-          <p className="text-xl font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg inline-block">{peso(currentStats.totalRevenue)}</p>
+          <p className="text-sm font-semibold text-slate-500 mb-1">Total Sales</p>
+          <p className="text-xl font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg inline-block">{peso(totalSales)}</p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-4 pt-2">
-        <div className="bg-slate-50 p-3 rounded-xl">
-          <p className="text-xs font-semibold text-slate-400 mb-1">Orders</p>
-          <p className="text-base font-bold text-slate-800">{currentStats.totalOrders}</p>
-          <p className={`text-xs mt-1 font-bold ${currentStats.ordersGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {currentStats.ordersGrowth >= 0 ? '↑' : '↓'} {Math.abs(currentStats.ordersGrowth).toFixed(1)}%
-          </p>
+      <div className="grid grid-cols-2 gap-4 pt-2">
+        <div className="bg-slate-50 p-4 rounded-xl">
+          <p className="text-xs font-semibold text-slate-400 mb-1">Total Transactions</p>
+          <p className="text-2xl font-bold text-slate-800">{totalOrders}</p>
         </div>
-        <div className="bg-slate-50 p-3 rounded-xl">
-          <p className="text-xs font-semibold text-slate-400 mb-1">Avg Order</p>
-          <p className="text-base font-bold text-slate-800">{peso(currentStats.averageOrderValue)}</p>
-        </div>
-        <div className="bg-slate-50 p-3 rounded-xl">
-          <p className="text-xs font-semibold text-slate-400 mb-1">Top Product</p>
-          <p className="text-sm font-bold text-slate-800 truncate" title={topProducts[0]?.name || 'N/A'}>
-            {topProducts[0]?.name || 'N/A'}
-          </p>
+        <div className="bg-slate-50 p-4 rounded-xl">
+          <p className="text-xs font-semibold text-slate-400 mb-1">Average per Order</p>
+          <p className="text-2xl font-bold text-slate-800">{peso(totalOrders > 0 ? totalSales / totalOrders : 0)}</p>
         </div>
       </div>
     </div>
@@ -740,27 +440,16 @@ const SalesReport: React.FC = () => {
 
   return (
     <>
-      {/* Loading Overlays */}
       {isFiltering && <LoadingOverlay message="Filtering sales data..." />}
       {exportLoading && <LoadingOverlay message="Generating export file..." />}
-      {isProcessingData && <LoadingOverlay message="Processing sales metrics..." />}
+      {isGenerating && <LoadingOverlay message="Generating report..." />}
       
-      <div className="p-6 md:p-8 space-y-8 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
+      <div className="p-6 md:p-8 space-y-6 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sales Performance</h1>
-            <p className="text-sm text-slate-500 mt-2 font-medium">Track revenue trends, analyze performance, and identify top-selling products.</p>
-          </div>
-          
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowPDFModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm transition-all"
-            >
-              <Eye className="w-4 h-4 text-slate-500" />
-              Preview Report
-            </button>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sales Report</h1>
+            <p className="text-sm text-slate-500 mt-2 font-medium">Generate and export sales transaction reports.</p>
           </div>
         </div>
 
@@ -797,9 +486,9 @@ const SalesReport: React.FC = () => {
                   onChange={(e) => handlePeriodTypeChange(e.target.value as PeriodType)}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 appearance-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
                 >
-                  <option value="daily">Daily Analysis</option>
-                  <option value="weekly">Weekly Analysis</option>
-                  <option value="monthly">Monthly Analysis</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
                   <ChevronRight className="w-4 h-4 rotate-90" />
@@ -808,75 +497,29 @@ const SalesReport: React.FC = () => {
             </div>
             <div className="flex gap-3">
               <button
+                onClick={handleGenerateReport}
+                disabled={isGenerating || filteredOrders.length === 0}
+                className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:transform active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGenerating ? <Loader className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                Generate Report
+              </button>
+              <button
                 onClick={() => handleExport('excel')}
-                disabled={exportLoading}
-                className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-500/20 active:transform active:scale-95 transition-all flex items-center gap-2 disabled:opacity-70"
+                disabled={exportLoading || filteredOrders.length === 0}
+                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {exportLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Export Data
+                Export
               </button>
               <button
                 onClick={handlePrint}
-                className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-xl text-sm hover:bg-slate-900 shadow-sm hover:shadow-md active:transform active:scale-95 transition-all flex items-center gap-2"
+                disabled={filteredOrders.length === 0}
+                className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-xl text-sm hover:bg-slate-900 shadow-sm hover:shadow-md active:transform active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer className="w-4 h-4" />
                 Print
               </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            label="Total Revenue"
-            value={peso(currentStats.totalRevenue)}
-            icon={<DollarSign className="w-6 h-6" />}
-            trend={currentStats.revenueGrowth}
-            trendLabel="vs previous period"
-            colorTheme="emerald"
-          />
-          <StatCard
-            label="Total Orders"
-            value={String(currentStats.totalOrders)}
-            icon={<ShoppingBag className="w-6 h-6" />}
-            trend={currentStats.ordersGrowth}
-            trendLabel="vs previous period"
-            colorTheme="indigo"
-          />
-          <StatCard
-            label="Average Order Value"
-            value={peso(currentStats.averageOrderValue)}
-            icon={<TrendingUp className="w-6 h-6" />}
-            colorTheme="violet"
-          />
-          <StatCard
-            label="Unique Customers"
-            value={String(uniqueCustomers)}
-            icon={<Users className="w-6 h-6" />}
-            colorTheme="amber"
-          />
-        </div>
-
-        {/* Revenue Chart & Top Products */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <RevenueChart data={periodSales} periodType={periodType} isLoading={isFiltering || isProcessingData} />
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <div className="bg-amber-100 p-1.5 rounded-lg text-amber-600">
-                  <Crown className="w-4 h-4" />
-                </div>
-                Top Selling Products
-              </h3>
-              <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-                {topProducts.length} items
-              </span>
-            </div>
-            <div className="p-2 flex-1 overflow-auto">
-              <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} isLoading={isFiltering || isProcessingData} />
             </div>
           </div>
         </div>
@@ -888,11 +531,16 @@ const SalesReport: React.FC = () => {
               <div className="bg-blue-100 p-1.5 rounded-lg text-blue-600">
                 <Calendar className="w-4 h-4" />
               </div>
-              Recent Transactions
+              Sales Transactions
             </h3>
-            <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-              {filteredOrders.length} orders
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+                {filteredOrders.length} transactions
+              </span>
+              <span className="text-xs font-bold px-2.5 py-1 bg-indigo-100 text-indigo-600 rounded-full">
+                Total: {peso(totalSales)}
+              </span>
+            </div>
           </div>
 
           <div id="report-print-content">
@@ -904,27 +552,15 @@ const SalesReport: React.FC = () => {
         <PDFReportModal
           isOpen={showPDFModal}
           onClose={() => setShowPDFModal(false)}
-          title="Sales Performance Report"
+          title="Sales Transactions Report"
           onPrint={handlePrint}
           onExport={() => handleExport('excel')}
           period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
           summary={summaryContent}
         >
-          <>
-            <RevenueChart data={periodSales} periodType={periodType} />
-            <div className="mt-8">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Top Selling Products</h3>
-              <div className="border border-slate-100 rounded-xl overflow-hidden">
-                <TopProductsTable products={topProducts} totalRevenue={currentStats.totalRevenue} />
-              </div>
-            </div>
-            <div className="mt-8">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Sales Transactions</h3>
-              <div className="border border-slate-100 rounded-xl overflow-hidden">
-                <SalesTransactionsTable orders={filteredOrders} />
-              </div>
-            </div>
-          </>
+          <div className="border border-slate-100 rounded-xl overflow-hidden">
+            <SalesTransactionsTable orders={filteredOrders} />
+          </div>
         </PDFReportModal>
       </div>
     </>
