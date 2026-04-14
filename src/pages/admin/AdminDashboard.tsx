@@ -204,7 +204,7 @@ const AdminDashboard = () => {
           const customer = users.find((u: User) => u.id === order.userId);
           return {
             ...order,
-            customerName: customer?.fullName || customer?.username || `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
+            customerName: customer?.fullName || customer?.fullName || `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
             customerEmail: customer?.email || 'No email provided',
             itemCount: order.items?.length || 0
           };
