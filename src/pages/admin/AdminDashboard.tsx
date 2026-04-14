@@ -138,14 +138,37 @@ const AdminDashboard = () => {
     ]);
 
     const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
+    
+    // DEBUG: Log all orders with dates
+    console.log('=== ALL ORDERS DEBUG ===');
+    console.log('Total orders:', allOrdersData.length);
+    allOrdersData.forEach(order => {
+      console.log(`Order #${order.id}: ${order.orderDate} - Status: ${order.status}`);
+      order.items?.forEach(item => {
+        console.log(`  - ${item.productName}: ${item.quantity} units`);
+      });
+    });
+    
     setAllOrders(allOrdersData);
     
     // Filter orders by selected time period
     const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
+    
+    // DEBUG: Log filtered orders
+    console.log('=== FILTERED ORDERS DEBUG ===');
+    console.log('Time filter:', timeFilter);
+    console.log('Filtered orders count:', filteredPeriodOrders.length);
+    filteredPeriodOrders.forEach(order => {
+      console.log(`Order #${order.id}: ${order.orderDate} - Status: ${order.status}`);
+      order.items?.forEach(item => {
+        console.log(`  - ${item.productName}: ${item.quantity} units`);
+      });
+    });
+    
     const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     const periodOrdersCount = filteredPeriodOrders.length;
     
-    // Calculate period deliveries (for the Stock Deliveries card)
+    // Calculate period deliveries
     const periodDeliveries = filteredPeriodOrders.filter(
       order => order.status?.toLowerCase() === 'delivered'
     ).length;
@@ -158,11 +181,7 @@ const AdminDashboard = () => {
     // Average order value for the period
     const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-    // ========== FIXED: Use ALL period orders for Best Sellers (same as Sales Report) ==========
-    // Sales Report uses ALL filtered orders, not just delivered/shipped
-    // This ensures the numbers match exactly
-    
-    // Map to track product sales (units sold and revenue) from ALL period orders
+    // Map to track product sales
     const productSalesMap = new Map<string, { 
       name: string; 
       sold: number; 
@@ -170,7 +189,6 @@ const AdminDashboard = () => {
       product: Product;
     }>();
     
-    // Use ALL filteredPeriodOrders (same as Sales Report)
     filteredPeriodOrders.forEach(order => {
       order.items?.forEach((item: OrderItem) => {
         const productId = String(item.productId);
@@ -196,7 +214,17 @@ const AdminDashboard = () => {
       });
     });
     
-    // Convert map to array and sort by UNITS SOLD (same as what we want to display)
+    // DEBUG: Log all products with sales
+    console.log('=== PRODUCT SALES MAP DEBUG ===');
+    const allProductsWithSales = Array.from(productSalesMap.entries()).map(([id, data]) => ({
+      id,
+      name: data.name,
+      sold: data.sold,
+      revenue: data.revenue
+    }));
+    console.log('All products with sales:', allProductsWithSales);
+    
+    // Sort by units sold
     const sortedProducts = Array.from(productSalesMap.values())
       .map((data) => ({
         ...data.product,
@@ -204,8 +232,24 @@ const AdminDashboard = () => {
         revenue: data.revenue,
         percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
       }))
-      .sort((a, b) => b.sold - a.sold) // Sort by units sold
-      .slice(0, 5);
+      .sort((a, b) => b.sold - a.sold);
+    
+    // DEBUG: Log sorted products
+    console.log('=== SORTED PRODUCTS (Top 5) ===');
+    sortedProducts.slice(0, 5).forEach((p, i) => {
+      console.log(`${i + 1}. ${p.name}: ${p.sold} sold, ₱${p.revenue}`);
+    });
+    
+    const top5Products = sortedProducts.slice(0, 5);
+    
+    // Check if Cool and Comfort is in the products list
+    const coolAndComfort = products.find(p => 
+      p.name.toLowerCase().includes('cool') && p.name.toLowerCase().includes('comfort')
+    );
+    console.log('Cool and Comfort product in catalog:', coolAndComfort ? {
+      id: coolAndComfort.id,
+      name: coolAndComfort.name
+    } : 'NOT FOUND');
 
     // Build period orders with actual customer details
     const periodOrdersWithDetails = filteredPeriodOrders
@@ -237,11 +281,8 @@ const AdminDashboard = () => {
     });
     
     setPeriodOrders(periodOrdersWithDetails);
-    setTopProducts(sortedProducts);
+    setTopProducts(top5Products);
     
-    // Debug log to verify data
-    console.log('Period Orders Count:', periodOrdersCount);
-    console.log('Top Products by Units Sold:', sortedProducts.map(p => ({ name: p.name, sold: p.sold })));
   } catch (err: any) {
     setError('System synchronization failed. Please refresh.');
   } finally {
