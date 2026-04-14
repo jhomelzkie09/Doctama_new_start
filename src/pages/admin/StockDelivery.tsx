@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Loader,
   Calendar,
-  DollarSign,
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -20,10 +19,25 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Filter
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import { Product } from '../../types';
+
+// Time filter types
+type TimeFilter = 'all' | 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'this_year';
+
+const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
+  { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'last_week', label: 'Last Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'this_year', label: 'This Year' },
+];
 
 const StockDelivery = () => {
   const { isAdmin } = useAuth();
@@ -35,6 +49,7 @@ const StockDelivery = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOrder | null>(null);
@@ -59,10 +74,74 @@ const StockDelivery = () => {
     loadData();
   }, [isAdmin, navigate]);
 
+  // Helper function to get date range based on filter
+  const getDateRange = (filter: TimeFilter): { start: Date | null; end: Date | null } => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (filter) {
+      case 'all':
+        return { start: null, end: null };
+      case 'today':
+        return { start: today, end: now };
+      case 'yesterday': {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayEnd = new Date(today);
+        yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+        yesterdayEnd.setHours(23, 59, 59, 999);
+        return { start: yesterday, end: yesterdayEnd };
+      }
+      case 'this_week': {
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        return { start: startOfWeek, end: now };
+      }
+      case 'last_week': {
+        const startOfLastWeek = new Date(today);
+        startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
+        startOfLastWeek.setHours(0, 0, 0, 0);
+        const endOfLastWeek = new Date(startOfLastWeek);
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+        endOfLastWeek.setHours(23, 59, 59, 999);
+        return { start: startOfLastWeek, end: endOfLastWeek };
+      }
+      case 'this_month': {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { start: startOfMonth, end: now };
+      }
+      case 'last_month': {
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        endOfLastMonth.setHours(23, 59, 59, 999);
+        return { start: startOfLastMonth, end: endOfLastMonth };
+      }
+      case 'this_year': {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        return { start: startOfYear, end: now };
+      }
+      default:
+        return { start: null, end: null };
+    }
+  };
+
+  // Filter deliveries by date range
+  const filterDeliveriesByDate = (deliveries: DeliveryOrder[], filter: TimeFilter): DeliveryOrder[] => {
+    if (filter === 'all') return deliveries;
+    
+    const { start, end } = getDateRange(filter);
+    if (!start || !end) return deliveries;
+    
+    return deliveries.filter(delivery => {
+      const deliveryDate = new Date(delivery.deliveryDate);
+      return deliveryDate >= start && deliveryDate <= end;
+    });
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load products and deliveries in parallel
       const [productsData, deliveriesData, statsData] = await Promise.all([
         productService.getProducts(),
         deliveryService.getAllDeliveries(),
@@ -90,13 +169,11 @@ const StockDelivery = () => {
     const loadingToast = showLoading('Processing delivery...');
     
     try {
-      // Prepare received quantities for API
       const itemsToReceive = receivedItems.map(item => ({
         productId: item.productId,
         receivedQuantity: item.receivedQuantity
       }));
       
-      // Call API to receive delivery and update stock
       await deliveryService.receiveDelivery(delivery.id, itemsToReceive);
       
       dismissToast(loadingToast);
@@ -104,7 +181,6 @@ const StockDelivery = () => {
       setShowReceiveModal(false);
       setSelectedDelivery(null);
       
-      // Refresh all data
       await loadData();
     } catch (error) {
       dismissToast(loadingToast);
@@ -120,10 +196,22 @@ const StockDelivery = () => {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-PH', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
+    });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString('en-PH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -146,7 +234,10 @@ const StockDelivery = () => {
     }
   };
 
-  const filteredDeliveries = deliveries.filter(delivery => {
+  // Apply filters: date filter first, then search and status
+  const dateFilteredDeliveries = filterDeliveriesByDate(deliveries, timeFilter);
+  
+  const filteredDeliveries = dateFilteredDeliveries.filter(delivery => {
     const matchesSearch = delivery.deliveryNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          delivery.supplierName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          delivery.purchaseOrderNumber?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -156,6 +247,14 @@ const StockDelivery = () => {
 
   const totalPages = Math.ceil(filteredDeliveries.length / itemsPerPage);
   const paginatedDeliveries = filteredDeliveries.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Calculate stats for filtered period
+  const filteredStats = {
+    totalDeliveries: dateFilteredDeliveries.length,
+    pendingCount: dateFilteredDeliveries.filter(d => d.status === 'pending').length,
+    receivedCount: dateFilteredDeliveries.filter(d => d.status === 'received').length,
+    partialCount: dateFilteredDeliveries.filter(d => d.status === 'partial').length,
+  };
 
   if (loading) {
     return (
@@ -185,13 +284,13 @@ const StockDelivery = () => {
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Stats Cards - Removed Total Value */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-500">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Pending Deliveries</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingDeliveries}</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredStats.pendingCount}</p>
             </div>
             <Clock className="w-8 h-8 text-yellow-500 opacity-75" />
           </div>
@@ -199,8 +298,8 @@ const StockDelivery = () => {
         <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Received This Month</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.receivedThisMonth}</p>
+              <p className="text-sm text-gray-500">Received Deliveries</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredStats.receivedCount}</p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-500 opacity-75" />
           </div>
@@ -208,19 +307,10 @@ const StockDelivery = () => {
         <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Items Received</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalItemsReceived}</p>
+              <p className="text-sm text-gray-500">Total Deliveries</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredStats.totalDeliveries}</p>
             </div>
             <Package className="w-8 h-8 text-blue-500 opacity-75" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-purple-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Value</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalValue)}</p>
-            </div>
-            <DollarSign className="w-8 h-8 text-purple-500 opacity-75" />
           </div>
         </div>
       </div>
@@ -238,9 +328,31 @@ const StockDelivery = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+          
+          {/* Time Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={timeFilter}
+              onChange={(e) => {
+                setTimeFilter(e.target.value as TimeFilter);
+                setCurrentPage(1);
+              }}
+              className="pl-4 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 appearance-none bg-white"
+            >
+              {TIME_FILTER_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+          </div>
+          
+          {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All Status</option>
@@ -249,13 +361,26 @@ const StockDelivery = () => {
             <option value="partial">Partial</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          
           <button
             onClick={loadData}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            title="Refresh"
           >
             <RefreshCw className="w-5 h-5 text-gray-600" />
           </button>
         </div>
+        
+        {/* Filter Summary */}
+        {timeFilter !== 'all' && (
+          <div className="mt-3 text-sm text-gray-500 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            <span>
+              Showing deliveries for: <strong>{TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label}</strong>
+              {filteredDeliveries.length > 0 && ` (${filteredDeliveries.length} deliveries)`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
@@ -275,7 +400,8 @@ const StockDelivery = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Received</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -303,6 +429,21 @@ const StockDelivery = () => {
                         {formatDate(delivery.expectedDate)}
                       </div>
                       {isOverdue && <span className="text-xs text-red-500 mt-1 block">Overdue</span>}
+                    </td>
+                    <td className="px-6 py-4">
+                      {delivery.receivedAt ? (
+                        <div className="text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            {formatDate(delivery.receivedAt)}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {new Date(delivery.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-gray-600">{delivery.totalItems} items / {delivery.totalQuantity} units</td>
                     <td className="px-6 py-4">
@@ -346,7 +487,11 @@ const StockDelivery = () => {
           <div className="text-center py-12">
             <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery orders found</h3>
-            <p className="text-gray-500 mb-6">Get started by creating a new delivery order</p>
+            <p className="text-gray-500 mb-6">
+              {timeFilter !== 'all' 
+                ? `No deliveries found for ${TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label.toLowerCase()}`
+                : 'Get started by creating a new delivery order'}
+            </p>
             <button
               onClick={handleCreateDelivery}
               className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -420,6 +565,17 @@ const StockDelivery = () => {
                 </div>
               </div>
 
+              {/* Received Date Display in Modal */}
+              {selectedDelivery.receivedAt && (
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Date Received</p>
+                  <p className="text-green-700">{formatDateTime(selectedDelivery.receivedAt)}</p>
+                  {selectedDelivery.receivedBy && (
+                    <p className="text-sm text-green-600 mt-1">Received by: {selectedDelivery.receivedBy}</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Order Items</h3>
                 <div className="overflow-x-auto">
@@ -456,13 +612,6 @@ const StockDelivery = () => {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-500">Notes</p>
                   <p className="text-gray-700">{selectedDelivery.notes}</p>
-                </div>
-              )}
-
-              {selectedDelivery.receivedBy && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm text-green-600">Received by: {selectedDelivery.receivedBy}</p>
-                  <p className="text-sm text-green-600">Received at: {formatDate(selectedDelivery.receivedAt!)}</p>
                 </div>
               )}
             </div>
