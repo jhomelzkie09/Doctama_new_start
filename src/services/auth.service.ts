@@ -2,7 +2,6 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import { LoginCredentials, RegisterData, User } from '../types';
 
-// Create a type for the stored user data
 interface StoredUser {
   id: string;
   email: string;
@@ -10,26 +9,7 @@ interface StoredUser {
   roles: string[];
 }
 
-// Create an axios instance for API calls
-const api = axios.create({
-  baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' }
-});
-
-// Add interceptor to add token to requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 const authService = {
-  // Login method
   login: async (credentials: LoginCredentials): Promise<{
     token: string;
     roles: string[];
@@ -46,7 +26,6 @@ const authService = {
       let token = data.token || data.accessToken || data.access_token;
       
       if (!token) {
-        console.error('❌ No token found in response:', data);
         throw new Error('Login failed: No token received');
       }
       
@@ -78,7 +57,6 @@ const authService = {
     }
   },
 
-  // Register method
   register: async (userData: RegisterData): Promise<any> => {
     try {
       const response = await axios.post(`${API_URL}/auth/register`, {
@@ -110,50 +88,32 @@ const authService = {
         throw new Error(errorMessages.join(', '));
       } else if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
-      } else if (error.response?.data) {
-        throw new Error(JSON.stringify(error.response.data));
       } else {
         throw new Error('Registration failed. Please try again.');
       }
     }
   },
 
-  // ADD THIS METHOD - Refresh token
+  // Remove or simplify these methods
   refreshToken: async (): Promise<string | null> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return null;
-      
-      const response = await api.post('/auth/refresh-token', {});
-      const { token: newToken } = response.data;
-      
-      if (newToken) {
-        localStorage.setItem('token', newToken);
-        return newToken;
-      }
-      return null;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      authService.logout();
-      return null;
-    }
+    // Return null since backend doesn't support it yet
+    return null;
   },
 
-  // ADD THIS METHOD - Validate token
   validateToken: async (): Promise<boolean> => {
+    // Just check if token exists and is not expired
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+    
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return false;
-      
-      await api.get('/auth/validate');
-      return true;
-    } catch (error) {
-      console.error('Token validation failed:', error);
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expiry = payload.exp * 1000;
+      return Date.now() < expiry;
+    } catch {
       return false;
     }
   },
 
-  // Get current user
   getCurrentUser: (): User | null => {
     try {
       const token = localStorage.getItem('token');
@@ -191,12 +151,10 @@ const authService = {
     }
   },
   
-  // Get minimal user data
   getStoredUser: (): StoredUser | null => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) return null;
-      
       return JSON.parse(userStr);
     } catch (error) {
       console.error('Error parsing user:', error);
@@ -204,25 +162,20 @@ const authService = {
     }
   },
 
-  // Logout method
   logout: (): void => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
 
-  // Check if user is authenticated
   isAuthenticated: (): boolean => {
     const token = localStorage.getItem('token');
     return !!token;
   },
 
-  // Get auth token
   getToken: (): string | null => {
-    const token = localStorage.getItem('token');
-    return token;
+    return localStorage.getItem('token');
   },
 
-  // Check if token is expired
   isTokenExpired: (): boolean => {
     const token = localStorage.getItem('token');
     if (!token) return true;
@@ -236,16 +189,13 @@ const authService = {
     }
   },
 
-  // Check if user has admin role
   isAdmin: (): boolean => {
     const user = authService.getStoredUser();
-    const isAdminUser = user?.roles?.some(role => 
+    return user?.roles?.some(role => 
       role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator'
     ) || false;
-    return isAdminUser;
   },
 
-  // Update user in storage
   updateStoredUser: (updates: Partial<StoredUser>): void => {
     try {
       const currentUser = authService.getStoredUser();
