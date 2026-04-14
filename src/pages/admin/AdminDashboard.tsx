@@ -127,10 +127,7 @@ const AdminDashboard = () => {
     });
   };
 
-  // 🔥 ONLY SHOWING THE UPDATED fetchDashboardData PART + LABEL FIX
-// Replace your existing fetchDashboardData with this version
-
-const fetchDashboardData = useCallback(async () => {
+ const fetchDashboardData = useCallback(async () => {
   setLoading(true);
   setError('');
   try {
@@ -143,41 +140,45 @@ const fetchDashboardData = useCallback(async () => {
     const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
     setAllOrders(allOrdersData);
     
+    // Filter orders by selected time period
     const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
-
     const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     const periodOrdersCount = filteredPeriodOrders.length;
-
+    
+    // Calculate period deliveries (for the Stock Deliveries card)
     const periodDeliveries = filteredPeriodOrders.filter(
       order => order.status?.toLowerCase() === 'delivered'
     ).length;
-
+    
+    // Total products
     const totalProducts = products.length;
     const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
     const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
-
+    
+    // Average order value for the period
     const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-    // =========================================================
-    // 🔥 FIXED: MATCH SALES REPORT LOGIC EXACTLY
-    // =========================================================
-
+    // ========== FIXED: Use ALL period orders for Best Sellers (same as Sales Report) ==========
+    // Sales Report uses ALL filtered orders, not just delivered/shipped
+    // This ensures the numbers match exactly
+    
+    // Map to track product sales (units sold and revenue) from ALL period orders
     const productSalesMap = new Map<string, { 
       name: string; 
       sold: number; 
       revenue: number;
       product: Product;
     }>();
-
+    
+    // Use ALL filteredPeriodOrders (same as Sales Report)
     filteredPeriodOrders.forEach(order => {
       order.items?.forEach((item: OrderItem) => {
         const productId = String(item.productId);
         const quantity = item.quantity || 0;
         const unitPrice = item.unitPrice || item.price || 0;
         const itemRevenue = quantity * unitPrice;
-
+        
         const existing = productSalesMap.get(productId);
-
         if (existing) {
           existing.sold += quantity;
           existing.revenue += itemRevenue;
@@ -194,37 +195,30 @@ const fetchDashboardData = useCallback(async () => {
         }
       });
     });
-
-    const totalRevenue = filteredPeriodOrders.reduce(
-      (sum, order) => sum + (order.totalAmount || 0),
-      0
-    );
-
+    
+    // Convert map to array and sort by UNITS SOLD (same as what we want to display)
     const sortedProducts = Array.from(productSalesMap.values())
       .map((data) => ({
         ...data.product,
         sold: data.sold,
         revenue: data.revenue,
-        percentageOfTotal: totalRevenue > 0 
-          ? (data.revenue / totalRevenue) * 100 
-          : 0,
+        percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
       }))
-      .sort((a, b) => b.revenue - a.revenue) // ✅ MATCH REPORT
+      .sort((a, b) => b.sold - a.sold) // Sort by units sold
       .slice(0, 5);
 
-    // =========================================================
-
+    // Build period orders with actual customer details
     const periodOrdersWithDetails = filteredPeriodOrders
       .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
       .map(order => {
         const customer = users.find((u: User) => u.id === order.userId);
+        const customerName = customer?.fullName || 
+                            (customer as any)?.name || 
+                            (customer?.email ? customer.email.split('@')[0] : null) ||
+                            `Customer #${String(order.userId).substring(0, 8)}`;
         return {
           ...order,
-          customerName:
-            customer?.fullName ||
-            (customer as any)?.name ||
-            (customer?.email ? customer.email.split('@')[0] : null) ||
-            `Customer #${String(order.userId).substring(0, 8)}`,
+          customerName,
           customerEmail: customer?.email || 'No email provided',
           itemCount: order.items?.length || 0
         };
@@ -241,10 +235,13 @@ const fetchDashboardData = useCallback(async () => {
       outOfStockCount,
       periodDeliveries
     });
-
+    
     setPeriodOrders(periodOrdersWithDetails);
     setTopProducts(sortedProducts);
-
+    
+    // Debug log to verify data
+    console.log('Period Orders Count:', periodOrdersCount);
+    console.log('Top Products by Units Sold:', sortedProducts.map(p => ({ name: p.name, sold: p.sold })));
   } catch (err: any) {
     setError('System synchronization failed. Please refresh.');
   } finally {
