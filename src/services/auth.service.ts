@@ -10,8 +10,26 @@ interface StoredUser {
   roles: string[];
 }
 
+// Create an axios instance for API calls
+const api = axios.create({
+  baseURL: API_URL,
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Add interceptor to add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 const authService = {
-  // Login method - FIXED to properly store token
+  // Login method
   login: async (credentials: LoginCredentials): Promise<{
     token: string;
     roles: string[];
@@ -25,7 +43,6 @@ const authService = {
       });
       const data = response.data;
       
-      // Check for token in different possible locations
       let token = data.token || data.accessToken || data.access_token;
       
       if (!token) {
@@ -33,13 +50,11 @@ const authService = {
         throw new Error('Login failed: No token received');
       }
       
-      // Get user data from response
       const userId = data.userId || data.user?.id || data.id;
       const email = data.email || data.user?.email;
       const fullName = data.fullName || data.user?.fullName || email?.split('@')[0] || 'User';
       const roles = data.roles || data.user?.roles || [];
       
-      // Store user data
       const userData: StoredUser = {
         id: userId,
         email: email,
@@ -47,7 +62,6 @@ const authService = {
         roles: roles
       };
       
-      // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       
@@ -72,9 +86,7 @@ const authService = {
         password: userData.password,
         fullName: userData.fullName
       }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
       const data = response.data;
       
@@ -106,6 +118,41 @@ const authService = {
     }
   },
 
+  // ADD THIS METHOD - Refresh token
+  refreshToken: async (): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      
+      const response = await api.post('/auth/refresh-token', {});
+      const { token: newToken } = response.data;
+      
+      if (newToken) {
+        localStorage.setItem('token', newToken);
+        return newToken;
+      }
+      return null;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      authService.logout();
+      return null;
+    }
+  },
+
+  // ADD THIS METHOD - Validate token
+  validateToken: async (): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+      
+      await api.get('/auth/validate');
+      return true;
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      return false;
+    }
+  },
+
   // Get current user
   getCurrentUser: (): User | null => {
     try {
@@ -116,7 +163,6 @@ const authService = {
       
       const storedUser: StoredUser = JSON.parse(userStr);
       
-      // Return a complete User object
       const fullUser: User = {
         id: storedUser.id,
         email: storedUser.email,
@@ -174,6 +220,20 @@ const authService = {
   getToken: (): string | null => {
     const token = localStorage.getItem('token');
     return token;
+  },
+
+  // Check if token is expired
+  isTokenExpired: (): boolean => {
+    const token = localStorage.getItem('token');
+    if (!token) return true;
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expiry = payload.exp * 1000;
+      return Date.now() > expiry;
+    } catch {
+      return true;
+    }
   },
 
   // Check if user has admin role

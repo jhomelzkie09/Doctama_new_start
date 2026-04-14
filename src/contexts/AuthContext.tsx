@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, RegisterData } from '../types';
 import authService from '../services/auth.service';
+import api from '../../src/api/config'; // Import the API instance for token validation
 import { isAdmin as checkIsAdmin, isCustomer, isManager } from '../utils/roleUtils';
 
 interface AuthContextType {
@@ -34,33 +35,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Compute role-based values using imported utilities
   const isAdmin = checkIsAdmin(user);
   const isCustomerValue = isCustomer(user);
   const isManagerValue = isManager(user);
 
+  // Check token validity on mount and set up refresh interval
   useEffect(() => {
-    // Get user from localStorage on mount
-    const currentUser = authService.getCurrentUser();
-    const token = authService.getToken();
+    const initAuth = async () => {
+      const token = authService.getToken();
+      const currentUser = authService.getCurrentUser();
+      
+      if (token && currentUser) {
+        // Validate token with backend
+        try {
+          await api.get('/auth/validate');
+          setUser(currentUser);
+        } catch (error) {
+          // Token invalid, try to refresh
+          const newToken = await authService.refreshToken();
+          if (newToken) {
+            setUser(currentUser);
+          } else {
+            authService.logout();
+            setUser(null);
+          }
+        }
+      }
+      setLoading(false);
+    };
     
-    if (currentUser && token) {
-      setUser(currentUser);
-    }
-    setLoading(false);
+    initAuth();
   }, []);
+
+  // Set up periodic token refresh (every 5 minutes)
+  useEffect(() => {
+    if (!user) return;
+    
+    const refreshInterval = setInterval(async () => {
+      try {
+        await authService.refreshToken();
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(refreshInterval);
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await authService.login({ email, password });
+      await authService.login({ email, password });
       
-      // Get the updated user from storage
       const currentUser = authService.getCurrentUser();
-
-      
       setUser(currentUser);
     } catch (err: any) {
       console.error('❌ Login error:', err);
@@ -74,7 +103,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     authService.logout();
     setUser(null);
-    // Force a full page reload to ensure header/footer render properly
     window.location.href = '/';
   };
 
@@ -89,7 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentUser);
       
       navigate('/');
-      
     } catch (err: any) {
       setError(err.message || 'Registration failed');
       throw err;
@@ -98,13 +125,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Add this function inside the AuthProvider component
-const refreshUser = async () => {
-  const currentUser = authService.getCurrentUser();
-  if (currentUser) {
-    setUser(currentUser);
-  }
-};
+  const refreshUser = async () => {
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
+    }
+  };
 
   return (
     <AuthContext.Provider
