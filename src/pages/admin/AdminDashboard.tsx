@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useOrders } from '../../contexts/OrderContext';
 import { useNavigate } from 'react-router-dom';
+import orderService from '../../services/order.service';
 import productService from '../../services/product.service';
 import userService from '../../services/user.service';
 import { 
@@ -52,7 +53,6 @@ const ITEMS_PER_PAGE = 8;
 
 const AdminDashboard = () => {
   const { user } = useAuth();
-  const { state, getAllOrders } = useOrders();
   const navigate = useNavigate();
   
   const [stats, setStats] = useState<DashboardStats>({
@@ -62,271 +62,198 @@ const AdminDashboard = () => {
     periodDeliveries: 0
   });
 
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [periodOrders, setPeriodOrders] = useState<OrderWithDetails[]>([]);
   const [topProducts, setTopProducts] = useState<ProductWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('this_month');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('this_week');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
 
-  // Helper to convert date to local date string (YYYY-MM-DD)
-  const toLocalDateStr = (value: string | Date | undefined): string => {
-    if (!value) return '';
-    try {
-      const d = new Date(value);
-      if (isNaN(d.getTime())) return '';
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch {
-      return '';
-    }
-  };
-
-  const getDateRange = (filter: TimeFilter): { start: Date; end: Date; startStr: string; endStr: string } => {
+  const getDateRange = (filter: TimeFilter): { start: Date; end: Date } => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    let start: Date;
-    let end: Date;
-    
     switch (filter) {
       case 'today':
-        start = today;
-        end = now;
-        break;
+        return { start: today, end: now };
       case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        start = yesterday;
-        const yesterdayEnd = new Date(yesterday);
+        const yesterdayEnd = new Date(today);
+        yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
         yesterdayEnd.setHours(23, 59, 59, 999);
-        end = yesterdayEnd;
-        break;
+        return { start: yesterday, end: yesterdayEnd };
       }
       case 'this_week': {
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
-        start = startOfWeek;
-        end = now;
-        break;
+        return { start: startOfWeek, end: now };
       }
       case 'last_week': {
         const startOfLastWeek = new Date(today);
         startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
         startOfLastWeek.setHours(0, 0, 0, 0);
-        start = startOfLastWeek;
         const endOfLastWeek = new Date(startOfLastWeek);
         endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
         endOfLastWeek.setHours(23, 59, 59, 999);
-        end = endOfLastWeek;
-        break;
+        return { start: startOfLastWeek, end: endOfLastWeek };
       }
       case 'this_month': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        startOfMonth.setHours(0, 0, 0, 0);
-        start = startOfMonth;
-        end = now;
-        break;
+        return { start: startOfMonth, end: now };
       }
       case 'last_month': {
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        startOfLastMonth.setHours(0, 0, 0, 0);
-        start = startOfLastMonth;
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
         endOfLastMonth.setHours(23, 59, 59, 999);
-        end = endOfLastMonth;
-        break;
+        return { start: startOfLastMonth, end: endOfLastMonth };
       }
       case 'this_year': {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
-        startOfYear.setHours(0, 0, 0, 0);
-        start = startOfYear;
-        end = now;
-        break;
+        return { start: startOfYear, end: now };
       }
       default:
-        start = today;
-        end = now;
+        return { start: today, end: now };
     }
-    
-    return {
-      start,
-      end,
-      startStr: toLocalDateStr(start),
-      endStr: toLocalDateStr(end)
-    };
   };
 
   const filterOrdersByDate = (orders: Order[], filter: TimeFilter): Order[] => {
-    const { startStr, endStr } = getDateRange(filter);
-    
+    const { start, end } = getDateRange(filter);
     return orders.filter(order => {
-      const orderDateStr = toLocalDateStr(order.orderDate);
-      if (!orderDateStr) return false;
-      
-      return orderDateStr >= startStr && orderDateStr <= endStr;
+      const orderDate = new Date(order.orderDate);
+      return orderDate >= start && orderDate <= end;
     });
   };
 
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      // Fetch all orders from context first
-      await getAllOrders();
-      
-      // Then fetch products and users
-      const [productsData, usersData] = await Promise.all([
-        productService.getProducts().catch(() => []),
-        userService.getAllUsers().catch(() => [])
-      ]);
-      
-      setProducts(productsData);
-      setUsers(usersData);
+ const fetchDashboardData = useCallback(async () => {
+  setLoading(true);
+  setError('');
+  try {
+    const [ordersResponse, products, users] = await Promise.all([
+      orderService.getMyOrders(1, 500).catch(() => ({ orders: [] })),
+      productService.getProducts().catch(() => []),
+      userService.getAllUsers().catch(() => [])
+    ]);
 
-      // Use the orders from context state
-      const allOrdersData = state.orders || [];
-      
-      console.log('=== ALL ORDERS FROM CONTEXT ===');
-      console.log('Total orders:', allOrdersData.length);
-      
-      // Filter orders by selected time period
-      const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
-      
-      console.log('=== FILTERED ORDERS DEBUG ===');
-      console.log('Time filter:', timeFilter);
-      console.log('Filtered orders count:', filteredPeriodOrders.length);
-      
-      const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-      const periodOrdersCount = filteredPeriodOrders.length;
-      
-      // Calculate period deliveries (for the Stock Deliveries card)
-      const periodDeliveries = filteredPeriodOrders.filter(
-        order => order.status?.toLowerCase() === 'delivered'
-      ).length;
-      
-      // Total products stats
-      const totalProducts = productsData.length;
-      const lowStockCount = productsData.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
-      const outOfStockCount = productsData.filter(p => p.stockQuantity === 0).length;
-      
-      // Average order value for the period
-      const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
+    const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
+    setAllOrders(allOrdersData);
+    
+    // Filter orders by selected time period
+    const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
+    const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const periodOrdersCount = filteredPeriodOrders.length;
+    
+    // Calculate period deliveries (for the Stock Deliveries card)
+    const periodDeliveries = filteredPeriodOrders.filter(
+      order => order.status?.toLowerCase() === 'delivered'
+    ).length;
+    
+    // Total products
+    const totalProducts = products.length;
+    const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
+    const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
+    
+    // Average order value for the period
+    const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-      // Map to track product sales (units sold and revenue) from ALL period orders
-      const productSalesMap = new Map<string, { 
-        name: string; 
-        sold: number; 
-        revenue: number;
-        product: Product;
-      }>();
-      
-      filteredPeriodOrders.forEach(order => {
-        order.items?.forEach((item: OrderItem) => {
-          const productId = String(item.productId);
-          const quantity = item.quantity || 0;
-          const unitPrice = item.unitPrice || item.price || 0;
-          const itemRevenue = quantity * unitPrice;
-          
-          const existing = productSalesMap.get(productId);
-          if (existing) {
-            existing.sold += quantity;
-            existing.revenue += itemRevenue;
-          } else {
-            const fullProduct = productsData.find(p => String(p.id) === productId);
-            if (fullProduct) {
-              productSalesMap.set(productId, {
-                name: item.productName || fullProduct.name,
-                sold: quantity,
-                revenue: itemRevenue,
-                product: fullProduct
-              });
-            }
+    // ========== FIXED: Use ALL period orders for Best Sellers (same as Sales Report) ==========
+    // Sales Report uses ALL filtered orders, not just delivered/shipped
+    // This ensures the numbers match exactly
+    
+    // Map to track product sales (units sold and revenue) from ALL period orders
+    const productSalesMap = new Map<string, { 
+      name: string; 
+      sold: number; 
+      revenue: number;
+      product: Product;
+    }>();
+    
+    // Use ALL filteredPeriodOrders (same as Sales Report)
+    filteredPeriodOrders.forEach(order => {
+      order.items?.forEach((item: OrderItem) => {
+        const productId = String(item.productId);
+        const quantity = item.quantity || 0;
+        const unitPrice = item.unitPrice || item.price || 0;
+        const itemRevenue = quantity * unitPrice;
+        
+        const existing = productSalesMap.get(productId);
+        if (existing) {
+          existing.sold += quantity;
+          existing.revenue += itemRevenue;
+        } else {
+          const fullProduct = products.find(p => String(p.id) === productId);
+          if (fullProduct) {
+            productSalesMap.set(productId, {
+              name: item.productName || fullProduct.name,
+              sold: quantity,
+              revenue: itemRevenue,
+              product: fullProduct
+            });
           }
-        });
+        }
       });
-      
-      // Debug: Log all products with sales
-      console.log('=== PRODUCT SALES MAP DEBUG ===');
-      const allProductsWithSales = Array.from(productSalesMap.entries()).map(([id, data]) => ({
-        id,
-        name: data.name,
+    });
+    
+    // Convert map to array and sort by UNITS SOLD (same as what we want to display)
+    const sortedProducts = Array.from(productSalesMap.values())
+      .map((data) => ({
+        ...data.product,
         sold: data.sold,
-        revenue: data.revenue
-      }));
-      console.log('All products with sales:', allProductsWithSales);
-      
-      // Sort by units sold
-      const sortedProducts = Array.from(productSalesMap.values())
-        .map((data) => ({
-          ...data.product,
-          sold: data.sold,
-          revenue: data.revenue,
-          percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
-        }))
-        .sort((a, b) => b.sold - a.sold);
-      
-      console.log('=== SORTED PRODUCTS (Top 5) ===');
-      sortedProducts.slice(0, 5).forEach((p, i) => {
-        console.log(`${i + 1}. ${p.name}: ${p.sold} sold, ₱${p.revenue}`);
+        revenue: data.revenue,
+        percentageOfTotal: periodSales > 0 ? (data.revenue / periodSales) * 100 : 0,
+      }))
+      .sort((a, b) => b.sold - a.sold) // Sort by units sold
+      .slice(0, 5);
+
+    // Build period orders with actual customer details
+    const periodOrdersWithDetails = filteredPeriodOrders
+      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+      .map(order => {
+        const customer = users.find((u: User) => u.id === order.userId);
+        const customerName = customer?.fullName || 
+                            (customer as any)?.name || 
+                            (customer?.email ? customer.email.split('@')[0] : null) ||
+                            `Customer #${String(order.userId).substring(0, 8)}`;
+        return {
+          ...order,
+          customerName,
+          customerEmail: customer?.email || 'No email provided',
+          itemCount: order.items?.length || 0
+        };
       });
-      
-      const top5Products = sortedProducts.slice(0, 5);
 
-      // Build period orders with actual customer details
-      const periodOrdersWithDetails = filteredPeriodOrders
-        .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-        .map(order => {
-          const customer = usersData.find((u: User) => u.id === order.userId);
-          const customerName = customer?.fullName || 
-                              (customer as any)?.name || 
-                              (customer?.email ? customer.email.split('@')[0] : null) ||
-                              `Customer #${String(order.userId).substring(0, 8)}`;
-          return {
-            ...order,
-            customerName,
-            customerEmail: customer?.email || 'No email provided',
-            itemCount: order.items?.length || 0
-          };
-        });
+    setStats({
+      totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
+      totalOrders: allOrdersData.length,
+      totalProducts,
+      averageOrderValue,
+      periodSales,
+      periodOrders: periodOrdersCount,
+      lowStockCount,
+      outOfStockCount,
+      periodDeliveries
+    });
+    
+    setPeriodOrders(periodOrdersWithDetails);
+    setTopProducts(sortedProducts);
+    
+    // Debug log to verify data
+    console.log('Period Orders Count:', periodOrdersCount);
+    console.log('Top Products by Units Sold:', sortedProducts.map(p => ({ name: p.name, sold: p.sold })));
+  } catch (err: any) {
+    setError('System synchronization failed. Please refresh.');
+  } finally {
+    setLoading(false);
+  }
+}, [timeFilter]);
 
-      setStats({
-        totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
-        totalOrders: allOrdersData.length,
-        totalProducts,
-        averageOrderValue,
-        periodSales,
-        periodOrders: periodOrdersCount,
-        lowStockCount,
-        outOfStockCount,
-        periodDeliveries
-      });
-      
-      setPeriodOrders(periodOrdersWithDetails);
-      setTopProducts(top5Products);
-      
-    } catch (err: any) {
-      console.error('Dashboard error:', err);
-      setError('System synchronization failed. Please refresh.');
-    } finally {
-      setLoading(false);
-    }
-  }, [timeFilter, getAllOrders, state.orders]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+  useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
   // Reset to page 1 when search query changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
   // Filter and paginate period orders
   const filteredOrders = useMemo(() => {
@@ -652,16 +579,16 @@ const AdminDashboard = () => {
             )}
           </div>
 
-          {/* Sidebar Area - Best Sellers */}
+          {/* Sidebar Area - Best Sellers (Now matches Sales Report logic) */}
           <div className="space-y-8">
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-100 p-6">
               <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
                 <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-xl">
                   <Award className="w-5 h-5 text-white" />
                 </div>
-                Best Sellers
+                Top Selling Products
                 <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full ml-auto">
-                  By Units Sold
+                  By Revenue
                 </span>
               </h2>
               <div className="space-y-4">
