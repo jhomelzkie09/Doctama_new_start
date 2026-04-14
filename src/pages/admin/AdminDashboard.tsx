@@ -128,131 +128,127 @@ const AdminDashboard = () => {
   };
 
   const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [ordersResponse, products, users] = await Promise.all([
-        orderService.getMyOrders(1, 500).catch(() => ({ orders: [] })),
-        productService.getProducts().catch(() => []),
-        userService.getAllUsers().catch(() => [])
-      ]);
+  setLoading(true);
+  setError('');
+  try {
+    const [ordersResponse, products, users] = await Promise.all([
+      orderService.getMyOrders(1, 500).catch(() => ({ orders: [] })),
+      productService.getProducts().catch(() => []),
+      userService.getAllUsers().catch(() => [])
+    ]);
 
-      const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
-      setAllOrders(allOrdersData);
-      
-      // Filter orders by selected time period
-      const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
-      const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-      const periodOrdersCount = filteredPeriodOrders.length;
-      
-      // Calculate period deliveries
-      const periodDeliveries = filteredPeriodOrders.filter(
-        order => order.status?.toLowerCase() === 'delivered'
-      ).length;
-      
-      // Total products
-      const totalProducts = products.length;
-      const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
-      const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
-      
-      // Average order value for the period
-      const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
+    const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
+    setAllOrders(allOrdersData);
+    
+    // Filter orders by selected time period
+    const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
+    const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const periodOrdersCount = filteredPeriodOrders.length;
+    
+    // Calculate period deliveries
+    const periodDeliveries = filteredPeriodOrders.filter(
+      order => order.status?.toLowerCase() === 'delivered'
+    ).length;
+    
+    // Total products
+    const totalProducts = products.length;
+    const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
+    const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
+    
+    // Average order value for the period
+    const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-      // Only count items from DELIVERED and SHIPPED orders (actual completed sales)
-      const completedOrders = allOrdersData.filter(order => 
-        order.status?.toLowerCase() === 'delivered' || 
-        order.status?.toLowerCase() === 'shipped'
-      );
-      
-      // Calculate total revenue from completed orders for percentage calculation
-      const totalCompletedRevenue = completedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-      
-      // Map to track product sales (units sold and revenue)
-      // Use string keys for product IDs to avoid type issues
-      const productSalesMap = new Map<string, { 
-        name: string; 
-        sold: number; 
-        revenue: number;
-        product: Product;
-      }>();
-      
-      completedOrders.forEach(order => {
-        order.items?.forEach((item: OrderItem) => {
-          // Convert productId to string for consistent comparison
-          const productId = String(item.productId);
-          const quantity = item.quantity || 0;
-          const unitPrice = item.unitPrice || item.price || 0;
-          const itemRevenue = quantity * unitPrice;
-          
-          const existing = productSalesMap.get(productId);
-          if (existing) {
-            existing.sold += quantity;
-            existing.revenue += itemRevenue;
-          } else {
-            // Find the full product details from products list
-            // Compare as string to avoid type mismatches
-            const fullProduct = products.find(p => String(p.id) === productId);
-            if (fullProduct) {
-              productSalesMap.set(productId, {
-                name: item.productName || fullProduct.name,
-                sold: quantity,
-                revenue: itemRevenue,
-                product: fullProduct
-              });
-            }
+    // ========== FIXED: Best Sellers based on PERIOD-FILTERED SOLD products ==========
+    // Filter completed orders from the SELECTED TIME PERIOD only
+    const periodCompletedOrders = filteredPeriodOrders.filter(order => 
+      order.status?.toLowerCase() === 'delivered' || 
+      order.status?.toLowerCase() === 'shipped'
+    );
+    
+    // Calculate total revenue from period completed orders for percentage calculation
+    const periodCompletedRevenue = periodCompletedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    
+    // Map to track product sales (units sold and revenue) from the SELECTED PERIOD
+    const productSalesMap = new Map<string, { 
+      name: string; 
+      sold: number; 
+      revenue: number;
+      product: Product;
+    }>();
+    
+    periodCompletedOrders.forEach(order => {
+      order.items?.forEach((item: OrderItem) => {
+        const productId = String(item.productId);
+        const quantity = item.quantity || 0;
+        const unitPrice = item.unitPrice || item.price || 0;
+        const itemRevenue = quantity * unitPrice;
+        
+        const existing = productSalesMap.get(productId);
+        if (existing) {
+          existing.sold += quantity;
+          existing.revenue += itemRevenue;
+        } else {
+          const fullProduct = products.find(p => String(p.id) === productId);
+          if (fullProduct) {
+            productSalesMap.set(productId, {
+              name: item.productName || fullProduct.name,
+              sold: quantity,
+              revenue: itemRevenue,
+              product: fullProduct
+            });
           }
-        });
+        }
       });
-      
-      // Convert map to array and sort by revenue
-      const sortedProducts = Array.from(productSalesMap.values())
-        .map((data) => ({
-          ...data.product,
-          sold: data.sold,
-          revenue: data.revenue,
-          percentageOfTotal: totalCompletedRevenue > 0 ? (data.revenue / totalCompletedRevenue) * 100 : 0,
-        }))
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
+    });
+    
+    // Convert map to array and sort by REVENUE (same as Sales Report)
+    const sortedProducts = Array.from(productSalesMap.values())
+      .map((data) => ({
+        ...data.product,
+        sold: data.sold,
+        revenue: data.revenue,
+        percentageOfTotal: periodCompletedRevenue > 0 ? (data.revenue / periodCompletedRevenue) * 100 : 0,
+      }))
+      .sort((a, b) => b.revenue - a.revenue) // Sort by revenue (highest grossing first)
+      .slice(0, 5);
 
-      // Build period orders with actual customer details
-      const periodOrdersWithDetails = filteredPeriodOrders
-        .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-        .map(order => {
-          const customer = users.find((u: User) => u.id === order.userId);
-          // Use fullName or fallback to name, or generate from email
-          const customerName = customer?.fullName || 
-                              (customer as any)?.name || 
-                              (customer?.email ? customer.email.split('@')[0] : null) ||
-                              `Customer #${String(order.userId).substring(0, 8)}`;
-          return {
-            ...order,
-            customerName,
-            customerEmail: customer?.email || 'No email provided',
-            itemCount: order.items?.length || 0
-          };
-        });
-
-      setStats({
-        totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
-        totalOrders: allOrdersData.length,
-        totalProducts,
-        averageOrderValue,
-        periodSales,
-        periodOrders: periodOrdersCount,
-        lowStockCount,
-        outOfStockCount,
-        periodDeliveries
+    // Build period orders with actual customer details
+    const periodOrdersWithDetails = filteredPeriodOrders
+      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+      .map(order => {
+        const customer = users.find((u: User) => u.id === order.userId);
+        const customerName = customer?.fullName || 
+                            (customer as any)?.name || 
+                            (customer?.email ? customer.email.split('@')[0] : null) ||
+                            `Customer #${String(order.userId).substring(0, 8)}`;
+        return {
+          ...order,
+          customerName,
+          customerEmail: customer?.email || 'No email provided',
+          itemCount: order.items?.length || 0
+        };
       });
-      
-      setPeriodOrders(periodOrdersWithDetails);
-      setTopProducts(sortedProducts);
-    } catch (err: any) {
-      setError('System synchronization failed. Please refresh.');
-    } finally {
-      setLoading(false);
-    }
-  }, [timeFilter]);
+
+    setStats({
+      totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
+      totalOrders: allOrdersData.length,
+      totalProducts,
+      averageOrderValue,
+      periodSales,
+      periodOrders: periodOrdersCount,
+      lowStockCount,
+      outOfStockCount,
+      periodDeliveries
+    });
+    
+    setPeriodOrders(periodOrdersWithDetails);
+    setTopProducts(sortedProducts);
+  } catch (err: any) {
+    setError('System synchronization failed. Please refresh.');
+  } finally {
+    setLoading(false);
+  }
+}, [timeFilter]);
 
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
