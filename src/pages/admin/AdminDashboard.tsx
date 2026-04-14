@@ -5,31 +5,23 @@ import orderService from '../../services/order.service';
 import productService from '../../services/product.service';
 import userService from '../../services/user.service';
 import { 
-  ShoppingCart, Users, Package, TrendingUp, Eye, RefreshCw,
-  Search, ShoppingBag, Truck, Loader, 
+  ShoppingCart, Package, TrendingUp, RefreshCw,
+  Search, ShoppingBag, Truck, 
   ChevronRight, ChevronLeft, Calendar, Award, Crown, Inbox, Activity,
-  CreditCard, Wallet, Banknote, CheckCircle, Clock, XCircle, AlertCircle,
-  UserCheck, Boxes
+  CreditCard, Wallet, Banknote, CheckCircle, Boxes
 } from 'lucide-react';
 import { Order, Product, User, OrderItem } from '../../types';
 
 interface DashboardStats {
   totalSales: number;
   totalOrders: number;
-  totalUsers: number;
   totalProducts: number;
-  pendingOrders: number;
-  deliveredOrders: number;
-  shippedOrders: number;
-  processingOrders: number;
-  cancelledOrders: number;
   averageOrderValue: number;
-  conversionRate: number;
   periodSales: number;
   periodOrders: number;
   lowStockCount: number;
   outOfStockCount: number;
-  recentDeliveries: number;
+  periodDeliveries: number;
 }
 
 interface OrderWithDetails extends Order {
@@ -62,13 +54,14 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   
   const [stats, setStats] = useState<DashboardStats>({
-    totalSales: 0, totalOrders: 0, totalUsers: 0, totalProducts: 0,
-    pendingOrders: 0, deliveredOrders: 0, shippedOrders: 0, processingOrders: 0,
-    cancelledOrders: 0, averageOrderValue: 0, conversionRate: 0, periodSales: 0,
-    periodOrders: 0, lowStockCount: 0, outOfStockCount: 0, recentDeliveries: 0
+    totalSales: 0, totalOrders: 0, totalProducts: 0,
+    averageOrderValue: 0, periodSales: 0,
+    periodOrders: 0, lowStockCount: 0, outOfStockCount: 0,
+    periodDeliveries: 0
   });
 
-  const [allOrders, setAllOrders] = useState<OrderWithDetails[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [periodOrders, setPeriodOrders] = useState<OrderWithDetails[]>([]);
   const [topProducts, setTopProducts] = useState<ProductWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,18 +79,24 @@ const AdminDashboard = () => {
       case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        return { start: yesterday, end: today };
+        const yesterdayEnd = new Date(today);
+        yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+        yesterdayEnd.setHours(23, 59, 59, 999);
+        return { start: yesterday, end: yesterdayEnd };
       }
       case 'this_week': {
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
         return { start: startOfWeek, end: now };
       }
       case 'last_week': {
         const startOfLastWeek = new Date(today);
         startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
+        startOfLastWeek.setHours(0, 0, 0, 0);
         const endOfLastWeek = new Date(startOfLastWeek);
-        endOfLastWeek.setDate(startOfLastWeek.getDate() + 7);
+        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+        endOfLastWeek.setHours(23, 59, 59, 999);
         return { start: startOfLastWeek, end: endOfLastWeek };
       }
       case 'this_month': {
@@ -107,6 +106,7 @@ const AdminDashboard = () => {
       case 'last_month': {
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        endOfLastMonth.setHours(23, 59, 59, 999);
         return { start: startOfLastMonth, end: endOfLastMonth };
       }
       case 'this_year': {
@@ -136,36 +136,30 @@ const AdminDashboard = () => {
         userService.getAllUsers().catch(() => [])
       ]);
 
-      const orders = (ordersResponse as { orders: Order[] })?.orders || [];
+      const allOrdersData = (ordersResponse as { orders: Order[] })?.orders || [];
+      setAllOrders(allOrdersData);
       
-      // Filter orders by selected time period for sales
-      const periodOrders = filterOrdersByDate(orders, timeFilter);
-      const periodSales = periodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      // Filter orders by selected time period
+      const filteredPeriodOrders = filterOrdersByDate(allOrdersData, timeFilter);
+      const periodSales = filteredPeriodOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      const periodOrdersCount = filteredPeriodOrders.length;
       
-      const totalOrders = orders.length;
-      const totalSales = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+      // Calculate period deliveries
+      const periodDeliveries = filteredPeriodOrders.filter(
+        order => order.status?.toLowerCase() === 'delivered'
+      ).length;
       
-      const pendingOrders = orders.filter(order => order.status?.toLowerCase() === 'pending').length;
-      const deliveredOrders = orders.filter(order => order.status?.toLowerCase() === 'delivered').length;
-      const shippedOrders = orders.filter(order => order.status?.toLowerCase() === 'shipped').length;
-      const processingOrders = orders.filter(order => order.status?.toLowerCase() === 'processing').length;
-      const cancelledOrders = orders.filter(order => order.status?.toLowerCase() === 'cancelled').length;
-      
-      const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+      // Total products
+      const totalProducts = products.length;
       const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
       const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
       
-      // Recent deliveries (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recentDeliveries = orders.filter(order => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate >= sevenDaysAgo && order.status?.toLowerCase() === 'delivered';
-      }).length;
+      // Average order value for the period
+      const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-      // Product sales map
+      // Product sales map for ALL orders (best sellers should show all-time)
       const productSales = new Map<string, number>();
-      orders.forEach(order => {
+      allOrdersData.forEach(order => {
         order.items?.forEach((item: OrderItem) => {
           const productId = item.productId.toString();
           productSales.set(productId, (productSales.get(productId) || 0) + item.quantity);
@@ -181,29 +175,32 @@ const AdminDashboard = () => {
         .sort((a, b) => b.salesCount - a.salesCount)
         .slice(0, 5);
 
-      // Build orders with actual customer details
-      const ordersWithDetails = orders
+      // Build period orders with actual customer details
+      const periodOrdersWithDetails = filteredPeriodOrders
         .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
         .map(order => {
           const customer = users.find((u: User) => u.id === order.userId);
           return {
             ...order,
-            // Use actual customer name instead of "Guest Customer"
-            customerName: customer?.fullName || customer?.fullName|| `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
+            customerName: customer?.fullName || customer?.fullName || `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
             customerEmail: customer?.email || 'No email provided',
             itemCount: order.items?.length || 0
           };
         });
 
       setStats({
-        totalSales, totalOrders, totalUsers: users.length, totalProducts: products.length,
-        pendingOrders, deliveredOrders, shippedOrders, processingOrders, cancelledOrders, 
+        totalSales: allOrdersData.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
+        totalOrders: allOrdersData.length,
+        totalProducts,
         averageOrderValue,
-        conversionRate: users.length > 0 ? (totalOrders / users.length) * 100 : 0,
-        periodSales, periodOrders: periodOrders.length, lowStockCount, outOfStockCount,
-        recentDeliveries
+        periodSales,
+        periodOrders: periodOrdersCount,
+        lowStockCount,
+        outOfStockCount,
+        periodDeliveries
       });
-      setAllOrders(ordersWithDetails);
+      
+      setPeriodOrders(periodOrdersWithDetails);
       setTopProducts(sortedProducts);
     } catch (err: any) {
       setError('System synchronization failed. Please refresh.');
@@ -217,16 +214,16 @@ const AdminDashboard = () => {
   // Reset to page 1 when search query changes
   useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
-  // Filter and paginate orders
+  // Filter and paginate period orders
   const filteredOrders = useMemo(() => {
-    if (!searchQuery.trim()) return allOrders;
+    if (!searchQuery.trim()) return periodOrders;
     const query = searchQuery.toLowerCase();
-    return allOrders.filter(order => 
+    return periodOrders.filter(order => 
       order.id.toLowerCase().includes(query) ||
       order.customerName?.toLowerCase().includes(query) ||
       order.customerEmail?.toLowerCase().includes(query)
     );
-  }, [allOrders, searchQuery]);
+  }, [periodOrders, searchQuery]);
 
   const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
   const paginatedOrders = filteredOrders.slice(
@@ -291,6 +288,10 @@ const AdminDashboard = () => {
     });
   };
 
+  const getFilterLabel = () => {
+    return TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label || '';
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFC]">
@@ -335,21 +336,21 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Sales Stats with Time Filter */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        {/* Sales Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-white/20 p-3 rounded-2xl">
                 <TrendingUp className="w-6 h-6" />
               </div>
               <span className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full">
-                {TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label}
+                {getFilterLabel()}
               </span>
             </div>
             <p className="text-indigo-200 text-sm font-bold uppercase tracking-wider">Sales</p>
             <p className="text-3xl font-black mt-1">{formatCurrency(stats.periodSales)}</p>
             <p className="text-xs font-bold text-indigo-200 mt-3 flex items-center gap-1">
-              <div className="w-1 h-1 rounded-full bg-indigo-300" /> {stats.periodOrders} Orders
+              <div className="w-1 h-1 rounded-full bg-indigo-300" /> Avg: {formatCurrency(stats.averageOrderValue)}
             </p>
           </div>
 
@@ -358,92 +359,46 @@ const AdminDashboard = () => {
               <div className="bg-amber-50 text-amber-600 p-3 rounded-2xl group-hover:scale-110 transition-transform">
                 <ShoppingBag className="w-6 h-6" />
               </div>
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
+              <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+                {getFilterLabel()}
+              </span>
             </div>
             <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Total Orders</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{stats.totalOrders}</p>
+            <p className="text-3xl font-black text-slate-900 mt-1">{stats.periodOrders}</p>
             <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
-              <div className="w-1 h-1 rounded-full bg-slate-300" /> {stats.pendingOrders} Pending
+              <div className="w-1 h-1 rounded-full bg-slate-300" /> All-time: {stats.totalOrders}
             </p>
           </div>
 
-          {/* Changed from "Active Customers" to "Registered Users" */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300 group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl group-hover:scale-110 transition-transform">
-                <UserCheck className="w-6 h-6" />
-              </div>
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
-            </div>
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Registered Users</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{stats.totalUsers}</p>
-            <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
-              <div className="w-1 h-1 rounded-full bg-slate-300" /> {stats.conversionRate.toFixed(1)}% Conversion
-            </p>
-          </div>
-
-          {/* Changed from "Catalog Size" to "Stock Deliveries" */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300 group">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-purple-50 text-purple-600 p-3 rounded-2xl group-hover:scale-110 transition-transform">
                 <Boxes className="w-6 h-6" />
               </div>
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
+              <span className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+                {getFilterLabel()}
+              </span>
             </div>
             <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Stock Deliveries</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{stats.recentDeliveries}</p>
+            <p className="text-3xl font-black text-slate-900 mt-1">{stats.periodDeliveries}</p>
             <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
-              <div className="w-1 h-1 rounded-full bg-slate-300" /> {stats.lowStockCount} Low Stock • {stats.outOfStockCount} Out
+              <div className="w-1 h-1 rounded-full bg-slate-300" /> 
+              {stats.lowStockCount} Low Stock • {stats.outOfStockCount} Out
             </p>
-          </div>
-        </div>
-
-        {/* Deliveries Section */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="bg-amber-50 p-3 rounded-xl">
-              <Clock className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.pendingOrders}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="bg-indigo-50 p-3 rounded-xl">
-              <Loader className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.processingOrders}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Processing</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="bg-blue-50 p-3 rounded-xl">
-              <Truck className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.shippedOrders}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Shipped</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="bg-emerald-50 p-3 rounded-xl">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.deliveredOrders}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Delivered</p>
-            </div>
           </div>
         </div>
 
         {/* Main Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-          {/* Recent Orders Table */}
+          {/* Recent Transactions Table */}
           <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-xl font-black text-slate-900">Recent Transactions</h2>
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Recent Transactions</h2>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">
+                  Showing orders for: <span className="text-indigo-600">{getFilterLabel()}</span>
+                </p>
+              </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
@@ -477,7 +432,6 @@ const AdminDashboard = () => {
                               {order.customerName?.substring(0,2).toUpperCase() || 'CU'}
                             </div>
                             <div className="min-w-0">
-                              {/* Now shows actual customer name */}
                               <p className="text-sm font-bold text-slate-900 truncate">{order.customerName}</p>
                               <p className="text-[10px] font-bold text-slate-400">#{order.id.substring(0,8).toUpperCase()}</p>
                             </div>
@@ -502,7 +456,7 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-4 py-4">
                           <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${getStatusStyles(order.status || '')}`}>
-                            {order.status}
+                            {order.status || 'Pending'}
                           </span>
                         </td>
                         <td className="px-4 py-4 text-right">
@@ -523,7 +477,9 @@ const AdminDashboard = () => {
                 <div className="py-20 text-center">
                   <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-4" />
                   <p className="text-slate-400 font-bold">
-                    {searchQuery ? 'No orders match your search' : 'No recent orders found'}
+                    {searchQuery 
+                      ? 'No orders match your search' 
+                      : `No orders found for ${getFilterLabel().toLowerCase()}`}
                   </p>
                 </div>
               )}
@@ -589,7 +545,7 @@ const AdminDashboard = () => {
                 <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-xl">
                   <Award className="w-5 h-5 text-white" />
                 </div>
-                Best Sellers
+                Best Sellers (All Time)
               </h2>
               <div className="space-y-4">
                 {topProducts.map((product, idx) => (
