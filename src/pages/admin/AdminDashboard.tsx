@@ -8,7 +8,8 @@ import {
   ShoppingCart, Users, Package, TrendingUp, Eye, RefreshCw,
   Search, ShoppingBag, Truck, Loader, 
   ChevronRight, ChevronLeft, Calendar, Award, Crown, Inbox, Activity,
-  CreditCard, Wallet, Banknote, CheckCircle, Clock, XCircle, AlertCircle
+  CreditCard, Wallet, Banknote, CheckCircle, Clock, XCircle, AlertCircle,
+  UserCheck, Boxes
 } from 'lucide-react';
 import { Order, Product, User, OrderItem } from '../../types';
 
@@ -27,6 +28,8 @@ interface DashboardStats {
   periodSales: number;
   periodOrders: number;
   lowStockCount: number;
+  outOfStockCount: number;
+  recentDeliveries: number;
 }
 
 interface OrderWithDetails extends Order {
@@ -62,7 +65,7 @@ const AdminDashboard = () => {
     totalSales: 0, totalOrders: 0, totalUsers: 0, totalProducts: 0,
     pendingOrders: 0, deliveredOrders: 0, shippedOrders: 0, processingOrders: 0,
     cancelledOrders: 0, averageOrderValue: 0, conversionRate: 0, periodSales: 0,
-    periodOrders: 0, lowStockCount: 0
+    periodOrders: 0, lowStockCount: 0, outOfStockCount: 0, recentDeliveries: 0
   });
 
   const [allOrders, setAllOrders] = useState<OrderWithDetails[]>([]);
@@ -150,6 +153,15 @@ const AdminDashboard = () => {
       
       const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
       const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
+      const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
+      
+      // Recent deliveries (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const recentDeliveries = orders.filter(order => {
+        const orderDate = new Date(order.orderDate);
+        return orderDate >= sevenDaysAgo && order.status?.toLowerCase() === 'delivered';
+      }).length;
 
       // Product sales map
       const productSales = new Map<string, number>();
@@ -169,14 +181,16 @@ const AdminDashboard = () => {
         .sort((a, b) => b.salesCount - a.salesCount)
         .slice(0, 5);
 
+      // Build orders with actual customer details
       const ordersWithDetails = orders
         .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
         .map(order => {
           const customer = users.find((u: User) => u.id === order.userId);
           return {
             ...order,
-            customerName: customer?.fullName || 'Guest Customer',
-            customerEmail: customer?.email || 'guest@example.com',
+            // Use actual customer name instead of "Guest Customer"
+            customerName: customer?.fullName || customer?.fullName|| `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
+            customerEmail: customer?.email || 'No email provided',
             itemCount: order.items?.length || 0
           };
         });
@@ -186,7 +200,8 @@ const AdminDashboard = () => {
         pendingOrders, deliveredOrders, shippedOrders, processingOrders, cancelledOrders, 
         averageOrderValue,
         conversionRate: users.length > 0 ? (totalOrders / users.length) * 100 : 0,
-        periodSales, periodOrders: periodOrders.length, lowStockCount
+        periodSales, periodOrders: periodOrders.length, lowStockCount, outOfStockCount,
+        recentDeliveries
       });
       setAllOrders(ordersWithDetails);
       setTopProducts(sortedProducts);
@@ -352,31 +367,33 @@ const AdminDashboard = () => {
             </p>
           </div>
 
+          {/* Changed from "Active Customers" to "Registered Users" */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300 group">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl group-hover:scale-110 transition-transform">
-                <Users className="w-6 h-6" />
+                <UserCheck className="w-6 h-6" />
               </div>
               <TrendingUp className="w-5 h-5 text-emerald-500" />
             </div>
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Active Customers</p>
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Registered Users</p>
             <p className="text-3xl font-black text-slate-900 mt-1">{stats.totalUsers}</p>
             <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
               <div className="w-1 h-1 rounded-full bg-slate-300" /> {stats.conversionRate.toFixed(1)}% Conversion
             </p>
           </div>
 
+          {/* Changed from "Catalog Size" to "Stock Deliveries" */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300 group">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-purple-50 text-purple-600 p-3 rounded-2xl group-hover:scale-110 transition-transform">
-                <Package className="w-6 h-6" />
+                <Boxes className="w-6 h-6" />
               </div>
               <TrendingUp className="w-5 h-5 text-emerald-500" />
             </div>
-            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Catalog Size</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{stats.totalProducts}</p>
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Stock Deliveries</p>
+            <p className="text-3xl font-black text-slate-900 mt-1">{stats.recentDeliveries}</p>
             <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
-              <div className="w-1 h-1 rounded-full bg-slate-300" /> {stats.lowStockCount} Low Stock
+              <div className="w-1 h-1 rounded-full bg-slate-300" /> {stats.lowStockCount} Low Stock • {stats.outOfStockCount} Out
             </p>
           </div>
         </div>
@@ -457,9 +474,10 @@ const AdminDashboard = () => {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs flex-shrink-0">
-                              {order.customerName?.substring(0,2).toUpperCase()}
+                              {order.customerName?.substring(0,2).toUpperCase() || 'CU'}
                             </div>
                             <div className="min-w-0">
+                              {/* Now shows actual customer name */}
                               <p className="text-sm font-bold text-slate-900 truncate">{order.customerName}</p>
                               <p className="text-[10px] font-bold text-slate-400">#{order.id.substring(0,8).toUpperCase()}</p>
                             </div>
@@ -642,4 +660,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard
+export default AdminDashboard;
