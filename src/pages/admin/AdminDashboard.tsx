@@ -157,23 +157,45 @@ const AdminDashboard = () => {
       // Average order value for the period
       const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
 
-      // Product sales map for ALL orders (best sellers should show all-time)
+      // FIXED: Product sales map - ONLY count items from DELIVERED/COMPLETED orders (actual sold products)
+      // This ensures "Best Sellers" shows products that have actually been sold and delivered
       const productSales = new Map<string, number>();
-      allOrdersData.forEach(order => {
+      const productRevenue = new Map<string, number>();
+      
+      // Only count items from delivered/shipped orders (actual sales)
+      const completedOrders = allOrdersData.filter(order => 
+        order.status?.toLowerCase() === 'delivered' || 
+        order.status?.toLowerCase() === 'shipped'
+      );
+      
+      completedOrders.forEach(order => {
         order.items?.forEach((item: OrderItem) => {
           const productId = item.productId.toString();
-          productSales.set(productId, (productSales.get(productId) || 0) + item.quantity);
+          const quantity = item.quantity || 0;
+          const price = item.unitPrice || item.price || 0;
+          
+          // Add to sales count
+          productSales.set(productId, (productSales.get(productId) || 0) + quantity);
+          
+          // Add to revenue (actual sold revenue)
+          productRevenue.set(productId, (productRevenue.get(productId) || 0) + (quantity * price));
         });
       });
 
+      // Sort products by actual sales count (sold units)
       const sortedProducts = products
-        .map(p => ({ 
-          ...p, 
-          salesCount: productSales.get(p.id.toString()) || 0, 
-          revenue: (productSales.get(p.id.toString()) || 0) * p.price 
-        }))
-        .sort((a, b) => b.salesCount - a.salesCount)
-        .slice(0, 5);
+        .map(p => {
+          const salesCount = productSales.get(p.id.toString()) || 0;
+          const revenue = productRevenue.get(p.id.toString()) || 0;
+          return {
+            ...p,
+            salesCount,
+            revenue
+          };
+        })
+        .filter(p => p.salesCount > 0) // Only show products that have actually sold
+        .sort((a, b) => b.salesCount - a.salesCount) // Sort by sales count (units sold)
+        .slice(0, 5); // Top 5 best sellers
 
       // Build period orders with actual customer details
       const periodOrdersWithDetails = filteredPeriodOrders
@@ -182,7 +204,7 @@ const AdminDashboard = () => {
           const customer = users.find((u: User) => u.id === order.userId);
           return {
             ...order,
-            customerName: customer?.fullName || customer?.fullName || `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
+            customerName: customer?.fullName || customer?.username || `Customer #${order.userId?.substring(0, 8) || 'Unknown'}`,
             customerEmail: customer?.email || 'No email provided',
             itemCount: order.items?.length || 0
           };
@@ -545,7 +567,10 @@ const AdminDashboard = () => {
                 <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-xl">
                   <Award className="w-5 h-5 text-white" />
                 </div>
-                Best Sellers (All Time)
+                Best Sellers
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full ml-auto">
+                  Based on Sold Items
+                </span>
               </h2>
               <div className="space-y-4">
                 {topProducts.map((product, idx) => (
@@ -565,6 +590,9 @@ const AdminDashboard = () => {
                           idx === 0 ? 'ring-2 ring-amber-300 ring-offset-2' : ''
                         }`} 
                         alt={product.name} 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/56';
+                        }}
                       />
                       {idx === 0 ? (
                         <span className="absolute -top-2 -left-2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] font-black flex items-center justify-center rounded-lg border-2 border-white shadow-md">
@@ -582,11 +610,11 @@ const AdminDashboard = () => {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-[10px] font-black uppercase tracking-widest ${idx === 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                          {product.salesCount} Sales
+                          {product.salesCount} Sold
                         </span>
                         {idx === 0 && (
                           <span className="text-[9px] font-black uppercase tracking-widest text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded">
-                            Top
+                            Top Seller
                           </span>
                         )}
                       </div>
@@ -605,6 +633,7 @@ const AdminDashboard = () => {
                   <div className="py-10 text-center">
                     <Package className="w-10 h-10 text-amber-200 mx-auto mb-3" />
                     <p className="text-amber-600 font-bold text-sm">No sales data yet</p>
+                    <p className="text-amber-500 text-xs mt-1">Products will appear here once sold</p>
                   </div>
                 )}
               </div>
