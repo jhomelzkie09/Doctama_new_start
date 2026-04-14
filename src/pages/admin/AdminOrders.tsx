@@ -422,8 +422,8 @@ const AdminOrders = () => {
   return (
     <div className="min-h-screen bg-[#FDFDFD] pb-20">
       {/* Toast Notifications */}
-      {success && <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{success}</div>}
-      {error && <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{error}</div>}
+      {success && <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4 duration-3000">{success}</div>}
+      {error && <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4 duration-3000">{error}</div>}
 
       <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 py-5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -441,7 +441,7 @@ const AdminOrders = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { label: 'Revenue', value: formatCurrency(orderStats.totalRevenue), icon: TrendingUp, color: 'indigo' },
+            { label: 'Sales', value: formatCurrency(orderStats.totalRevenue), icon: TrendingUp, color: 'indigo' },
             { label: 'Pending Approval', value: orderStats.pendingApproval, icon: Clock, color: 'amber' },
             { label: 'Awaiting Delivery', value: orderStats.awaitingDeliveryConfirmation, icon: Truck, color: 'blue' },
             { label: 'Fulfilled', value: orderStats.completedOrders, icon: PackageCheck, color: 'emerald' },
