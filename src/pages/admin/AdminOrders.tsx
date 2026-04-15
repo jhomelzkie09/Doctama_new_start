@@ -55,7 +55,7 @@ interface OrderStats {
 }
 
 // Helper to get color display name and CSS color
-const getColorInfo = (color: string): { name: string; cssColor: string } => {
+const getColorInfo = (color: string): { name: string; cssColor: string; isLight: boolean } => {
   const colorMap: Record<string, string> = {
     'white': '#FFFFFF',
     'natural': '#DEB887',
@@ -83,13 +83,69 @@ const getColorInfo = (color: string): { name: string; cssColor: string } => {
     'pine': '#E8C07A',
     'rosewood': '#65000B',
     'ebony': '#2C2C2C',
+    'red': '#DC2626',
+    'blue': '#2563EB',
+    'green': '#16A34A',
+    'yellow': '#CA8A04',
+    'orange': '#EA580C',
+    'purple': '#9333EA',
+    'pink': '#EC4899',
+    'navy': '#1E3A5F',
+    'silver': '#C0C0C0',
+    'gold': '#D4AF37',
+    'ivory': '#FFFFF0',
   };
-  
+
   const lowerColor = color.toLowerCase().trim();
-  return {
-    name: color,
-    cssColor: colorMap[lowerColor] || '#CCCCCC'
-  };
+  const cssColor = colorMap[lowerColor] || '#CCCCCC';
+
+  // Determine if color is light (needs a dark border to be visible)
+  const lightColors = ['white', 'natural', 'natural wood', 'maple', 'beige', 'cream', 'ash', 'beech', 'pine', 'ivory', 'silver', 'yellow', 'gold'];
+  const isLight = lightColors.includes(lowerColor);
+
+  return { name: color, cssColor, isLight };
+};
+
+// ========== COLOR VARIANT BADGE ==========
+const ColorVariantBadge: React.FC<{ item: any }> = ({ item }) => {
+  const colorRaw: string | undefined = item.color;
+  const variantLabel: string | undefined = item.variant || item.variantName;
+
+  if (!colorRaw && !variantLabel) return null;
+
+  if (colorRaw) {
+    const { name, cssColor, isLight } = getColorInfo(colorRaw);
+    return (
+      <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+        {/* Color swatch */}
+        <span
+          className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
+          style={{
+            backgroundColor: cssColor,
+            border: isLight ? '1.5px solid #CBD5E1' : '1.5px solid transparent',
+          }}
+          title={name}
+        />
+        {/* Label */}
+        <span className="text-[11px] font-bold text-slate-600 capitalize">{name}</span>
+        {/* Pill tag */}
+        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+          Color
+        </span>
+      </div>
+    );
+  }
+
+  // Fallback for non-color variants (e.g. size)
+  return (
+    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+      <Palette className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+      <span className="text-[11px] font-bold text-slate-600">{variantLabel}</span>
+      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+        Variant
+      </span>
+    </div>
+  );
 };
 
 // ========== MOBILE ORDER CARD ==========
@@ -708,53 +764,33 @@ const AdminOrders = () => {
                 </div>
               </section>
 
-              {/* Order Items Section with Color Variant */}
+              {/* ========== ORDER ITEMS SECTION (with enhanced Color Variant) ========== */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <Package className="w-4 h-4" /> Order Items
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {selectedOrder.items?.map((item: any, i: number) => {
-                    const colorInfo = item.color ? getColorInfo(item.color) : null;
                     const hasVariant = item.color || item.variant || item.variantName;
-                    
+
                     return (
-                      <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-black text-slate-700">{item.productName}</p>
-                            
-                            {/* Color/Variant Information Row */}
-                            {hasVariant && (
-                              <div className="flex items-center gap-2 mt-1.5">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                                  <Palette className="w-3 h-3" />
-                                  Variant:
-                                </span>
-                                {item.color && colorInfo && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span 
-                                      className="w-4 h-4 rounded-full border border-slate-300 shadow-sm" 
-                                      style={{ backgroundColor: colorInfo.cssColor }}
-                                      title={colorInfo.name}
-                                    />
-                                    <span className="text-xs font-medium text-slate-700">{colorInfo.name}</span>
-                                  </div>
-                                )}
-                                {item.variant && !item.color && (
-                                  <span className="text-xs font-medium text-slate-700">{item.variant}</span>
-                                )}
-                                {item.variantName && !item.color && !item.variant && (
-                                  <span className="text-xs font-medium text-slate-700">{item.variantName}</span>
-                                )}
-                              </div>
-                            )}
-                            
+                      <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            {/* Product name */}
+                            <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
+
+                            {/* ── Color / Variant Badge ── */}
+                            {hasVariant && <ColorVariantBadge item={item} />}
+
+                            {/* Qty × Price */}
                             <p className="text-xs font-bold text-indigo-500 mt-2">
                               Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
                             </p>
                           </div>
-                          <p className="font-black text-slate-900">
+
+                          {/* Line total */}
+                          <p className="font-black text-slate-900 text-sm whitespace-nowrap">
                             {formatCurrency((item.unitPrice || item.price) * item.quantity)}
                           </p>
                         </div>
@@ -762,6 +798,7 @@ const AdminOrders = () => {
                     );
                   })}
                 </div>
+
                 <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
                   <div className="flex justify-between">
                     <span className="text-sm font-bold text-slate-600">Total Amount</span>
