@@ -20,12 +20,12 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Filter
+  Filter,
+  ArrowUpRight
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import { Product } from '../../types';
 
-// Time filter types
 type TimeFilter = 'all' | 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'this_year';
 
 const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
@@ -42,7 +42,7 @@ const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
 const StockDelivery = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  
+
   const [deliveries, setDeliveries] = useState<DeliveryOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,79 +63,52 @@ const StockDelivery = () => {
     totalDeliveries: 0,
     averageOrderValue: 0
   });
-  
+
   const itemsPerPage = 10;
 
   useEffect(() => {
-    if (!isAdmin) {
-      navigate('/');
-      return;
-    }
+    if (!isAdmin) { navigate('/'); return; }
     loadData();
   }, [isAdmin, navigate]);
 
-  // Helper function to get date range based on filter
   const getDateRange = (filter: TimeFilter): { start: Date | null; end: Date | null } => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
     switch (filter) {
-      case 'all':
-        return { start: null, end: null };
-      case 'today':
-        return { start: today, end: now };
+      case 'all': return { start: null, end: null };
+      case 'today': return { start: today, end: now };
       case 'yesterday': {
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayEnd = new Date(today);
-        yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
-        yesterdayEnd.setHours(23, 59, 59, 999);
-        return { start: yesterday, end: yesterdayEnd };
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        const ye = new Date(today); ye.setDate(ye.getDate() - 1); ye.setHours(23, 59, 59, 999);
+        return { start: y, end: ye };
       }
       case 'this_week': {
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-        return { start: startOfWeek, end: now };
+        const s = new Date(today); s.setDate(today.getDate() - today.getDay()); s.setHours(0,0,0,0);
+        return { start: s, end: now };
       }
       case 'last_week': {
-        const startOfLastWeek = new Date(today);
-        startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
-        startOfLastWeek.setHours(0, 0, 0, 0);
-        const endOfLastWeek = new Date(startOfLastWeek);
-        endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
-        endOfLastWeek.setHours(23, 59, 59, 999);
-        return { start: startOfLastWeek, end: endOfLastWeek };
+        const s = new Date(today); s.setDate(today.getDate() - today.getDay() - 7); s.setHours(0,0,0,0);
+        const e = new Date(s); e.setDate(s.getDate() + 6); e.setHours(23,59,59,999);
+        return { start: s, end: e };
       }
-      case 'this_month': {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        return { start: startOfMonth, end: now };
-      }
+      case 'this_month': return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
       case 'last_month': {
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-        endOfLastMonth.setHours(23, 59, 59, 999);
-        return { start: startOfLastMonth, end: endOfLastMonth };
+        const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const e = new Date(now.getFullYear(), now.getMonth(), 0); e.setHours(23,59,59,999);
+        return { start: s, end: e };
       }
-      case 'this_year': {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        return { start: startOfYear, end: now };
-      }
-      default:
-        return { start: null, end: null };
+      case 'this_year': return { start: new Date(now.getFullYear(), 0, 1), end: now };
+      default: return { start: null, end: null };
     }
   };
 
-  // Filter deliveries by date range
   const filterDeliveriesByDate = (deliveries: DeliveryOrder[], filter: TimeFilter): DeliveryOrder[] => {
     if (filter === 'all') return deliveries;
-    
     const { start, end } = getDateRange(filter);
     if (!start || !end) return deliveries;
-    
-    return deliveries.filter(delivery => {
-      const deliveryDate = new Date(delivery.deliveryDate);
-      return deliveryDate >= start && deliveryDate <= end;
+    return deliveries.filter(d => {
+      const date = new Date(d.deliveryDate);
+      return date >= start && date <= end;
     });
   };
 
@@ -147,12 +120,10 @@ const StockDelivery = () => {
         deliveryService.getAllDeliveries(),
         deliveryService.getDeliveryStats()
       ]);
-      
       setProducts(productsData);
       setDeliveries(deliveriesData);
       setStats(statsData);
     } catch (err) {
-      console.error('Failed to load data:', err);
       setError('Failed to load delivery data');
     } finally {
       setLoading(false);
@@ -167,440 +138,427 @@ const StockDelivery = () => {
   const handleConfirmReceive = async (delivery: DeliveryOrder, receivedItems: DeliveryItem[]) => {
     setUpdatingStock(true);
     const loadingToast = showLoading('Processing delivery...');
-    
     try {
-      const itemsToReceive = receivedItems.map(item => ({
+      await deliveryService.receiveDelivery(delivery.id, receivedItems.map(item => ({
         productId: item.productId,
         receivedQuantity: item.receivedQuantity
-      }));
-      
-      await deliveryService.receiveDelivery(delivery.id, itemsToReceive);
-      
+      })));
       dismissToast(loadingToast);
       showSuccess('Delivery received successfully! Stock updated.');
       setShowReceiveModal(false);
       setSelectedDelivery(null);
-      
       await loadData();
     } catch (error) {
       dismissToast(loadingToast);
       showError('Failed to process delivery');
-      console.error('Error processing delivery:', error);
     } finally {
       setUpdatingStock(false);
     }
   };
 
-  const handleCreateDelivery = () => {
-    navigate('/admin/deliveries/new');
-  };
-
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   const formatDateTime = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatCurrency = (amount: number) => {
-    return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const formatCurrency = (amount: number) =>
+    `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const getStatusBadge = (status: string) => {
+  const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'received':
-        return { label: 'Received', className: 'bg-green-100 text-green-800', icon: CheckCircle };
-      case 'pending':
-        return { label: 'Pending', className: 'bg-yellow-100 text-yellow-800', icon: Clock };
-      case 'partial':
-        return { label: 'Partial', className: 'bg-orange-100 text-orange-800', icon: AlertTriangle };
-      case 'cancelled':
-        return { label: 'Cancelled', className: 'bg-red-100 text-red-800', icon: XCircle };
-      default:
-        return { label: status, className: 'bg-gray-100 text-gray-800', icon: Package };
+      case 'received': return { label: 'Received', dot: 'bg-emerald-400', text: 'text-emerald-700', bg: 'bg-emerald-50', icon: CheckCircle };
+      case 'pending':  return { label: 'Pending',  dot: 'bg-amber-400',   text: 'text-amber-700',  bg: 'bg-amber-50',  icon: Clock };
+      case 'partial':  return { label: 'Partial',  dot: 'bg-orange-400',  text: 'text-orange-700', bg: 'bg-orange-50', icon: AlertTriangle };
+      case 'cancelled':return { label: 'Cancelled',dot: 'bg-rose-400',    text: 'text-rose-700',   bg: 'bg-rose-50',   icon: XCircle };
+      default:         return { label: status,     dot: 'bg-gray-400',    text: 'text-gray-600',   bg: 'bg-gray-50',   icon: Package };
     }
   };
 
-  // Apply filters: date filter first, then search and status
   const dateFilteredDeliveries = filterDeliveriesByDate(deliveries, timeFilter);
-  
-  const filteredDeliveries = dateFilteredDeliveries.filter(delivery => {
-    const matchesSearch = delivery.deliveryNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         delivery.supplierName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         delivery.purchaseOrderNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || delivery.status === statusFilter;
+  const filteredDeliveries = dateFilteredDeliveries.filter(d => {
+    const matchesSearch =
+      d.deliveryNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.supplierName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.purchaseOrderNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredDeliveries.length / itemsPerPage);
   const paginatedDeliveries = filteredDeliveries.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Calculate stats for filtered period
   const filteredStats = {
     totalDeliveries: dateFilteredDeliveries.length,
-    pendingCount: dateFilteredDeliveries.filter(d => d.status === 'pending').length,
+    pendingCount:  dateFilteredDeliveries.filter(d => d.status === 'pending').length,
     receivedCount: dateFilteredDeliveries.filter(d => d.status === 'received').length,
-    partialCount: dateFilteredDeliveries.filter(d => d.status === 'partial').length,
+    partialCount:  dateFilteredDeliveries.filter(d => d.status === 'partial').length,
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center min-h-screen bg-stone-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-6 h-6 animate-spin text-stone-400" />
+          <p className="text-sm text-stone-400 tracking-wide">Loading deliveries…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Truck className="w-6 h-6 text-indigo-600" />
-            Stock Delivery Management
-          </h1>
-          <p className="text-gray-600 mt-1">Manage incoming stock deliveries and inventory</p>
-        </div>
-        <button
-          onClick={handleCreateDelivery}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Delivery Order
-        </button>
-      </div>
+    <div className="min-h-screen bg-stone-50" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+        .delivery-row { transition: background 0.15s ease; }
+        .delivery-row:hover { background: #fafaf9; }
+        .btn-primary { transition: all 0.15s ease; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+        .stat-card { transition: all 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+        .action-btn { transition: all 0.15s ease; }
+        .action-btn:hover { transform: scale(1.1); }
+        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px !important; }
+      `}</style>
 
-      {/* Stats Cards - Removed Total Value */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pending Deliveries</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredStats.pendingCount}</p>
-            </div>
-            <Clock className="w-8 h-8 text-yellow-500 opacity-75" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Received Deliveries</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredStats.receivedCount}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500 opacity-75" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Deliveries</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredStats.totalDeliveries}</p>
-            </div>
-            <Package className="w-8 h-8 text-blue-500 opacity-75" />
-          </div>
-        </div>
-      </div>
+      <div className="max-w-7xl mx-auto px-6 py-10">
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by PO number, delivery number or supplier..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between mb-10">
+          <div>
+            <p className="text-xs font-medium tracking-[0.15em] uppercase text-stone-400 mb-1">Inventory</p>
+            <h1 className="text-3xl font-light text-stone-900 tracking-tight">Stock Deliveries</h1>
           </div>
-          
-          {/* Time Filter Dropdown */}
-          <div className="relative">
-            <select
-              value={timeFilter}
-              onChange={(e) => {
-                setTimeFilter(e.target.value as TimeFilter);
-                setCurrentPage(1);
-              }}
-              className="pl-4 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 appearance-none bg-white"
-            >
-              {TIME_FILTER_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-          </div>
-          
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="received">Received</option>
-            <option value="partial">Partial</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          
           <button
-            onClick={loadData}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            title="Refresh"
+            onClick={() => navigate('/admin/deliveries/new')}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl"
           >
-            <RefreshCw className="w-5 h-5 text-gray-600" />
+            <Plus className="w-4 h-4" />
+            New Order
           </button>
         </div>
-        
-        {/* Filter Summary */}
-        {timeFilter !== 'all' && (
-          <div className="mt-3 text-sm text-gray-500 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            <span>
-              Showing deliveries for: <strong>{TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label}</strong>
-              {filteredDeliveries.length > 0 && ` (${filteredDeliveries.length} deliveries)`}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <span className="text-red-700">{error}</span>
-        </div>
-      )}
-
-      {/* Deliveries Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivery Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Received</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedDeliveries.map((delivery) => {
-                const status = getStatusBadge(delivery.status);
-                const StatusIcon = status.icon;
-                const isOverdue = delivery.status === 'pending' && new Date(delivery.expectedDate) < new Date();
-                
-                return (
-                  <tr key={delivery.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-mono text-sm text-gray-900">{delivery.deliveryNumber}</td>
-                    <td className="px-6 py-4 font-mono text-sm text-gray-600">{delivery.purchaseOrderNumber}</td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{delivery.supplierName}</div>
-                      {delivery.supplierContact && (
-                        <div className="text-xs text-gray-500">{delivery.supplierContact}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className={`flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
-                        <Calendar className="w-4 h-4" />
-                        {formatDate(delivery.expectedDate)}
-                      </div>
-                      {isOverdue && <span className="text-xs text-red-500 mt-1 block">Overdue</span>}
-                    </td>
-                    <td className="px-6 py-4">
-                      {delivery.receivedAt ? (
-                        <div className="text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                            {formatDate(delivery.receivedAt)}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {new Date(delivery.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{delivery.totalItems} items / {delivery.totalQuantity} units</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${status.className}`}>
-                        <StatusIcon className="w-3 h-3" />
-                        {status.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {delivery.status !== 'received' && delivery.status !== 'cancelled' && (
-                          <button
-                            onClick={() => handleReceiveDelivery(delivery)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Receive Delivery"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setSelectedDelivery(delivery);
-                            setShowDeliveryModal(true);
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Empty State */}
-        {paginatedDeliveries.length === 0 && (
-          <div className="text-center py-12">
-            <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery orders found</h3>
-            <p className="text-gray-500 mb-6">
-              {timeFilter !== 'all' 
-                ? `No deliveries found for ${TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label.toLowerCase()}`
-                : 'Get started by creating a new delivery order'}
-            </p>
-            <button
-              onClick={handleCreateDelivery}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Delivery Order
-            </button>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t flex items-center justify-between bg-gray-50">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="flex items-center px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="flex items-center px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-            >
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Delivery Details Modal */}
-      {showDeliveryModal && selectedDelivery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Delivery Details</h2>
-                <p className="text-sm text-gray-500">Delivery #{selectedDelivery.deliveryNumber}</p>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[
+            {
+              label: 'Pending',
+              value: filteredStats.pendingCount,
+              sub: 'awaiting receipt',
+              accent: 'border-amber-200',
+              valueColor: 'text-amber-600',
+              icon: Clock,
+              iconColor: 'text-amber-400 bg-amber-50'
+            },
+            {
+              label: 'Received',
+              value: filteredStats.receivedCount,
+              sub: 'completed',
+              accent: 'border-emerald-200',
+              valueColor: 'text-emerald-600',
+              icon: CheckCircle,
+              iconColor: 'text-emerald-400 bg-emerald-50'
+            },
+            {
+              label: 'Total Orders',
+              value: filteredStats.totalDeliveries,
+              sub: TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label.toLowerCase() ?? 'all time',
+              accent: 'border-stone-200',
+              valueColor: 'text-stone-800',
+              icon: Package,
+              iconColor: 'text-stone-400 bg-stone-100'
+            }
+          ].map(({ label, value, sub, accent, valueColor, icon: Icon, iconColor }) => (
+            <div key={label} className={`stat-card bg-white border ${accent} rounded-2xl p-6`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-3">{label}</p>
+                  <p className={`text-4xl font-light ${valueColor}`}>{value}</p>
+                  <p className="text-xs text-stone-400 mt-1">{sub}</p>
+                </div>
+                <div className={`p-2.5 rounded-xl ${iconColor}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
               </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Filters ── */}
+        <div className="bg-white border border-stone-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search by PO number, delivery number or supplier…"
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200 focus:border-stone-300"
+              />
+            </div>
+
+            <select
+              value={timeFilter}
+              onChange={e => { setTimeFilter(e.target.value as TimeFilter); setCurrentPage(1); }}
+              className="py-2.5 pl-3 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-[130px]"
+            >
+              {TIME_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              className="py-2.5 pl-3 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-[120px]"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="received">Received</option>
+              <option value="partial">Partial</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            <button
+              onClick={loadData}
+              className="p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-stone-500 hover:bg-stone-100 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+
+          {timeFilter !== 'all' && (
+            <div className="mt-3 pt-3 border-t border-stone-100 flex items-center gap-1.5 text-xs text-stone-400">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Filtered by <span className="font-medium text-stone-600">{TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label}</span></span>
+              {filteredDeliveries.length > 0 && <span className="ml-1">· {filteredDeliveries.length} result{filteredDeliveries.length !== 1 ? 's' : ''}</span>}
+            </div>
+          )}
+        </div>
+
+        {/* ── Error ── */}
+        {error && (
+          <div className="mb-6 px-4 py-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-sm text-rose-600">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {/* ── Table ── */}
+        <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
+          {paginatedDeliveries.length > 0 ? (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  <thead>
+                    <tr className="border-b border-stone-100">
+                      {['Delivery #', 'PO #', 'Supplier', 'Expected', 'Date Received', 'Items', 'Status', ''].map(h => (
+                        <th key={h} className="px-6 py-4 text-left text-xs font-medium text-stone-400 uppercase tracking-wider whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {paginatedDeliveries.map(delivery => {
+                      const sc = getStatusConfig(delivery.status);
+                      const isOverdue = delivery.status === 'pending' && new Date(delivery.expectedDate) < new Date();
+
+                      return (
+                        <tr key={delivery.id} className="delivery-row">
+                          <td className="px-6 py-4">
+                            <span className="font-mono text-xs text-stone-600 bg-stone-50 px-2 py-1 rounded-lg">
+                              {delivery.deliveryNumber}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-mono text-xs text-stone-400">
+                              {delivery.purchaseOrderNumber}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-medium text-stone-800">{delivery.supplierName}</p>
+                            {delivery.supplierContact && (
+                              <p className="text-xs text-stone-400 mt-0.5">{delivery.supplierContact}</p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className={`text-sm ${isOverdue ? 'text-rose-500 font-medium' : 'text-stone-600'}`}>
+                              {formatDate(delivery.expectedDate)}
+                            </p>
+                            {isOverdue && <p className="text-xs text-rose-400 mt-0.5">Overdue</p>}
+                          </td>
+                          <td className="px-6 py-4">
+                            {delivery.receivedAt ? (
+                              <div>
+                                <p className="text-sm text-stone-600">{formatDate(delivery.receivedAt)}</p>
+                                <p className="text-xs text-stone-400 mt-0.5">
+                                  {new Date(delivery.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-stone-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-stone-700">{delivery.totalItems} items</p>
+                            <p className="text-xs text-stone-400 mt-0.5">{delivery.totalQuantity} units</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${sc.bg} ${sc.text}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                              {sc.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1">
+                              {delivery.status !== 'received' && delivery.status !== 'cancelled' && (
+                                <button
+                                  onClick={() => handleReceiveDelivery(delivery)}
+                                  className="action-btn p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"
+                                  title="Receive Delivery"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => { setSelectedDelivery(delivery); setShowDeliveryModal(true); }}
+                                className="action-btn p-2 text-stone-400 hover:bg-stone-50 rounded-lg"
+                                title="View Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-between">
+                  <p className="text-xs text-stone-400">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 border border-stone-200 rounded-lg text-stone-500 hover:bg-stone-50 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 border border-stone-200 rounded-lg text-stone-500 hover:bg-stone-50 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Empty State */
+            <div className="text-center py-20">
+              <div className="w-14 h-14 bg-stone-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Truck className="w-7 h-7 text-stone-300" />
+              </div>
+              <h3 className="text-base font-medium text-stone-700 mb-1">No deliveries found</h3>
+              <p className="text-sm text-stone-400 mb-6 max-w-xs mx-auto">
+                {timeFilter !== 'all'
+                  ? `No deliveries for ${TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label.toLowerCase()}`
+                  : 'Get started by creating your first delivery order'}
+              </p>
               <button
-                onClick={() => setShowDeliveryModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
+                onClick={() => navigate('/admin/deliveries/new')}
+                className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl"
               >
-                <X className="w-5 h-5" />
+                <Plus className="w-4 h-4" />
+                Create Delivery Order
               </button>
             </div>
-            
-            <div className="p-6 space-y-6">
+          )}
+        </div>
+      </div>
+
+      {/* ── Delivery Details Modal ── */}
+      {showDeliveryModal && selectedDelivery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-stone-100">
+            <div className="sticky top-0 bg-white border-b border-stone-100 px-6 py-5 flex justify-between items-center rounded-t-2xl">
+              <div>
+                <h2 className="text-lg font-semibold text-stone-900">Delivery Details</h2>
+                <p className="text-xs text-stone-400 mt-0.5" style={{ fontFamily: 'DM Mono, monospace' }}>
+                  #{selectedDelivery.deliveryNumber}
+                </p>
+              </div>
+              <button onClick={() => setShowDeliveryModal(false)} className="p-2 hover:bg-stone-50 rounded-xl transition">
+                <X className="w-4 h-4 text-stone-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Supplier</p>
-                  <p className="font-medium text-gray-900">{selectedDelivery.supplierName}</p>
-                  <p className="text-sm text-gray-600">{selectedDelivery.supplierContact}</p>
-                  {selectedDelivery.supplierEmail && <p className="text-sm text-gray-600">{selectedDelivery.supplierEmail}</p>}
-                  {selectedDelivery.supplierPhone && <p className="text-sm text-gray-600">{selectedDelivery.supplierPhone}</p>}
+                <div className="bg-stone-50 rounded-xl p-4">
+                  <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Supplier</p>
+                  <p className="font-medium text-stone-900 text-sm">{selectedDelivery.supplierName}</p>
+                  {selectedDelivery.supplierContact && <p className="text-xs text-stone-500 mt-1">{selectedDelivery.supplierContact}</p>}
+                  {selectedDelivery.supplierEmail && <p className="text-xs text-stone-500">{selectedDelivery.supplierEmail}</p>}
+                  {selectedDelivery.supplierPhone && <p className="text-xs text-stone-500">{selectedDelivery.supplierPhone}</p>}
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Order Details</p>
-                  <p className="font-medium text-gray-900">PO: {selectedDelivery.purchaseOrderNumber}</p>
-                  <p className="text-sm text-gray-600">Delivery Date: {formatDate(selectedDelivery.deliveryDate)}</p>
-                  <p className="text-sm text-gray-600">Expected: {formatDate(selectedDelivery.expectedDate)}</p>
+                <div className="bg-stone-50 rounded-xl p-4">
+                  <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Order Info</p>
+                  <p className="text-xs text-stone-600 font-mono">PO: {selectedDelivery.purchaseOrderNumber}</p>
+                  <p className="text-xs text-stone-500 mt-1">Delivery: {formatDate(selectedDelivery.deliveryDate)}</p>
+                  <p className="text-xs text-stone-500">Expected: {formatDate(selectedDelivery.expectedDate)}</p>
                   {selectedDelivery.trackingNumber && (
-                    <p className="text-sm text-gray-600">Tracking: {selectedDelivery.trackingNumber}</p>
+                    <p className="text-xs text-stone-500">Tracking: {selectedDelivery.trackingNumber}</p>
                   )}
                 </div>
               </div>
 
-              {/* Received Date Display in Modal */}
               {selectedDelivery.receivedAt && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">Date Received</p>
-                  <p className="text-green-700">{formatDateTime(selectedDelivery.receivedAt)}</p>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                  <p className="text-xs font-medium text-emerald-600 uppercase tracking-wider mb-1">Received</p>
+                  <p className="text-sm text-emerald-700">{formatDateTime(selectedDelivery.receivedAt)}</p>
                   {selectedDelivery.receivedBy && (
-                    <p className="text-sm text-green-600 mt-1">Received by: {selectedDelivery.receivedBy}</p>
+                    <p className="text-xs text-emerald-500 mt-1">by {selectedDelivery.receivedBy}</p>
                   )}
                 </div>
               )}
 
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Order Items</h3>
-                <div className="overflow-x-auto">
+                <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-3">Order Items</p>
+                <div className="border border-stone-100 rounded-xl overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-stone-50 border-b border-stone-100">
                       <tr>
-                        <th className="px-4 py-2 text-left">Product</th>
-                        <th className="px-4 py-2 text-center">Ordered</th>
-                        <th className="px-4 py-2 text-center">Received</th>
-                        <th className="px-4 py-2 text-right">Unit Price</th>
-                        <th className="px-4 py-2 text-right">Total</th>
+                        {['Product', 'Ordered', 'Received', 'Unit Price', 'Total'].map(h => (
+                          <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-400">{h}</th>
+                        ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-stone-50">
                       {selectedDelivery.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="px-4 py-2 font-medium">{item.productName}</td>
-                          <td className="px-4 py-2 text-center">{item.orderedQuantity}</td>
-                          <td className="px-4 py-2 text-center">
-                            <span className={item.receivedQuantity === item.orderedQuantity ? 'text-green-600' : 'text-orange-600'}>
+                        <tr key={idx} className="hover:bg-stone-50/50">
+                          <td className="px-4 py-3 text-sm font-medium text-stone-800">{item.productName}</td>
+                          <td className="px-4 py-3 text-sm text-stone-500">{item.orderedQuantity}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-sm font-medium ${item.receivedQuantity === item.orderedQuantity ? 'text-emerald-600' : 'text-amber-600'}`}>
                               {item.receivedQuantity}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-right">{formatCurrency(item.unitPrice)}</td>
-                          <td className="px-4 py-2 text-right">{formatCurrency(item.totalPrice)}</td>
+                          <td className="px-4 py-3 text-sm text-stone-500 font-mono">{formatCurrency(item.unitPrice)}</td>
+                          <td className="px-4 py-3 text-sm text-stone-700 font-mono">{formatCurrency(item.totalPrice)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -609,9 +567,9 @@ const StockDelivery = () => {
               </div>
 
               {selectedDelivery.notes && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Notes</p>
-                  <p className="text-gray-700">{selectedDelivery.notes}</p>
+                <div className="bg-stone-50 rounded-xl p-4">
+                  <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">Notes</p>
+                  <p className="text-sm text-stone-600">{selectedDelivery.notes}</p>
                 </div>
               )}
             </div>
@@ -619,14 +577,11 @@ const StockDelivery = () => {
         </div>
       )}
 
-      {/* Receive Delivery Modal */}
+      {/* ── Receive Modal ── */}
       {showReceiveModal && selectedDelivery && (
         <ReceiveDeliveryModal
           delivery={selectedDelivery}
-          onClose={() => {
-            setShowReceiveModal(false);
-            setSelectedDelivery(null);
-          }}
+          onClose={() => { setShowReceiveModal(false); setSelectedDelivery(null); }}
           onConfirm={handleConfirmReceive}
           products={products}
           loading={updatingStock}
@@ -636,7 +591,7 @@ const StockDelivery = () => {
   );
 };
 
-// Receive Delivery Modal Component
+// ── Receive Delivery Modal ──────────────────────────────────────────────────
 interface ReceiveDeliveryModalProps {
   delivery: DeliveryOrder;
   onClose: () => void;
@@ -650,94 +605,109 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
 
   const updateReceivedQuantity = (index: number, quantity: number) => {
     const updated = [...receivedItems];
-    const newQuantity = Math.min(quantity, updated[index].orderedQuantity);
+    const clamped = Math.min(quantity, updated[index].orderedQuantity);
     updated[index] = {
       ...updated[index],
-      receivedQuantity: newQuantity,
-      status: newQuantity === updated[index].orderedQuantity ? 'received' : newQuantity > 0 ? 'partial' : 'pending'
+      receivedQuantity: clamped,
+      status: clamped === updated[index].orderedQuantity ? 'received' : clamped > 0 ? 'partial' : 'pending'
     };
     setReceivedItems(updated);
   };
 
-  const handleConfirm = () => {
-    onConfirm(delivery, receivedItems);
-  };
+  const totalOrdered  = receivedItems.reduce((s, i) => s + i.orderedQuantity, 0);
+  const totalReceived = receivedItems.reduce((s, i) => s + i.receivedQuantity, 0);
+  const totalValue    = receivedItems.reduce((s, i) => s + i.receivedQuantity * i.unitPrice, 0);
 
-  const totalOrdered = receivedItems.reduce((sum, item) => sum + item.orderedQuantity, 0);
-  const totalReceived = receivedItems.reduce((sum, item) => sum + item.receivedQuantity, 0);
-
-  const formatCurrency = (amount: number) => {
-    return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const formatCurrency = (n: number) =>
+    `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-stone-100"
+           style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <div className="sticky top-0 bg-white border-b border-stone-100 px-6 py-5 flex justify-between items-center rounded-t-2xl">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Receive Delivery</h2>
-            <p className="text-sm text-gray-500">PO #{delivery.purchaseOrderNumber} from {delivery.supplierName}</p>
+            <h2 className="text-lg font-semibold text-stone-900">Receive Delivery</h2>
+            <p className="text-xs text-stone-400 mt-0.5">
+              PO #{delivery.purchaseOrderNumber} · {delivery.supplierName}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-2 hover:bg-stone-50 rounded-xl transition">
+            <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
-        
-        <div className="p-6 space-y-6">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-800">Enter the actual quantities received for each item. Stock will be updated automatically.</p>
+
+        <div className="p-6 space-y-5">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-600">
+            Enter the actual quantities received. Stock levels will be updated automatically upon confirmation.
           </div>
 
-          <div className="space-y-4">
-            {receivedItems.map((item, idx) => (
-              <div key={idx} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{item.productName}</h3>
-                    <p className="text-sm text-gray-500">Ordered: {item.orderedQuantity} units</p>
+          <div className="space-y-3">
+            {receivedItems.map((item, idx) => {
+              const pct = item.orderedQuantity > 0 ? (item.receivedQuantity / item.orderedQuantity) * 100 : 0;
+              return (
+                <div key={idx} className="border border-stone-100 rounded-xl p-4 hover:border-stone-200 transition-colors">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="text-sm font-medium text-stone-800">{item.productName}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">Ordered: {item.orderedQuantity} units</p>
+                    </div>
+                    <span className="text-xs font-mono text-stone-500">{formatCurrency(item.unitPrice)} each</span>
                   </div>
-                  <p className="font-medium text-gray-900">{formatCurrency(item.unitPrice)} each</p>
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-stone-500 whitespace-nowrap">Qty received</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={item.orderedQuantity}
+                      value={item.receivedQuantity}
+                      onChange={e => updateReceivedQuantity(idx, parseInt(e.target.value) || 0)}
+                      className="w-24 px-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200 text-center font-mono"
+                    />
+                    <span className="text-xs text-stone-400">/ {item.orderedQuantity}</span>
+                    <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct > 0 ? 'bg-amber-400' : 'bg-stone-200'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-stone-400 w-8 text-right">{Math.round(pct)}%</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <label className="text-sm text-gray-600">Received Quantity:</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={item.orderedQuantity}
-                    value={item.receivedQuantity}
-                    onChange={(e) => updateReceivedQuantity(idx, parseInt(e.target.value) || 0)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-500">/ {item.orderedQuantity} units</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
+          {/* Summary */}
+          <div className="bg-stone-50 rounded-xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Summary</p>
-              <p className="text-lg font-bold text-gray-900">{totalReceived} / {totalOrdered} units received</p>
+              <p className="text-xs text-stone-400 mb-1">Units Received</p>
+              <p className="text-xl font-light text-stone-900">
+                {totalReceived} <span className="text-stone-400 text-sm">/ {totalOrdered}</span>
+              </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Total Value</p>
-              <p className="text-lg font-bold text-gray-900">{formatCurrency(receivedItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitPrice), 0))}</p>
+              <p className="text-xs text-stone-400 mb-1">Total Value</p>
+              <p className="text-xl font-light text-stone-900 font-mono">{formatCurrency(totalValue)}</p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-1">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              className="flex-1 px-4 py-2.5 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50 transition"
             >
               Cancel
             </button>
             <button
-              onClick={handleConfirm}
+              onClick={() => onConfirm(delivery, receivedItems)}
               disabled={loading || totalReceived === 0}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 bg-stone-900 text-white rounded-xl text-sm font-medium hover:bg-stone-800 transition disabled:opacity-40 flex items-center justify-center gap-2"
             >
-              {loading ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm Receipt'}
+              {loading
+                ? <Loader className="w-4 h-4 animate-spin" />
+                : <><CheckCircle className="w-4 h-4" /> Confirm Receipt</>
+              }
             </button>
           </div>
         </div>
