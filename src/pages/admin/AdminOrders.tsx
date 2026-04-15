@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, MapPin, CreditCard, Loader, X, 
   Wallet, Smartphone, DollarSign, Receipt, Calendar, TrendingUp, 
   DownloadCloud, Shield, PackageCheck, ZoomIn, Info, AlertTriangle,
-  Check, Ban, UserCheck
+  Check, Ban, UserCheck, Palette
 } from 'lucide-react';
 import { Order, PaymentMethod, OrderStatus, PaymentStatus } from '../../types';
 
@@ -43,16 +43,54 @@ interface AdminNote {
 }
 
 interface OrderStats {
-  totalSales: number;           // Only from delivered AND paid orders
-  totalRevenue: number;         // All orders (for reference)
+  totalSales: number;
+  totalRevenue: number;
   averageOrderValue: number;
   pendingPayment: number;
-  completedOrders: number;      // Delivered orders count
+  completedOrders: number;
   todayOrders: number;
   pendingApproval: number;
   approvedToday: number;
   awaitingDeliveryConfirmation: number;
 }
+
+// Helper to get color display name and CSS color
+const getColorInfo = (color: string): { name: string; cssColor: string } => {
+  const colorMap: Record<string, string> = {
+    'white': '#FFFFFF',
+    'natural': '#DEB887',
+    'natural wood': '#DEB887',
+    'walnut': '#5C4033',
+    'dark walnut': '#3E2723',
+    'oak': '#D2B48C',
+    'mahogany': '#4A0404',
+    'black': '#1A1A1A',
+    'espresso': '#2C1A14',
+    'cherry': '#8B0000',
+    'maple': '#F5DEB3',
+    'gray': '#808080',
+    'grey': '#808080',
+    'beige': '#F5F5DC',
+    'cream': '#FFFDD0',
+    'brown': '#8B4513',
+    'light brown': '#A0522D',
+    'dark brown': '#3E2723',
+    'teak': '#8B6914',
+    'acacia': '#D2A679',
+    'wenge': '#3A2A1A',
+    'ash': '#C4BAA2',
+    'beech': '#D4B895',
+    'pine': '#E8C07A',
+    'rosewood': '#65000B',
+    'ebony': '#2C2C2C',
+  };
+  
+  const lowerColor = color.toLowerCase().trim();
+  return {
+    name: color,
+    cssColor: colorMap[lowerColor] || '#CCCCCC'
+  };
+};
 
 // ========== MOBILE ORDER CARD ==========
 const OrderMobileCard: React.FC<{
@@ -670,20 +708,59 @@ const AdminOrders = () => {
                 </div>
               </section>
 
+              {/* Order Items Section with Color Variant */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <Package className="w-4 h-4" /> Order Items
                 </h3>
                 <div className="space-y-2">
-                  {selectedOrder.items?.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl">
-                      <div className="flex-1">
-                        <p className="text-sm font-black text-slate-700">{item.productName}</p>
-                        <p className="text-xs font-bold text-indigo-500">Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}</p>
+                  {selectedOrder.items?.map((item: any, i: number) => {
+                    const colorInfo = item.color ? getColorInfo(item.color) : null;
+                    const hasVariant = item.color || item.variant || item.variantName;
+                    
+                    return (
+                      <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-black text-slate-700">{item.productName}</p>
+                            
+                            {/* Color/Variant Information Row */}
+                            {hasVariant && (
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                  <Palette className="w-3 h-3" />
+                                  Variant:
+                                </span>
+                                {item.color && colorInfo && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span 
+                                      className="w-4 h-4 rounded-full border border-slate-300 shadow-sm" 
+                                      style={{ backgroundColor: colorInfo.cssColor }}
+                                      title={colorInfo.name}
+                                    />
+                                    <span className="text-xs font-medium text-slate-700">{colorInfo.name}</span>
+                                  </div>
+                                )}
+                                {item.variant && !item.color && (
+                                  <span className="text-xs font-medium text-slate-700">{item.variant}</span>
+                                )}
+                                {item.variantName && !item.color && !item.variant && (
+                                  <span className="text-xs font-medium text-slate-700">{item.variantName}</span>
+                                )}
+                              </div>
+                            )}
+                            
+                            <p className="text-xs font-bold text-indigo-500 mt-2">
+                              Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
+                            </p>
+                          </div>
+                          <p className="font-black text-slate-900">
+                            {formatCurrency((item.unitPrice || item.price) * item.quantity)}
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-black text-slate-900">{formatCurrency((item.unitPrice || item.price) * item.quantity)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
                   <div className="flex justify-between">
