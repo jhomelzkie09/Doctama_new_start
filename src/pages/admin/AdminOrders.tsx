@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, MapPin, CreditCard, Loader, X, 
   Wallet, Smartphone, DollarSign, Receipt, Calendar, TrendingUp, 
   DownloadCloud, Shield, PackageCheck, ZoomIn, Info, AlertTriangle,
-  Check, Ban, UserCheck, Palette
+  Check, Ban, UserCheck, Palette, Filter, ChevronDown
 } from 'lucide-react';
 import { Order, PaymentMethod, OrderStatus, PaymentStatus } from '../../types';
 
@@ -57,107 +57,58 @@ interface OrderStats {
 // Helper to get color display name and CSS color
 const getColorInfo = (color: string): { name: string; cssColor: string; isLight: boolean } => {
   const colorMap: Record<string, string> = {
-    'white': '#FFFFFF',
-    'natural': '#DEB887',
-    'natural wood': '#DEB887',
-    'walnut': '#5C4033',
-    'dark walnut': '#3E2723',
-    'oak': '#D2B48C',
-    'mahogany': '#4A0404',
-    'black': '#1A1A1A',
-    'espresso': '#2C1A14',
-    'cherry': '#8B0000',
-    'maple': '#F5DEB3',
-    'gray': '#808080',
-    'grey': '#808080',
-    'beige': '#F5F5DC',
-    'cream': '#FFFDD0',
-    'brown': '#8B4513',
-    'light brown': '#A0522D',
-    'dark brown': '#3E2723',
-    'teak': '#8B6914',
-    'acacia': '#D2A679',
-    'wenge': '#3A2A1A',
-    'ash': '#C4BAA2',
-    'beech': '#D4B895',
-    'pine': '#E8C07A',
-    'rosewood': '#65000B',
-    'ebony': '#2C2C2C',
-    'red': '#DC2626',
-    'blue': '#2563EB',
-    'green': '#16A34A',
-    'yellow': '#CA8A04',
-    'orange': '#EA580C',
-    'purple': '#9333EA',
-    'pink': '#EC4899',
-    'navy': '#1E3A5F',
-    'silver': '#C0C0C0',
-    'gold': '#D4AF37',
-    'ivory': '#FFFFF0',
+    'white': '#FFFFFF', 'natural': '#DEB887', 'natural wood': '#DEB887',
+    'walnut': '#5C4033', 'dark walnut': '#3E2723', 'oak': '#D2B48C',
+    'mahogany': '#4A0404', 'black': '#1A1A1A', 'espresso': '#2C1A14',
+    'cherry': '#8B0000', 'maple': '#F5DEB3', 'gray': '#808080',
+    'grey': '#808080', 'beige': '#F5F5DC', 'cream': '#FFFDD0',
+    'brown': '#8B4513', 'light brown': '#A0522D', 'dark brown': '#3E2723',
+    'teak': '#8B6914', 'acacia': '#D2A679', 'wenge': '#3A2A1A',
+    'ash': '#C4BAA2', 'beech': '#D4B895', 'pine': '#E8C07A',
+    'rosewood': '#65000B', 'ebony': '#2C2C2C', 'red': '#DC2626',
+    'blue': '#2563EB', 'green': '#16A34A', 'yellow': '#CA8A04',
+    'orange': '#EA580C', 'purple': '#9333EA', 'pink': '#EC4899',
+    'navy': '#1E3A5F', 'silver': '#C0C0C0', 'gold': '#D4AF37', 'ivory': '#FFFFF0',
   };
-
   const lowerColor = color.toLowerCase().trim();
   const cssColor = colorMap[lowerColor] || '#CCCCCC';
-
-  // Determine if color is light (needs a dark border to be visible)
   const lightColors = ['white', 'natural', 'natural wood', 'maple', 'beige', 'cream', 'ash', 'beech', 'pine', 'ivory', 'silver', 'yellow', 'gold'];
   const isLight = lightColors.includes(lowerColor);
-
   return { name: color, cssColor, isLight };
 };
 
 // ========== COLOR VARIANT BADGE ==========
-// ========== COLOR VARIANT BADGE (FIXED) ==========
 const ColorVariantBadge: React.FC<{ item: any }> = ({ item }) => {
-  // Check for color - handle empty strings
   const colorRaw: string | undefined = item.color && item.color.trim() !== '' ? item.color : undefined;
   const variantLabel: string | undefined = item.variant || item.variantName;
   const size: string | undefined = item.size && item.size.trim() !== '' ? item.size : undefined;
-
-  // If no variants at all, return null
   if (!colorRaw && !variantLabel && !size) return null;
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      {/* Color Variant */}
       {colorRaw && (() => {
         const { name, cssColor, isLight } = getColorInfo(colorRaw);
         return (
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-            <span
-              className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
-              style={{
-                backgroundColor: cssColor,
-                border: isLight ? '1.5px solid #CBD5E1' : '1.5px solid transparent',
-              }}
-              title={name}
-            />
+            <span className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: cssColor, border: isLight ? '1.5px solid #CBD5E1' : '1.5px solid transparent' }}
+              title={name} />
             <span className="text-[11px] font-bold text-slate-600 capitalize">{name}</span>
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-              Color
-            </span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Color</span>
           </div>
         );
       })()}
-
-      {/* Size Variant */}
       {size && (
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
           <span className="text-[11px] font-bold text-slate-600">{size}</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-            Size
-          </span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Size</span>
         </div>
       )}
-
-      {/* Other Variant (fallback) */}
       {variantLabel && !colorRaw && !size && (
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
           <Palette className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
           <span className="text-[11px] font-bold text-slate-600">{variantLabel}</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-            Variant
-          </span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Variant</span>
         </div>
       )}
     </div>
@@ -183,25 +134,17 @@ const OrderMobileCard: React.FC<{
           </div>
           <div>
             <p className="font-bold text-slate-900 text-sm">#{order.orderNumber?.slice(-8).toUpperCase()}</p>
-            <p className="text-[11px] text-slate-500 font-medium">
-              {new Date(order.orderDate).toLocaleDateString()}
-            </p>
+            <p className="text-[11px] text-slate-500 font-medium">{new Date(order.orderDate).toLocaleDateString()}</p>
           </div>
         </div>
         {getStatusBadge(order.status)}
       </div>
     </div>
     <div className="p-4 flex justify-between items-center">
-      <div>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</p>
+      <div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</p>
         <p className="text-lg font-black text-indigo-600">{formatCurrency(order.totalAmount)}</p>
       </div>
-      <button 
-        onClick={() => onViewDetails(order)} 
-        className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-transform active:scale-95"
-      >
-        View Order
-      </button>
+      <button onClick={() => onViewDetails(order)} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-transform active:scale-95">View Order</button>
     </div>
   </div>
 );
@@ -226,7 +169,6 @@ const StatusPill: React.FC<{ status: OrderStatus }> = ({ status }) => {
 // ========== PAYMENT STATUS PILL ==========
 const PaymentStatusPill: React.FC<{ status: PaymentStatus; method: PaymentMethod }> = ({ status, method }) => {
   const isDigitalPayment = method === 'gcash' || method === 'paymaya';
-  
   const getVariant = () => {
     if (status === 'paid') return "bg-emerald-100 text-emerald-700 border-emerald-200";
     if (status === 'failed') return "bg-rose-100 text-rose-700 border-rose-200";
@@ -236,7 +178,6 @@ const PaymentStatusPill: React.FC<{ status: PaymentStatus; method: PaymentMethod
     }
     return "bg-slate-100 text-slate-700 border-slate-200";
   };
-  
   const getLabel = () => {
     if (status === 'paid') return 'Paid';
     if (status === 'failed') return 'Failed';
@@ -246,7 +187,6 @@ const PaymentStatusPill: React.FC<{ status: PaymentStatus; method: PaymentMethod
     }
     return status;
   };
-  
   return (
     <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${getVariant()}`}>
       {getLabel()}
@@ -266,6 +206,7 @@ const AdminOrders = () => {
   const [success, setSuccess] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<ExtendedOrder | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -274,16 +215,9 @@ const AdminOrders = () => {
   const [showDeliveryConfirmModal, setShowDeliveryConfirmModal] = useState(false);
   const [approvalNote, setApprovalNote] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [orderStats, setOrderStats] = useState<OrderStats>({
-    totalSales: 0,
-    totalRevenue: 0,
-    averageOrderValue: 0,
-    pendingPayment: 0,
-    completedOrders: 0,
-    todayOrders: 0,
-    pendingApproval: 0,
-    approvedToday: 0,
+    totalSales: 0, totalRevenue: 0, averageOrderValue: 0, pendingPayment: 0,
+    completedOrders: 0, todayOrders: 0, pendingApproval: 0, approvedToday: 0,
     awaitingDeliveryConfirmation: 0
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -302,10 +236,11 @@ const AdminOrders = () => {
     else fetchOrders();
   }, [isAdmin, navigate]);
 
+  // ✅ Updated useEffect - includes paymentFilter
   useEffect(() => {
     filterOrders();
     calculateStats();
-  }, [orders, searchQuery, statusFilter]);
+  }, [orders, searchQuery, statusFilter, paymentFilter]);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -321,23 +256,6 @@ const AdminOrders = () => {
         deliveredAt: order.deliveredAt || null,
         codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
       }));
-
-
-      console.log('=== RAW ORDERS FROM BACKEND ===');
-    console.log('Total orders:', data.length);
-    if (data.length > 0) {
-      const latestOrder = data[0];
-      console.log('Latest order ID:', latestOrder.id);
-      console.log('Latest order items:', latestOrder.items);
-      latestOrder.items?.forEach((item: any, i: number) => {
-        console.log(`Item ${i}:`, {
-          productName: item.productName,
-          color: item.color,
-          colorType: typeof item.color
-        });
-      });
-    }
-    
       setOrders(ordersWithDetails);
     } catch (err) {
       setError('Failed to load orders');
@@ -347,65 +265,33 @@ const AdminOrders = () => {
   };
 
   const calculateStats = () => {
-  const today = new Date().toDateString();
-  
-  // ONLY count DELIVERED AND PAID orders as "Sales"
-  const paidDeliveredOrders = orders.filter(o => 
-    o.status === 'delivered' && 
-    (o.paymentStatus === 'paid')
-  );
-  const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-  
-  // All orders revenue (for reference)
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-  
-  // COMBINED: Pending Approval - Both digital payments AND COD awaiting action
-  const pendingApprovalCount = orders.filter(o => {
-    // Digital payments (GCash/Maya) awaiting verification
-    const isDigitalPending = (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-      o.paymentStatus === 'pending' &&
-      o.paymentProofImage &&
-      o.status !== 'delivered' &&
-      o.status !== 'cancelled';
+    const today = new Date().toDateString();
+    const paidDeliveredOrders = orders.filter(o => o.status === 'delivered' && o.paymentStatus === 'paid');
+    const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     
-    // COD orders that are delivered but payment not yet confirmed
-    const isCODPending = o.paymentMethod === 'cod' &&
-      o.status === 'delivered' &&
-      o.paymentStatus === 'pending';
+    // Combined Pending Approval
+    const pendingApprovalCount = orders.filter(o => {
+      const isDigitalPending = (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+        o.paymentStatus === 'pending' && o.paymentProofImage &&
+        o.status !== 'delivered' && o.status !== 'cancelled';
+      const isCODPending = o.paymentMethod === 'cod' && o.status === 'delivered' && o.paymentStatus === 'pending';
+      return isDigitalPending || isCODPending;
+    }).length;
     
-    return isDigitalPending || isCODPending;
-  }).length;
-  
-  setOrderStats({
-    totalSales,
-    totalRevenue,
-    averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
-    pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
-    completedOrders: orders.filter(o => o.status === 'delivered').length,
-    todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
-    pendingApproval: pendingApprovalCount,
-    approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
-    awaitingDeliveryConfirmation: 0 // Set to 0 since combined into pendingApproval
-  });
-  
-  // Debug logging
-  console.log('=== COMBINED PENDING APPROVAL DEBUG ===');
-  const digitalCount = orders.filter(o => 
-    (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-    o.paymentStatus === 'pending' &&
-    o.paymentProofImage &&
-    o.status !== 'delivered' && o.status !== 'cancelled'
-  ).length;
-  const codCount = orders.filter(o => 
-    o.paymentMethod === 'cod' &&
-    o.status === 'delivered' &&
-    o.paymentStatus === 'pending'
-  ).length;
-  console.log('Digital payments awaiting approval:', digitalCount);
-  console.log('COD awaiting confirmation:', codCount);
-  console.log('TOTAL pending approval:', pendingApprovalCount);
-};
+    setOrderStats({
+      totalSales, totalRevenue,
+      averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
+      pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
+      completedOrders: orders.filter(o => o.status === 'delivered').length,
+      todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
+      pendingApproval: pendingApprovalCount,
+      approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
+      awaitingDeliveryConfirmation: 0
+    });
+  };
 
+  // ✅ Updated filter function - includes payment filter
   const filterOrders = () => {
     let filtered = [...orders];
     if (searchQuery) {
@@ -418,7 +304,9 @@ const AdminOrders = () => {
     if (paymentFilter !== 'all') {
       filtered = filtered.filter(o => o.paymentMethod === paymentFilter);
     }
-    if (statusFilter !== 'all') filtered = filtered.filter(o => o.status === statusFilter);
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(o => o.status === statusFilter);
+    }
     setFilteredOrders(filtered);
     setCurrentPage(1);
   };
@@ -428,9 +316,7 @@ const AdminOrders = () => {
     try {
       const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
       await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
-        approvedBy: adminName,
-        approvedAt: new Date().toISOString(),
-        notes: approvalNote
+        approvedBy: adminName, approvedAt: new Date().toISOString(), notes: approvalNote
       });
       await fetchOrders();
       setSuccess('Payment approved successfully. Order can now be processed.');
@@ -446,17 +332,12 @@ const AdminOrders = () => {
   };
 
   const handleRejectPayment = async (orderId: string) => {
-    if (!approvalNote) {
-      setError('Please provide a reason for rejection');
-      return;
-    }
+    if (!approvalNote) { setError('Please provide a reason for rejection'); return; }
     setUpdatingStatus(true);
     try {
       const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
       await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
-        rejectedBy: adminName,
-        rejectedAt: new Date().toISOString(),
-        reason: approvalNote
+        rejectedBy: adminName, rejectedAt: new Date().toISOString(), reason: approvalNote
       });
       await fetchOrders();
       setSuccess('Payment rejected');
@@ -475,10 +356,8 @@ const AdminOrders = () => {
     try {
       const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
       await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
-        deliveredBy: adminName,
-        deliveredAt: new Date().toISOString(),
-        codPaymentConfirmedAt: new Date().toISOString(),
-        notes: 'COD payment confirmed upon delivery'
+        deliveredBy: adminName, deliveredAt: new Date().toISOString(),
+        codPaymentConfirmedAt: new Date().toISOString(), notes: 'COD payment confirmed upon delivery'
       });
       await fetchOrders();
       setSuccess('COD payment confirmed successfully');
@@ -494,25 +373,17 @@ const AdminOrders = () => {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!cancellationReason) {
-      setError('Please provide a reason');
-      return;
-    }
+    if (!cancellationReason) { setError('Please provide a reason'); return; }
     setUpdatingStatus(true);
     try {
       const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
-      
       await orderService.updateOrderStatus(parseInt(orderId), 'cancelled');
-      
       const orderToCancel = orders.find(o => o.id === orderId);
       if (orderToCancel?.paymentMethod === 'cod') {
         await orderService.updateOrderPayment(parseInt(orderId), 'failed', {
-          rejectedBy: adminName,
-          rejectedAt: new Date().toISOString(),
-          reason: cancellationReason
+          rejectedBy: adminName, rejectedAt: new Date().toISOString(), reason: cancellationReason
         });
       }
-      
       await fetchOrders();
       setSuccess('Order cancelled successfully');
       setShowCancelModal(false);
@@ -530,13 +401,11 @@ const AdminOrders = () => {
   const handleStatusUpdate = async (orderId: string, status: string) => {
     const order = orders.find(o => o.id === orderId);
     const isDigitalPayment = order?.paymentMethod === 'gcash' || order?.paymentMethod === 'paymaya';
-    
     if ((status === 'shipped' || status === 'processing') && isDigitalPayment && order?.paymentStatus !== 'paid') {
       setError('Payment must be approved before processing this order');
       setTimeout(() => setError(''), 3000);
       return;
     }
-    
     setUpdatingStatus(true);
     try {
       await orderService.updateOrderStatus(parseInt(orderId), status);
@@ -576,9 +445,7 @@ const AdminOrders = () => {
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      year: 'numeric', month: 'short', day: 'numeric'
     });
   };
 
@@ -593,8 +460,7 @@ const AdminOrders = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] pb-20 z-0">
-      {/* Toast Notifications */}
+    <div className="min-h-screen bg-[#FDFDFD] pb-20">
       {success && <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{success}</div>}
       {error && <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{error}</div>}
 
@@ -611,12 +477,11 @@ const AdminOrders = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 md:px-6 space-y-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Stats Grid - 4 Cards (Removed Awaiting Delivery) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Sales (Paid & Delivered)', value: formatCurrency(orderStats.totalSales), icon: CheckCircle, color: 'emerald' },
             { label: 'Pending Approval', value: orderStats.pendingApproval, icon: Clock, color: 'amber' },
-            { label: 'Awaiting Delivery', value: orderStats.awaitingDeliveryConfirmation, icon: Truck, color: 'blue' },
             { label: 'Fulfilled', value: orderStats.completedOrders, icon: PackageCheck, color: 'emerald' },
             { label: 'Today', value: orderStats.todayOrders, icon: Calendar, color: 'rose' },
           ].map((stat, i) => (
@@ -630,62 +495,56 @@ const AdminOrders = () => {
           ))}
         </div>
 
-        {/* Search & Filter */}
-        <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-3xl border border-slate-100">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search by order ID or name..." 
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          {/* Status Filter */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(f => (
-              <button 
-                key={f}
-                onClick={() => setStatusFilter(f)}
-                className={`px-5 py-3 rounded-2xl text-xs font-bold uppercase transition-all whitespace-nowrap border ${
-                  statusFilter === f ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-500 border-slate-200'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Payment Method Filter - Separate Row */}
+        {/* Filters - Combined Row */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100">
-          <div className="flex items-center gap-4">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Payment Method:
-            </span>
-            <div className="flex gap-2">
-              {['all', 'gcash', 'paymaya', 'cod', 'card'].map(method => (
-                <button 
-                  key={method}
-                  onClick={() => setPaymentFilter(method)}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap border ${
-                    paymentFilter === method 
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {method === 'all' ? 'All Methods' : 
-                  method === 'gcash' ? 'GCash' : 
-                  method === 'paymaya' ? 'Maya' : 
-                  method === 'cod' ? 'Cash on Delivery' : 
-                  'Card'}
-                </button>
-              ))}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search by order ID or name..." 
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
             
+            {/* Payment Method Dropdown */}
+            <div className="relative min-w-[180px]">
+              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="all">All Payment Methods</option>
+                <option value="gcash">GCash</option>
+                <option value="paymaya">Maya</option>
+                <option value="cod">Cash on Delivery</option>
+                <option value="card">Credit/Debit Card</option>
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <div className="relative min-w-[160px]">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
             {/* Clear Filters Button */}
             {(statusFilter !== 'all' || paymentFilter !== 'all' || searchQuery) && (
               <button
@@ -694,11 +553,26 @@ const AdminOrders = () => {
                   setPaymentFilter('all');
                   setSearchQuery('');
                 }}
-                className="ml-auto px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1"
+                className="px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap"
               >
                 <X className="w-3 h-3" />
-                Clear Filters
+                Clear
               </button>
+            )}
+          </div>
+          
+          {/* Filter Summary */}
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+            <span>Showing {filteredOrders.length} of {orders.length} orders</span>
+            {(statusFilter !== 'all' || paymentFilter !== 'all') && (
+              <span className="flex items-center gap-2">
+                {paymentFilter !== 'all' && (
+                  <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full">Payment: {paymentFilter}</span>
+                )}
+                {statusFilter !== 'all' && (
+                  <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded-full">Status: {statusFilter}</span>
+                )}
+              </span>
             )}
           </div>
         </div>
@@ -708,9 +582,7 @@ const AdminOrders = () => {
           <div className="space-y-4">
             {paginatedOrders.map(o => (
               <OrderMobileCard 
-                key={o.id} 
-                order={o} 
-                formatCurrency={formatCurrency} 
+                key={o.id} order={o} formatCurrency={formatCurrency}
                 getStatusBadge={(status) => <StatusPill status={status} />} 
                 getPaymentMethodIcon={getPaymentMethodIcon} 
                 getPaymentMethodName={getPaymentMethodName} 
@@ -754,10 +626,8 @@ const AdminOrders = () => {
                     <td className="px-6 py-5 font-black text-indigo-600">{formatCurrency(order.totalAmount)}</td>
                     <td className="px-6 py-5"><StatusPill status={order.status} /></td>
                     <td className="px-6 py-5 text-center">
-                      <button 
-                        onClick={() => {setSelectedOrder(order); setShowOrderModal(true)}} 
-                        className="p-2.5 bg-slate-100 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                      >
+                      <button onClick={() => {setSelectedOrder(order); setShowOrderModal(true)}} 
+                        className="p-2.5 bg-slate-100 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
                         <Eye className="w-4 h-4" />
                       </button>
                     </td>
@@ -784,7 +654,7 @@ const AdminOrders = () => {
         )}
       </main>
 
-      {/* Order Details Modal */}
+      {/* Order Details Modal - unchanged */}
       {showOrderModal && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center md:justify-end md:p-6" onClick={() => setShowOrderModal(false)}>
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
@@ -822,6 +692,7 @@ const AdminOrders = () => {
                 </div>
               )}
 
+              {/* Payment Information Section */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <CreditCard className="w-4 h-4" /> Payment Information
@@ -875,19 +746,13 @@ const AdminOrders = () => {
                 </div>
               </section>
               
-              {/* ========== ORDER ITEMS SECTION (FIXED) ========== */}
+              {/* Order Items Section */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <Package className="w-4 h-4" /> Order Items
                 </h3>
                 <div className="space-y-3">
                   {selectedOrder.items?.map((item: any, i: number) => {
-
-                    const testItem = {
-                      ...item,
-                      color: item.color || 'Walnut' // Force 'Walnut' if no color
-                    };
-                    // Check for any variant data (handling empty strings)
                     const hasColor = item.color && item.color.trim() !== '';
                     const hasSize = item.size && item.size.trim() !== '';
                     const hasVariant = item.variant || item.variantName;
@@ -897,43 +762,24 @@ const AdminOrders = () => {
                       <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            {/* Product name */}
                             <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
-
-                            {/* Show both original and test color */}
-                            <div className="mt-1 p-2 bg-gray-100 rounded text-[10px]">
-                              <p>Original color: "{item.color}"</p>
-                              <p>Test color: "{testItem.color}"</p>
-                            </div>
-
-                            {/* Variants Display */}
                             {hasAnyVariant ? (
                               <div className="mt-2 flex flex-wrap items-center gap-2">
-                                {/* Color */}
-                                {hasColor && (
-                                  <ColorVariantBadge item={item} />
-                                )}
-                                {/* Size - if color isn't handled by the badge */}
+                                {hasColor && <ColorVariantBadge item={item} />}
                                 {hasSize && !hasColor && (
                                   <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
                                     <span className="text-[11px] font-bold text-slate-600">{item.size}</span>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                                      Size
-                                    </span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Size</span>
                                   </div>
                                 )}
                               </div>
                             ) : (
                               <p className="text-[10px] text-slate-400 italic mt-1">No variant selected</p>
                             )}
-
-                            {/* Qty × Price */}
                             <p className="text-xs font-bold text-indigo-500 mt-2">
                               Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
                             </p>
                           </div>
-
-                          {/* Line total */}
                           <p className="font-black text-slate-900 text-sm whitespace-nowrap">
                             {formatCurrency((item.unitPrice || item.price) * item.quantity)}
                           </p>
@@ -942,7 +788,6 @@ const AdminOrders = () => {
                     );
                   })}
                 </div>
-
                 <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
                   <div className="flex justify-between">
                     <span className="text-sm font-bold text-slate-600">Total Amount</span>
@@ -950,6 +795,7 @@ const AdminOrders = () => {
                   </div>
                 </div>
               </section>
+
               {selectedOrder.shippingAddress && (
                 <section className="space-y-4">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -963,46 +809,32 @@ const AdminOrders = () => {
             </div>
 
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
-              {selectedOrder.paymentStatus === 'pending' && 
-               selectedOrder.paymentProofImage && 
+              {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && 
                (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] uppercase tracking-tighter">
                     <AlertTriangle className="w-3 h-3" /> Payment Verification Required
                   </div>
-                  <textarea 
-                    value={approvalNote} 
-                    onChange={(e) => setApprovalNote(e.target.value)} 
-                    rows={2} 
+                  <textarea value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} rows={2}
                     className="w-full p-3 bg-slate-50 border-none rounded-2xl text-xs" 
-                    placeholder="Enter verification notes (optional for approval, required for rejection)..."
-                  />
+                    placeholder="Enter verification notes (optional for approval, required for rejection)..." />
                   <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleApprovePayment(selectedOrder.id)} 
-                      disabled={updatingStatus} 
-                      className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
-                    >
+                    <button onClick={() => handleApprovePayment(selectedOrder.id)} disabled={updatingStatus}
+                      className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
                       <Check className="w-4 h-4" /> Approve Payment
                     </button>
-                    <button 
-                      onClick={() => handleRejectPayment(selectedOrder.id)} 
-                      disabled={updatingStatus} 
-                      className="flex-1 py-3 bg-rose-100 text-rose-600 rounded-2xl text-xs font-black uppercase hover:bg-rose-200 transition-all flex items-center justify-center gap-2"
-                    >
+                    <button onClick={() => handleRejectPayment(selectedOrder.id)} disabled={updatingStatus}
+                      className="flex-1 py-3 bg-rose-100 text-rose-600 rounded-2xl text-xs font-black uppercase hover:bg-rose-200 transition-all flex items-center justify-center gap-2">
                       <Ban className="w-4 h-4" /> Reject
                     </button>
                   </div>
                 </div>
               )}
 
-              {selectedOrder.paymentMethod === 'cod' && 
-               selectedOrder.status === 'delivered' && 
+              {selectedOrder.paymentMethod === 'cod' && selectedOrder.status === 'delivered' && 
                selectedOrder.paymentStatus === 'pending' && (
-                <button 
-                  onClick={() => setShowDeliveryConfirmModal(true)} 
-                  className="w-full py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-                >
+                <button onClick={() => setShowDeliveryConfirmModal(true)}
+                  className="w-full py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
                   <Truck className="w-4 h-4" /> Confirm Delivery & Payment Received
                 </button>
               )}
@@ -1010,33 +842,22 @@ const AdminOrders = () => {
               <div className="grid grid-cols-2 gap-2">
                 {['processing', 'shipped', 'delivered'].map(s => {
                   const isDigitalPayment = selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya';
-                  const isDisabled = 
-                    selectedOrder.status === 'cancelled' ||
+                  const isDisabled = selectedOrder.status === 'cancelled' ||
                     ((s === 'processing' || s === 'shipped') && isDigitalPayment && selectedOrder.paymentStatus !== 'paid');
-                  
                   return (
-                    <button 
-                      key={s} 
-                      onClick={() => handleStatusUpdate(selectedOrder.id, s)} 
+                    <button key={s} onClick={() => handleStatusUpdate(selectedOrder.id, s)}
                       className={`py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${
-                        selectedOrder.status === s 
-                          ? 'bg-indigo-600 text-white' 
-                          : isDisabled
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
-                      }`}
-                      disabled={isDisabled}
-                      title={isDisabled ? 'Payment must be approved first' : ''}
-                    >
+                        selectedOrder.status === s ? 'bg-indigo-600 text-white' : 
+                        isDisabled ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 
+                        'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                      disabled={isDisabled} title={isDisabled ? 'Payment must be approved first' : ''}>
                       Mark as {s}
                     </button>
                   );
                 })}
-                <button 
-                  onClick={() => setShowCancelModal(true)} 
+                <button onClick={() => setShowCancelModal(true)}
                   className="py-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase border border-rose-100"
-                  disabled={selectedOrder.status === 'cancelled' || selectedOrder.status === 'delivered'}
-                >
+                  disabled={selectedOrder.status === 'cancelled' || selectedOrder.status === 'delivered'}>
                   Cancel Order
                 </button>
               </div>
@@ -1065,17 +886,10 @@ const AdminOrders = () => {
               </div>
             </div>
             <div className="flex gap-3">
-              <button 
-                onClick={() => setShowDeliveryConfirmModal(false)} 
-                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => handleConfirmCODPayment(selectedOrder.id)} 
-                disabled={updatingStatus} 
-                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-emerald-200 flex items-center justify-center gap-2"
-              >
+              <button onClick={() => setShowDeliveryConfirmModal(false)}
+                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
+              <button onClick={() => handleConfirmCODPayment(selectedOrder.id)} disabled={updatingStatus}
+                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-emerald-200 flex items-center justify-center gap-2">
                 <Check className="w-4 h-4" /> Confirm Payment
               </button>
             </div>
@@ -1100,16 +914,14 @@ const AdminOrders = () => {
                 )}
               </p>
             </div>
-            <textarea 
-              value={cancellationReason} 
-              onChange={(e) => setCancellationReason(e.target.value)} 
-              rows={3} 
+            <textarea value={cancellationReason} onChange={(e) => setCancellationReason(e.target.value)} rows={3}
               className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-rose-500/20" 
-              placeholder="e.g., Out of stock, Customer request..."
-            />
+              placeholder="e.g., Out of stock, Customer request..." />
             <div className="flex gap-3">
-              <button onClick={() => setShowCancelModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Back</button>
-              <button onClick={() => handleCancelOrder(selectedOrder.id)} disabled={updatingStatus} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-rose-200">Confirm Cancel</button>
+              <button onClick={() => setShowCancelModal(false)}
+                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Back</button>
+              <button onClick={() => handleCancelOrder(selectedOrder.id)} disabled={updatingStatus}
+                className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-rose-200">Confirm Cancel</button>
             </div>
           </div>
         </div>
