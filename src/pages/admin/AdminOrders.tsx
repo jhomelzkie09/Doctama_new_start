@@ -274,6 +274,7 @@ const AdminOrders = () => {
   const [showDeliveryConfirmModal, setShowDeliveryConfirmModal] = useState(false);
   const [approvalNote, setApprovalNote] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [orderStats, setOrderStats] = useState<OrderStats>({
     totalSales: 0,
     totalRevenue: 0,
@@ -358,52 +359,22 @@ const AdminOrders = () => {
   // All orders revenue (for reference)
   const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   
-  // DEBUG: Show ALL orders that have pending payment + proof (regardless of status)
-  const allPendingWithProof = orders.filter(o =>
-    (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-    o.paymentStatus === 'pending' &&
-    o.paymentProofImage
-  );
-  
-  console.log('=== PENDING APPROVAL DEBUG ===');
-  console.log('Total orders with pending payment + proof:', allPendingWithProof.length);
-  allPendingWithProof.forEach(o => {
-    console.log(`  Order #${o.id}:`, {
-      status: o.status,
-      paymentStatus: o.paymentStatus,
-      paymentMethod: o.paymentMethod,
-      hasProof: !!o.paymentProofImage,
-      orderStatus: o.status
-    });
-  });
-  
-  // Try different status checks to see which one works
-  const withPendingStatus = allPendingWithProof.filter(o => 
-    o.status === 'pending' || o.status === 'awaiting_payment'
-  );
-  console.log('With pending/awaiting_payment status:', withPendingStatus.length);
-  
-  const withNotDelivered = allPendingWithProof.filter(o => 
-    o.status !== 'delivered' && o.status !== 'cancelled'
-  );
-  console.log('With NOT delivered/cancelled status:', withNotDelivered.length);
-  
-  // Get all unique statuses without spread operator
-  const statusMap: Record<string, boolean> = {};
-  orders.forEach(o => { if (o.status) statusMap[o.status] = true; });
-  const allStatuses = Object.keys(statusMap);
-  console.log('All unique order statuses in system:', allStatuses);
-  
-  // Count orders that haven't been delivered or cancelled
-  const pendingApprovalCount = orders.filter(o =>
-    (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-    o.paymentStatus === 'pending' &&
-    o.paymentProofImage &&
-    o.status !== 'delivered' &&
-    o.status !== 'cancelled'
-  ).length;
-  
-  console.log('FINAL pendingApprovalCount:', pendingApprovalCount);
+  // COMBINED: Pending Approval - Both digital payments AND COD awaiting action
+  const pendingApprovalCount = orders.filter(o => {
+    // Digital payments (GCash/Maya) awaiting verification
+    const isDigitalPending = (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+      o.paymentStatus === 'pending' &&
+      o.paymentProofImage &&
+      o.status !== 'delivered' &&
+      o.status !== 'cancelled';
+    
+    // COD orders that are delivered but payment not yet confirmed
+    const isCODPending = o.paymentMethod === 'cod' &&
+      o.status === 'delivered' &&
+      o.paymentStatus === 'pending';
+    
+    return isDigitalPending || isCODPending;
+  }).length;
   
   setOrderStats({
     totalSales,
@@ -414,13 +385,27 @@ const AdminOrders = () => {
     todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
     pendingApproval: pendingApprovalCount,
     approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
-    awaitingDeliveryConfirmation: orders.filter(o => 
-      o.status === 'delivered' && 
-      o.paymentMethod === 'cod' && 
-      o.paymentStatus === 'pending'
-    ).length
+    awaitingDeliveryConfirmation: 0 // Set to 0 since combined into pendingApproval
   });
+  
+  // Debug logging
+  console.log('=== COMBINED PENDING APPROVAL DEBUG ===');
+  const digitalCount = orders.filter(o => 
+    (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+    o.paymentStatus === 'pending' &&
+    o.paymentProofImage &&
+    o.status !== 'delivered' && o.status !== 'cancelled'
+  ).length;
+  const codCount = orders.filter(o => 
+    o.paymentMethod === 'cod' &&
+    o.status === 'delivered' &&
+    o.paymentStatus === 'pending'
+  ).length;
+  console.log('Digital payments awaiting approval:', digitalCount);
+  console.log('COD awaiting confirmation:', codCount);
+  console.log('TOTAL pending approval:', pendingApprovalCount);
 };
+
   const filterOrders = () => {
     let filtered = [...orders];
     if (searchQuery) {
@@ -429,6 +414,9 @@ const AdminOrders = () => {
         o.orderNumber?.toLowerCase().includes(query) ||
         o.customerName?.toLowerCase().includes(query)
       );
+    }
+    if (paymentFilter !== 'all') {
+      filtered = filtered.filter(o => o.paymentMethod === paymentFilter);
     }
     if (statusFilter !== 'all') filtered = filtered.filter(o => o.status === statusFilter);
     setFilteredOrders(filtered);
@@ -605,7 +593,7 @@ const AdminOrders = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] pb-20">
+    <div className="min-h-screen bg-[#FDFDFD] pb-20 z-0">
       {/* Toast Notifications */}
       {success && <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{success}</div>}
       {error && <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{error}</div>}
@@ -654,16 +642,64 @@ const AdminOrders = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          
+          {/* Status Filter */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(f => (
               <button 
                 key={f}
                 onClick={() => setStatusFilter(f)}
-                className={`px-5 py-3 rounded-2xl text-xs font-bold uppercase transition-all whitespace-nowrap border ${statusFilter === f ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-500 border-slate-200'}`}
+                className={`px-5 py-3 rounded-2xl text-xs font-bold uppercase transition-all whitespace-nowrap border ${
+                  statusFilter === f ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-500 border-slate-200'
+                }`}
               >
                 {f}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Payment Method Filter - Separate Row */}
+        <div className="bg-white p-4 rounded-3xl border border-slate-100">
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Payment Method:
+            </span>
+            <div className="flex gap-2">
+              {['all', 'gcash', 'paymaya', 'cod', 'card'].map(method => (
+                <button 
+                  key={method}
+                  onClick={() => setPaymentFilter(method)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap border ${
+                    paymentFilter === method 
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
+                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {method === 'all' ? 'All Methods' : 
+                  method === 'gcash' ? 'GCash' : 
+                  method === 'paymaya' ? 'Maya' : 
+                  method === 'cod' ? 'Cash on Delivery' : 
+                  'Card'}
+                </button>
+              ))}
+            </div>
+            
+            {/* Clear Filters Button */}
+            {(statusFilter !== 'all' || paymentFilter !== 'all' || searchQuery) && (
+              <button
+                onClick={() => {
+                  setStatusFilter('all');
+                  setPaymentFilter('all');
+                  setSearchQuery('');
+                }}
+                className="ml-auto px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
