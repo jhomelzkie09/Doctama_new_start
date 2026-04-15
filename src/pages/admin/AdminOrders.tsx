@@ -353,20 +353,18 @@ const AdminOrders = () => {
       o.status === 'delivered' && 
       (o.paymentStatus === 'paid')
     );
-
+    const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    
+    // All orders revenue (for reference)
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    
+    // FIXED: Pending Approval - Only count orders that are AWAITING VERIFICATION
     const pendingApprovalCount = orders.filter(o =>
-      o.paymentStatus === 'pending' && 
       (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
       o.paymentStatus === 'pending' &&
       o.paymentProofImage &&
       (o.status === 'pending' || o.status === 'awaiting_payment')
     ).length;
-
-
-    const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    
-    // All orders revenue (for reference)
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     
     setOrderStats({
       totalSales,
