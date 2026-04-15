@@ -357,7 +357,9 @@ const AdminOrders = () => {
     const pendingApprovalCount = orders.filter(o =>
       o.paymentStatus === 'pending' && 
       (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-      o.paymentProofImage
+      o.paymentStatus === 'pending' &&
+      o.paymentProofImage &&
+      (o.status === 'pending' || o.status === 'awaiting_payment')
     ).length;
 
 
