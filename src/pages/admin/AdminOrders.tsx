@@ -765,47 +765,63 @@ const AdminOrders = () => {
               </section>
 
               {/* ========== ORDER ITEMS SECTION (with enhanced Color Variant) ========== */}
-              <section className="space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Package className="w-4 h-4" /> Order Items
-                </h3>
-                <div className="space-y-3">
-                  {selectedOrder.items?.map((item: any, i: number) => {
-                    const hasVariant = item.color || item.variant || item.variantName;
+              {/* ========== ORDER ITEMS SECTION (with enhanced Color Variant) ========== */}
+<section className="space-y-4">
+  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+    <Package className="w-4 h-4" /> Order Items
+  </h3>
+  <div className="space-y-3">
+    {selectedOrder.items?.map((item: any, i: number) => {
+      // DEBUG: Log the item to see what fields are available
+      console.log('Order Item:', item);
+      console.log('Item color field:', item.color);
+      console.log('Item selectedColor field:', item.selectedColor);
+      console.log('Item variant field:', item.variant);
+      console.log('All item keys:', Object.keys(item));
+      
+      // Check all possible color field names
+      const itemColor = item.color || item.selectedColor || item.variant || item.variantName;
+      const hasVariant = !!itemColor;
+      
+      console.log('Detected color/variant:', itemColor);
 
-                    return (
-                      <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            {/* Product name */}
-                            <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
+      return (
+        <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              {/* Product name */}
+              <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
 
-                            {/* ── Color / Variant Badge ── */}
-                            {hasVariant && <ColorVariantBadge item={item} />}
+              {/* ── Color / Variant Badge ── */}
+              {hasVariant ? (
+                <ColorVariantBadge item={item} />
+              ) : (
+                <p className="text-[10px] text-slate-400 italic mt-1">No color variant selected</p>
+              )}
 
-                            {/* Qty × Price */}
-                            <p className="text-xs font-bold text-indigo-500 mt-2">
-                              Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
-                            </p>
-                          </div>
+              {/* Qty × Price */}
+              <p className="text-xs font-bold text-indigo-500 mt-2">
+                Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
+              </p>
+            </div>
 
-                          {/* Line total */}
-                          <p className="font-black text-slate-900 text-sm whitespace-nowrap">
-                            {formatCurrency((item.unitPrice || item.price) * item.quantity)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* Line total */}
+            <p className="font-black text-slate-900 text-sm whitespace-nowrap">
+              {formatCurrency((item.unitPrice || item.price) * item.quantity)}
+            </p>
+          </div>
+        </div>
+      );
+    })}
+  </div>
 
-                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-bold text-slate-600">Total Amount</span>
-                    <span className="text-lg font-black text-indigo-700">{formatCurrency(selectedOrder.totalAmount)}</span>
-                  </div>
-                </div>
-              </section>
+  <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+    <div className="flex justify-between">
+      <span className="text-sm font-bold text-slate-600">Total Amount</span>
+      <span className="text-lg font-black text-indigo-700">{formatCurrency(selectedOrder.totalAmount)}</span>
+    </div>
+  </div>
+</section>
 
               {selectedOrder.shippingAddress && (
                 <section className="space-y-4">
