@@ -353,6 +353,14 @@ const AdminOrders = () => {
       o.status === 'delivered' && 
       (o.paymentStatus === 'paid')
     );
+
+    const pendingApprovalCount = orders.filter(o =>
+      o.paymentStatus === 'pending' && 
+      (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+      o.paymentProofImage
+    ).length;
+
+
     const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     
     // All orders revenue (for reference)
@@ -365,11 +373,7 @@ const AdminOrders = () => {
       pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
       completedOrders: orders.filter(o => o.status === 'delivered').length,
       todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
-      pendingApproval: orders.filter(o => 
-        o.paymentStatus === 'pending' && 
-        (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-        o.paymentProofImage
-      ).length,
+      pendingApproval: pendingApprovalCount,
       approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
       awaitingDeliveryConfirmation: orders.filter(o => 
         o.status === 'delivered' && 
