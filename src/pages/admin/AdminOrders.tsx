@@ -320,6 +320,23 @@ const AdminOrders = () => {
         deliveredAt: order.deliveredAt || null,
         codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
       }));
+
+
+      console.log('=== RAW ORDERS FROM BACKEND ===');
+    console.log('Total orders:', data.length);
+    if (data.length > 0) {
+      const latestOrder = data[0];
+      console.log('Latest order ID:', latestOrder.id);
+      console.log('Latest order items:', latestOrder.items);
+      latestOrder.items?.forEach((item: any, i: number) => {
+        console.log(`Item ${i}:`, {
+          productName: item.productName,
+          color: item.color,
+          colorType: typeof item.color
+        });
+      });
+    }
+    
       setOrders(ordersWithDetails);
     } catch (err) {
       setError('Failed to load orders');
