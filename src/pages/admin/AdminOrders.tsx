@@ -107,43 +107,59 @@ const getColorInfo = (color: string): { name: string; cssColor: string; isLight:
 };
 
 // ========== COLOR VARIANT BADGE ==========
+// ========== COLOR VARIANT BADGE (FIXED) ==========
 const ColorVariantBadge: React.FC<{ item: any }> = ({ item }) => {
-  const colorRaw: string | undefined = item.color;
+  // Check for color - handle empty strings
+  const colorRaw: string | undefined = item.color && item.color.trim() !== '' ? item.color : undefined;
   const variantLabel: string | undefined = item.variant || item.variantName;
+  const size: string | undefined = item.size && item.size.trim() !== '' ? item.size : undefined;
 
-  if (!colorRaw && !variantLabel) return null;
+  // If no variants at all, return null
+  if (!colorRaw && !variantLabel && !size) return null;
 
-  if (colorRaw) {
-    const { name, cssColor, isLight } = getColorInfo(colorRaw);
-    return (
-      <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-        {/* Color swatch */}
-        <span
-          className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
-          style={{
-            backgroundColor: cssColor,
-            border: isLight ? '1.5px solid #CBD5E1' : '1.5px solid transparent',
-          }}
-          title={name}
-        />
-        {/* Label */}
-        <span className="text-[11px] font-bold text-slate-600 capitalize">{name}</span>
-        {/* Pill tag */}
-        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-          Color
-        </span>
-      </div>
-    );
-  }
-
-  // Fallback for non-color variants (e.g. size)
   return (
-    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-      <Palette className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-      <span className="text-[11px] font-bold text-slate-600">{variantLabel}</span>
-      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-        Variant
-      </span>
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {/* Color Variant */}
+      {colorRaw && (() => {
+        const { name, cssColor, isLight } = getColorInfo(colorRaw);
+        return (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+            <span
+              className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
+              style={{
+                backgroundColor: cssColor,
+                border: isLight ? '1.5px solid #CBD5E1' : '1.5px solid transparent',
+              }}
+              title={name}
+            />
+            <span className="text-[11px] font-bold text-slate-600 capitalize">{name}</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+              Color
+            </span>
+          </div>
+        );
+      })()}
+
+      {/* Size Variant */}
+      {size && (
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <span className="text-[11px] font-bold text-slate-600">{size}</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+            Size
+          </span>
+        </div>
+      )}
+
+      {/* Other Variant (fallback) */}
+      {variantLabel && !colorRaw && !size && (
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <Palette className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <span className="text-[11px] font-bold text-slate-600">{variantLabel}</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+            Variant
+          </span>
+        </div>
+      )}
     </div>
   );
 };
@@ -763,66 +779,71 @@ const AdminOrders = () => {
                   )}
                 </div>
               </section>
+              
+              {/* ========== ORDER ITEMS SECTION (FIXED) ========== */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Package className="w-4 h-4" /> Order Items
+                </h3>
+                <div className="space-y-3">
+                  {selectedOrder.items?.map((item: any, i: number) => {
+                    // Check for any variant data (handling empty strings)
+                    const hasColor = item.color && item.color.trim() !== '';
+                    const hasSize = item.size && item.size.trim() !== '';
+                    const hasVariant = item.variant || item.variantName;
+                    const hasAnyVariant = hasColor || hasSize || hasVariant;
 
-              {/* ========== ORDER ITEMS SECTION (with enhanced Color Variant) ========== */}
-              {/* ========== ORDER ITEMS SECTION (with enhanced Color Variant) ========== */}
-<section className="space-y-4">
-  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-    <Package className="w-4 h-4" /> Order Items
-  </h3>
-  <div className="space-y-3">
-    {selectedOrder.items?.map((item: any, i: number) => {
-      // DEBUG: Log the item to see what fields are available
-      console.log('Order Item:', item);
-      console.log('Item color field:', item.color);
-      console.log('Item selectedColor field:', item.selectedColor);
-      console.log('Item variant field:', item.variant);
-      console.log('All item keys:', Object.keys(item));
-      
-      // Check all possible color field names
-      const itemColor = item.color || item.selectedColor || item.variant || item.variantName;
-      const hasVariant = !!itemColor;
-      
-      console.log('Detected color/variant:', itemColor);
+                    return (
+                      <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            {/* Product name */}
+                            <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
 
-      return (
-        <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              {/* Product name */}
-              <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
+                            {/* Variants Display */}
+                            {hasAnyVariant ? (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {/* Color */}
+                                {hasColor && (
+                                  <ColorVariantBadge item={item} />
+                                )}
+                                {/* Size - if color isn't handled by the badge */}
+                                {hasSize && !hasColor && (
+                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                    <span className="text-[11px] font-bold text-slate-600">{item.size}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                      Size
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-slate-400 italic mt-1">No variant selected</p>
+                            )}
 
-              {/* ── Color / Variant Badge ── */}
-              {hasVariant ? (
-                <ColorVariantBadge item={item} />
-              ) : (
-                <p className="text-[10px] text-slate-400 italic mt-1">No color variant selected</p>
-              )}
+                            {/* Qty × Price */}
+                            <p className="text-xs font-bold text-indigo-500 mt-2">
+                              Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
+                            </p>
+                          </div>
 
-              {/* Qty × Price */}
-              <p className="text-xs font-bold text-indigo-500 mt-2">
-                Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
-              </p>
-            </div>
+                          {/* Line total */}
+                          <p className="font-black text-slate-900 text-sm whitespace-nowrap">
+                            {formatCurrency((item.unitPrice || item.price) * item.quantity)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            {/* Line total */}
-            <p className="font-black text-slate-900 text-sm whitespace-nowrap">
-              {formatCurrency((item.unitPrice || item.price) * item.quantity)}
-            </p>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-
-  <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-    <div className="flex justify-between">
-      <span className="text-sm font-bold text-slate-600">Total Amount</span>
-      <span className="text-lg font-black text-indigo-700">{formatCurrency(selectedOrder.totalAmount)}</span>
-    </div>
-  </div>
-</section>
-
+                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-bold text-slate-600">Total Amount</span>
+                    <span className="text-lg font-black text-indigo-700">{formatCurrency(selectedOrder.totalAmount)}</span>
+                  </div>
+                </div>
+              </section>
               {selectedOrder.shippingAddress && (
                 <section className="space-y-4">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
