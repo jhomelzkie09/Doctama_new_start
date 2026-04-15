@@ -671,13 +671,22 @@ const Checkout = () => {
         customerName: shippingInfo.fullName,
         customerEmail: shippingInfo.email,
         customerPhone: shippingInfo.phone,
-        items: state.items.map(item => ({
+        items: state.items.map(item => {
+        const orderItem: any = {
           productId: item.id,
           productName: item.name,
           quantity: item.quantity,
           unitPrice: item.price,
           imageUrl: item.imageUrl || ''
-        })),
+        };
+  
+        // ONLY add color if it exists and is not empty
+        if (item.selectedColor && item.selectedColor.trim() !== '') {
+          orderItem.color = item.selectedColor;
+        }
+        
+        return orderItem;
+      }),
         shippingFee: shippingFee
       };
 
