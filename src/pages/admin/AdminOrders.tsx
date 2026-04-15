@@ -346,43 +346,81 @@ const AdminOrders = () => {
   };
 
   const calculateStats = () => {
-    const today = new Date().toDateString();
-    
-    // ONLY count DELIVERED AND PAID orders as "Sales"
-    const paidDeliveredOrders = orders.filter(o => 
-      o.status === 'delivered' && 
-      (o.paymentStatus === 'paid')
-    );
-    const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    
-    // All orders revenue (for reference)
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    
-    // FIXED: Pending Approval - Only count orders that are AWAITING VERIFICATION
-    const pendingApprovalCount = orders.filter(o =>
-      (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-      o.paymentStatus === 'pending' &&
-      o.paymentProofImage &&
-      (o.status === 'pending' || o.status === 'awaiting_payment')
-    ).length;
-    
-    setOrderStats({
-      totalSales,
-      totalRevenue,
-      averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
-      pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
-      completedOrders: orders.filter(o => o.status === 'delivered').length,
-      todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
-      pendingApproval: pendingApprovalCount,
-      approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
-      awaitingDeliveryConfirmation: orders.filter(o => 
-        o.status === 'delivered' && 
-        o.paymentMethod === 'cod' && 
-        o.paymentStatus === 'pending'
-      ).length
+  const today = new Date().toDateString();
+  
+  // ONLY count DELIVERED AND PAID orders as "Sales"
+  const paidDeliveredOrders = orders.filter(o => 
+    o.status === 'delivered' && 
+    (o.paymentStatus === 'paid')
+  );
+  const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  
+  // All orders revenue (for reference)
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  
+  // DEBUG: Show ALL orders that have pending payment + proof (regardless of status)
+  const allPendingWithProof = orders.filter(o =>
+    (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+    o.paymentStatus === 'pending' &&
+    o.paymentProofImage
+  );
+  
+  console.log('=== PENDING APPROVAL DEBUG ===');
+  console.log('Total orders with pending payment + proof:', allPendingWithProof.length);
+  allPendingWithProof.forEach(o => {
+    console.log(`  Order #${o.id}:`, {
+      status: o.status,
+      paymentStatus: o.paymentStatus,
+      paymentMethod: o.paymentMethod,
+      hasProof: !!o.paymentProofImage,
+      orderStatus: o.status
     });
-  };
-
+  });
+  
+  // Try different status checks to see which one works
+  const withPendingStatus = allPendingWithProof.filter(o => 
+    o.status === 'pending' || o.status === 'awaiting_payment'
+  );
+  console.log('With pending/awaiting_payment status:', withPendingStatus.length);
+  
+  const withNotDelivered = allPendingWithProof.filter(o => 
+    o.status !== 'delivered' && o.status !== 'cancelled'
+  );
+  console.log('With NOT delivered/cancelled status:', withNotDelivered.length);
+  
+  // Get all unique statuses without spread operator
+  const statusMap: Record<string, boolean> = {};
+  orders.forEach(o => { if (o.status) statusMap[o.status] = true; });
+  const allStatuses = Object.keys(statusMap);
+  console.log('All unique order statuses in system:', allStatuses);
+  
+  // Count orders that haven't been delivered or cancelled
+  const pendingApprovalCount = orders.filter(o =>
+    (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+    o.paymentStatus === 'pending' &&
+    o.paymentProofImage &&
+    o.status !== 'delivered' &&
+    o.status !== 'cancelled'
+  ).length;
+  
+  console.log('FINAL pendingApprovalCount:', pendingApprovalCount);
+  
+  setOrderStats({
+    totalSales,
+    totalRevenue,
+    averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
+    pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
+    completedOrders: orders.filter(o => o.status === 'delivered').length,
+    todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
+    pendingApproval: pendingApprovalCount,
+    approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
+    awaitingDeliveryConfirmation: orders.filter(o => 
+      o.status === 'delivered' && 
+      o.paymentMethod === 'cod' && 
+      o.paymentStatus === 'pending'
+    ).length
+  });
+};
   const filterOrders = () => {
     let filtered = [...orders];
     if (searchQuery) {
