@@ -96,8 +96,7 @@ const AdminLayout = () => {
       path: '/admin/customers',
       icon: <Users className="w-5 h-5" />,
       submenu: [
-        { title: 'All Customers', path: '/admin/customers' },
-        { title: 'New Customers', path: '/admin/customers/new' }
+        { title: 'All Customers', path: '/admin/customers' }
       ]
     },
     {
@@ -105,8 +104,7 @@ const AdminLayout = () => {
       path: '/admin/admins',
       icon: <Users className="w-5 h-5" />,
       submenu: [
-        { title: 'All Admins', path: '/admin/admins' },
-        { title: 'Add Admin', path: '/admin/admins/new' }
+        { title: 'All Admins', path: '/admin/admins' }
       ]
     },
     {

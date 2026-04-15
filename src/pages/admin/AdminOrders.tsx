@@ -43,10 +43,11 @@ interface AdminNote {
 }
 
 interface OrderStats {
-  totalRevenue: number;
+  totalSales: number;           // Only from delivered AND paid orders
+  totalRevenue: number;         // All orders (for reference)
   averageOrderValue: number;
   pendingPayment: number;
-  completedOrders: number;
+  completedOrders: number;      // Delivered orders count
   todayOrders: number;
   pendingApproval: number;
   approvedToday: number;
@@ -121,7 +122,6 @@ const PaymentStatusPill: React.FC<{ status: PaymentStatus; method: PaymentMethod
     if (status === 'failed') return "bg-rose-100 text-rose-700 border-rose-200";
     if (status === 'pending') {
       if (isDigitalPayment) return "bg-amber-100 text-amber-700 border-amber-200";
-      // COD pending means awaiting delivery confirmation
       return "bg-blue-100 text-blue-700 border-blue-200";
     }
     return "bg-slate-100 text-slate-700 border-slate-200";
@@ -165,8 +165,15 @@ const AdminOrders = () => {
   const [approvalNote, setApprovalNote] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [orderStats, setOrderStats] = useState<OrderStats>({
-    totalRevenue: 0, averageOrderValue: 0, pendingPayment: 0, completedOrders: 0,
-    todayOrders: 0, pendingApproval: 0, approvedToday: 0, awaitingDeliveryConfirmation: 0
+    totalSales: 0,
+    totalRevenue: 0,
+    averageOrderValue: 0,
+    pendingPayment: 0,
+    completedOrders: 0,
+    todayOrders: 0,
+    pendingApproval: 0,
+    approvedToday: 0,
+    awaitingDeliveryConfirmation: 0
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
@@ -213,9 +220,21 @@ const AdminOrders = () => {
 
   const calculateStats = () => {
     const today = new Date().toDateString();
+    
+    // ONLY count DELIVERED AND PAID orders as "Sales"
+    const paidDeliveredOrders = orders.filter(o => 
+      o.status === 'delivered' && 
+      (o.paymentStatus === 'paid')
+    );
+    const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    
+    // All orders revenue (for reference)
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    
     setOrderStats({
-      totalRevenue: orders.reduce((sum, o) => sum + o.totalAmount, 0),
-      averageOrderValue: orders.length > 0 ? orders.reduce((sum, o) => sum + o.totalAmount, 0) / orders.length : 0,
+      totalSales,
+      totalRevenue,
+      averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
       pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
       completedOrders: orders.filter(o => o.status === 'delivered').length,
       todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
@@ -247,7 +266,6 @@ const AdminOrders = () => {
     setCurrentPage(1);
   };
 
-  // Approve payment for GCash/Maya orders
   const handleApprovePayment = async (orderId: string) => {
     setUpdatingStatus(true);
     try {
@@ -295,7 +313,6 @@ const AdminOrders = () => {
     }
   };
 
-  // Confirm COD payment after delivery
   const handleConfirmCODPayment = async (orderId: string) => {
     setUpdatingStatus(true);
     try {
@@ -357,7 +374,6 @@ const AdminOrders = () => {
     const order = orders.find(o => o.id === orderId);
     const isDigitalPayment = order?.paymentMethod === 'gcash' || order?.paymentMethod === 'paymaya';
     
-    // Prevent shipping if payment not approved for GCash/Maya
     if ((status === 'shipped' || status === 'processing') && isDigitalPayment && order?.paymentStatus !== 'paid') {
       setError('Payment must be approved before processing this order');
       setTimeout(() => setError(''), 3000);
@@ -422,8 +438,8 @@ const AdminOrders = () => {
   return (
     <div className="min-h-screen bg-[#FDFDFD] pb-20">
       {/* Toast Notifications */}
-      {success && <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4 duration-3000">{success}</div>}
-      {error && <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4 duration-3000">{error}</div>}
+      {success && <div className="fixed top-6 right-6 z-[60] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{success}</div>}
+      {error && <div className="fixed top-6 right-6 z-[60] bg-rose-600 text-white px-6 py-3 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-4">{error}</div>}
 
       <header className="bg-white border-b border-slate-100 sticky top-0 z-40 px-6 py-5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -441,7 +457,7 @@ const AdminOrders = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { label: 'Sales', value: formatCurrency(orderStats.totalRevenue), icon: TrendingUp, color: 'indigo' },
+            { label: 'Sales (Paid & Delivered)', value: formatCurrency(orderStats.totalSales), icon: CheckCircle, color: 'emerald' },
             { label: 'Pending Approval', value: orderStats.pendingApproval, icon: Clock, color: 'amber' },
             { label: 'Awaiting Delivery', value: orderStats.awaitingDeliveryConfirmation, icon: Truck, color: 'blue' },
             { label: 'Fulfilled', value: orderStats.completedOrders, icon: PackageCheck, color: 'emerald' },
@@ -568,7 +584,6 @@ const AdminOrders = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center md:justify-end md:p-6" onClick={() => setShowOrderModal(false)}>
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
           <div className="relative w-full h-full md:max-w-2xl bg-white md:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300" onClick={e => e.stopPropagation()}>
-            {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-black text-slate-900">Order Details</h2>
@@ -582,7 +597,6 @@ const AdminOrders = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Payment Status Alert for Digital Payments */}
               {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentStatus === 'pending' && (
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -593,7 +607,6 @@ const AdminOrders = () => {
                 </div>
               )}
 
-              {/* COD Delivery Confirmation Alert */}
               {selectedOrder.paymentMethod === 'cod' && selectedOrder.status === 'delivered' && selectedOrder.paymentStatus === 'pending' && (
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-start gap-3">
                   <Truck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -604,7 +617,6 @@ const AdminOrders = () => {
                 </div>
               )}
 
-              {/* Payment Section */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <CreditCard className="w-4 h-4" /> Payment Information
@@ -620,7 +632,6 @@ const AdminOrders = () => {
                     <PaymentStatusPill status={selectedOrder.paymentStatus} method={selectedOrder.paymentMethod} />
                   </div>
 
-                  {/* Approval Info */}
                   {selectedOrder.approvedBy && (
                     <div className="pt-3 border-t border-slate-200">
                       <p className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
@@ -630,7 +641,6 @@ const AdminOrders = () => {
                     </div>
                   )}
 
-                  {/* COD Confirmation Info */}
                   {selectedOrder.codPaymentConfirmedAt && (
                     <div className="pt-3 border-t border-slate-200">
                       <p className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
@@ -640,7 +650,6 @@ const AdminOrders = () => {
                     </div>
                   )}
 
-                  {/* Receipt Preview for Digital Payments */}
                   {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentProofImage && (
                     <div className="pt-4 border-t border-slate-200">
                       <p className="text-[10px] font-black text-slate-400 uppercase mb-3">Proof of Payment</p>
@@ -661,7 +670,6 @@ const AdminOrders = () => {
                 </div>
               </section>
 
-              {/* Order Items */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <Package className="w-4 h-4" /> Order Items
@@ -685,7 +693,6 @@ const AdminOrders = () => {
                 </div>
               </section>
 
-              {/* Shipping Address */}
               {selectedOrder.shippingAddress && (
                 <section className="space-y-4">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -698,9 +705,7 @@ const AdminOrders = () => {
               )}
             </div>
 
-            {/* Admin Actions Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
-              {/* Payment Verification Controls - For GCash/Maya with proof */}
               {selectedOrder.paymentStatus === 'pending' && 
                selectedOrder.paymentProofImage && 
                (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
@@ -734,7 +739,6 @@ const AdminOrders = () => {
                 </div>
               )}
 
-              {/* COD Delivery Confirmation Button */}
               {selectedOrder.paymentMethod === 'cod' && 
                selectedOrder.status === 'delivered' && 
                selectedOrder.paymentStatus === 'pending' && (
@@ -746,7 +750,6 @@ const AdminOrders = () => {
                 </button>
               )}
 
-              {/* Status Update Grid */}
               <div className="grid grid-cols-2 gap-2">
                 {['processing', 'shipped', 'delivered'].map(s => {
                   const isDigitalPayment = selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya';
