@@ -393,6 +393,18 @@ const Cart = () => {
     </div>
   );
 
+  useEffect(() => {
+  console.log('=== CART PAGE: Cart items ===');
+  state.items.forEach((item, i) => {
+    console.log(`Item ${i}:`, {
+      name: item.name,
+      selectedColor: item.selectedColor,
+      selectedColorType: typeof item.selectedColor,
+      uniqueId: item.uniqueId
+    });
+  });
+}, [state.items]);
+
   if (state.items.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

@@ -787,6 +787,11 @@ const AdminOrders = () => {
                 </h3>
                 <div className="space-y-3">
                   {selectedOrder.items?.map((item: any, i: number) => {
+
+                    const testItem = {
+                      ...item,
+                      color: item.color || 'Walnut' // Force 'Walnut' if no color
+                    };
                     // Check for any variant data (handling empty strings)
                     const hasColor = item.color && item.color.trim() !== '';
                     const hasSize = item.size && item.size.trim() !== '';
@@ -799,6 +804,12 @@ const AdminOrders = () => {
                           <div className="flex-1 min-w-0">
                             {/* Product name */}
                             <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
+
+                            {/* Show both original and test color */}
+                            <div className="mt-1 p-2 bg-gray-100 rounded text-[10px]">
+                              <p>Original color: "{item.color}"</p>
+                              <p>Test color: "{testItem.color}"</p>
+                            </div>
 
                             {/* Variants Display */}
                             {hasAnyVariant ? (

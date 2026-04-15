@@ -648,6 +648,40 @@ const Checkout = () => {
       return;
     }
 
+    console.log('=== CHECKOUT: Placing order ===');
+  console.log('Cart items:', state.items.map(item => ({
+    name: item.name,
+    selectedColor: item.selectedColor,
+    colorType: typeof item.selectedColor
+  })));
+  
+  // Build order items with logging
+  const orderItems = state.items.map(item => {
+    const orderItem: any = {
+      productId: item.id,
+      productName: item.name,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      imageUrl: item.imageUrl || ''
+    };
+    
+    console.log(`Processing item: ${item.name}`);
+    console.log(`  - selectedColor: "${item.selectedColor}"`);
+    console.log(`  - has color?`, !!(item.selectedColor && item.selectedColor.trim() !== ''));
+    
+    // ONLY add color if it exists and is not empty
+    if (item.selectedColor && item.selectedColor.trim() !== '') {
+      orderItem.color = item.selectedColor;
+      console.log(`  - ADDED color: "${orderItem.color}"`);
+    } else {
+      console.log(`  - NO color added`);
+    }
+    
+    return orderItem;
+  });
+  
+  console.log('Final order items being sent:', orderItems);
+
     setLoading(true);
     setUploadProgress(0);
     setUploadStatus('uploading');

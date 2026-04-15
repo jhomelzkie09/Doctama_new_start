@@ -177,19 +177,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id]);
 
   const addItem = (product: Product, color?: string) => {
-    // FIX: Don't pass empty strings as colors
-    const validColor = color && color.trim() !== '' ? color : undefined;
-    const uniqueId = generateUniqueId(product.id, validColor);
-    const existingItem = state.items.find(item => item.uniqueId === uniqueId);
-    
-    if (existingItem) {
-      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-      showSuccess(`${product.name} quantity increased!`);
-    } else {
-      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-      showSuccess(`${product.name} added to cart! 🛒`);
-    }
-  };
+  // DEBUG
+  console.log('=== CART CONTEXT: addItem called ===');
+  console.log('Product:', product.name);
+  console.log('Color received:', color, 'Type:', typeof color);
+  
+  // FIX: Don't pass empty strings as colors
+  const validColor = color && color.trim() !== '' ? color : undefined;
+  console.log('Valid color after trim:', validColor);
+  
+  const uniqueId = generateUniqueId(product.id, validColor);
+  const existingItem = state.items.find(item => item.uniqueId === uniqueId);
+  
+  if (existingItem) {
+    dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
+    showSuccess(`${product.name} quantity increased!`);
+  } else {
+    dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
+    showSuccess(`${product.name} added to cart! 🛒`);
+  }
+  
+  // DEBUG: Log the current cart items
+  console.log('Current cart items:', state.items.map(i => ({ 
+    name: i.name, 
+    selectedColor: i.selectedColor 
+  })));
+};
 
   const removeItem = (uniqueId: string) => {
     const item = state.items.find(item => item.uniqueId === uniqueId);
