@@ -25,7 +25,9 @@ type CartAction =
 
 // Helper to generate unique ID based on product ID and color
 const generateUniqueId = (productId: number, color?: string): string => {
-  return color ? `${productId}-${color.toLowerCase()}` : `${productId}`;
+  // Only use color if it's a non-empty string
+  const validColor = color && color.trim() !== '' ? color : undefined;
+  return validColor ? `${productId}-${validColor.toLowerCase()}` : `${productId}`;
 };
 
 const CartContext = createContext<{
@@ -40,7 +42,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
       const { product, color } = action.payload;
-      const uniqueId = generateUniqueId(product.id, color);
+      // FIX: Only store color if it's a non-empty string
+      const validColor = color && color.trim() !== '' ? color : undefined;
+      const uniqueId = generateUniqueId(product.id, validColor);
       
       const existingItem = state.items.find(item => item.uniqueId === uniqueId);
       
@@ -57,11 +61,11 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         };
       }
       
-      // Add new item with color
+      // Add new item with valid color (undefined if empty)
       const newItem: CartItem = {
         ...product,
         quantity: 1,
-        selectedColor: color,
+        selectedColor: validColor, // This will be undefined if color was empty
         uniqueId
       };
       
@@ -111,7 +115,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
   const { user } = useAuth();
 
-  // Get the cart storage key for the current user
   const getCartStorageKey = () => {
     if (user && user.id) {
       return `cart_${user.id}`;
@@ -119,7 +122,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 'cart_guest';
   };
 
-  // Load cart when user changes (login, logout, or switch accounts)
   useEffect(() => {
     const loadCart = () => {
       const storageKey = getCartStorageKey();
@@ -128,12 +130,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (savedCart) {
         try {
           const parsedCart = JSON.parse(savedCart);
-          // Handle both old format (just items array) and new format ({ items: [] })
           let items = Array.isArray(parsedCart) ? parsedCart : parsedCart.items;
           
           if (Array.isArray(items) && items.length > 0) {
-            // Validate that items have required fields
-            const validItems = items.filter(item => item.id && item.quantity);
+            // FIX: Clean up any items with empty string colors
+            const validItems = items
+              .filter(item => item.id && item.quantity)
+              .map(item => ({
+                ...item,
+                // Convert empty string colors to undefined
+                selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined
+              }));
+            
             if (validItems.length > 0) {
               dispatch({ type: 'LOAD_CART', payload: validItems });
             } else {
@@ -147,15 +155,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           dispatch({ type: 'CLEAR_CART' });
         }
       } else {
-        // No saved cart for this user
         dispatch({ type: 'CLEAR_CART' });
       }
     };
 
     loadCart();
-  }, [user?.id]); // Re-run when user ID changes
+  }, [user?.id]);
 
-  // Save cart whenever it changes
   useEffect(() => {
     const saveCart = () => {
       const storageKey = getCartStorageKey();
@@ -163,7 +169,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (state.items.length > 0) {
         localStorage.setItem(storageKey, JSON.stringify(state.items));
       } else {
-        // If cart is empty, remove from localStorage to keep it clean
         localStorage.removeItem(storageKey);
       }
     };
@@ -172,23 +177,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id]);
 
   const addItem = (product: Product, color?: string) => {
-    // Check if item already exists
-    const uniqueId = generateUniqueId(product.id, color);
+    // FIX: Don't pass empty strings as colors
+    const validColor = color && color.trim() !== '' ? color : undefined;
+    const uniqueId = generateUniqueId(product.id, validColor);
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
     if (existingItem) {
-      // Item exists, show quantity increased message
-      dispatch({ type: 'ADD_ITEM', payload: { product, color } });
+      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
       showSuccess(`${product.name} quantity increased!`);
     } else {
-      // New item, show added to cart message
-      dispatch({ type: 'ADD_ITEM', payload: { product, color } });
+      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
       showSuccess(`${product.name} added to cart! 🛒`);
     }
   };
 
   const removeItem = (uniqueId: string) => {
-    // Find the item before removing to get its name
     const item = state.items.find(item => item.uniqueId === uniqueId);
     dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId } });
     if (item) {
@@ -202,7 +205,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Find the item to get its name
     const item = state.items.find(item => item.uniqueId === uniqueId);
     dispatch({ type: 'UPDATE_QUANTITY', payload: { uniqueId, quantity } });
     
