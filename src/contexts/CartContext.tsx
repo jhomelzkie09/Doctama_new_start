@@ -30,6 +30,29 @@ const generateUniqueId = (productId: number, color?: string): string => {
   return validColor ? `${productId}-${validColor.toLowerCase()}` : `${productId}`;
 };
 
+// ✅ Helper to strip unnecessary data before saving to localStorage
+const stripProductForStorage = (item: CartItem): any => {
+  return {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+    imageUrl: item.imageUrl || '',
+    selectedColor: item.selectedColor,
+    uniqueId: item.uniqueId,
+    description: item.description || '',
+    categoryId: item.categoryId,
+    stockQuantity: item.stockQuantity,
+    isActive: item.isActive,
+    createdAt: item.createdAt,
+    height: item.height || 0,
+    width: item.width || 0,
+    length: item.length || 0,
+    colorsVariant: item.colorsVariant || []
+    // ❌ images array is excluded to prevent base64 storage
+  };
+};
+
 const CartContext = createContext<{
   state: CartState;
   addItem: (product: Product, color?: string) => void;
@@ -64,7 +87,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         ...product,
         quantity: 1,
         selectedColor: validColor,
-        uniqueId
+        uniqueId,
+        // Ensure images array is not duplicated
+        images: undefined
       };
       
       return {
@@ -115,6 +140,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [cleanupRun, setCleanupRun] = useState(false);
 
   const getCartStorageKey = () => {
     if (user && user.id) {
@@ -122,6 +148,42 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return 'cart_guest';
   };
+
+  // ✅ One-time cleanup of old localStorage data
+  useEffect(() => {
+    if (cleanupRun) return;
+    
+    const cleanupOldCartData = () => {
+      const cleanedKey = 'cart_cleaned_v2';
+      
+      if (localStorage.getItem(cleanedKey)) {
+        setCleanupRun(true);
+        return;
+      }
+      
+      console.log('🧹 Running one-time cart cleanup...');
+      
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('cart_')) {
+          try {
+            const data = localStorage.getItem(key);
+            if (data && (data.includes('data:image') || data.length > 50000)) {
+              console.log(`🗑️ Deleting large cart data: ${key}`);
+              localStorage.removeItem(key);
+            }
+          } catch (e) {
+            console.error(`Failed to clean ${key}:`, e);
+          }
+        }
+      });
+      
+      localStorage.setItem(cleanedKey, 'true');
+      setCleanupRun(true);
+      console.log('✅ Cart cleanup complete');
+    };
+    
+    cleanupOldCartData();
+  }, [cleanupRun]);
 
   // ✅ Load cart from backend when user logs in
   useEffect(() => {
@@ -154,7 +216,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             height: 0,
             width: 0,
             length: 0,
-            colorsVariant: []
+            colorsVariant: [],
+            images: undefined
           }));
           
           // Get local cart items
@@ -172,21 +235,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
           
-          // Merge: Backend takes priority, but keep local items not in backend
-          const mergedItems = [...backendItems];
+          // ✅ Merge and deduplicate
+          const mergedMap = new Map<string, CartItem>();
           
-          for (const localItem of localItems) {
-            const existsInBackend = backendItems.some(
-              b => b.id === localItem.id && b.selectedColor === localItem.selectedColor
-            );
-            if (!existsInBackend) {
-              mergedItems.push(localItem);
+          // Add backend items first
+          backendItems.forEach(item => {
+            const key = `${item.id}-${item.selectedColor || 'default'}`;
+            mergedMap.set(key, item);
+          });
+          
+          // Add local items (if not already in backend)
+          localItems.forEach(item => {
+            const key = `${item.id}-${item.selectedColor || 'default'}`;
+            if (!mergedMap.has(key)) {
+              mergedMap.set(key, item);
             }
-          }
+          });
+          
+          const mergedItems = Array.from(mergedMap.values());
           
           if (mergedItems.length > 0) {
             dispatch({ type: 'LOAD_CART', payload: mergedItems });
-            console.log('📦 Cart loaded from backend and merged with local. Total items:', mergedItems.length);
+            console.log('📦 Cart loaded and merged. Total items:', mergedItems.length);
             
             // Save merged cart back to backend
             await cartService.saveCart(mergedItems);
@@ -201,13 +271,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedCart) {
             try {
               const parsed = JSON.parse(savedCart);
-              const localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
+              let localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
               
-              if (localItems.length > 0) {
-                console.log('📦 Uploading local cart to backend...');
-                await cartService.saveCart(localItems);
+              // ✅ Deduplicate local items
+              const dedupedMap = new Map<string, CartItem>();
+              localItems.forEach((item: any) => {
+                const key = `${item.id}-${item.selectedColor || 'default'}`;
+                const existing = dedupedMap.get(key);
+                if (existing) {
+                  existing.quantity += item.quantity;
+                } else {
+                  dedupedMap.set(key, {
+                    ...item,
+                    images: undefined,
+                    selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined,
+                    uniqueId: generateUniqueId(item.id, item.selectedColor)
+                  });
+                }
+              });
+              
+              const dedupedItems = Array.from(dedupedMap.values());
+              
+              if (dedupedItems.length > 0) {
+                console.log('📦 Uploading deduplicated local cart to backend...');
+                await cartService.saveCart(dedupedItems);
                 console.log('📦 Local cart uploaded to backend');
-                dispatch({ type: 'LOAD_CART', payload: localItems });
+                dispatch({ type: 'LOAD_CART', payload: dedupedItems });
               }
             } catch (e) {
               console.error('Failed to upload local cart:', e);
@@ -240,12 +329,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let items = Array.isArray(parsedCart) ? parsedCart : parsedCart.items;
         
         if (Array.isArray(items) && items.length > 0) {
-          const validItems = items
+          // ✅ Deduplicate items
+          const dedupedMap = new Map<string, CartItem>();
+          
+          items
             .filter((item: any) => item.id && item.quantity)
-            .map((item: any) => ({
-              ...item,
-              selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined
-            }));
+            .forEach((item: any) => {
+              const key = `${item.id}-${item.selectedColor || 'default'}`;
+              const existing = dedupedMap.get(key);
+              if (existing) {
+                existing.quantity += item.quantity;
+              } else {
+                dedupedMap.set(key, {
+                  ...item,
+                  images: undefined,
+                  selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined,
+                  uniqueId: generateUniqueId(item.id, item.selectedColor)
+                });
+              }
+            });
+          
+          const validItems = Array.from(dedupedMap.values());
           
           if (validItems.length > 0) {
             dispatch({ type: 'LOAD_CART', payload: validItems });
@@ -258,7 +362,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsInitialized(true);
   };
 
-  // ✅ Save cart to localStorage (backup)
+  // ✅ Save cart to localStorage (backup) - STRIPPED VERSION
   useEffect(() => {
     if (!isInitialized) return;
     
@@ -266,7 +370,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        localStorage.setItem(storageKey, JSON.stringify(state.items));
+        // ✅ Strip unnecessary data before saving
+        const itemsToStore = state.items.map(stripProductForStorage);
+        localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
+        console.log('📦 Cart saved to localStorage (stripped)');
       } else {
         localStorage.removeItem(storageKey);
       }
@@ -283,8 +390,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!user?.id || !hasSyncedWithBackend) return;
       
       try {
-        await cartService.saveCart(state.items);
-        console.log('📦 Cart auto-saved to backend');
+        // ✅ Only send minimal data to backend
+        const minimalItems = state.items.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          selectedColor: item.selectedColor || null
+        }));
+        
+        await cartService.saveCart(minimalItems);
+        console.log('📦 Cart auto-saved to backend (minimal data)');
       } catch (error) {
         console.error('Failed to save cart to backend:', error);
       }
@@ -306,11 +420,25 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
     if (existingItem) {
+      // Update quantity if exact same item exists
       dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
       showSuccess(`${product.name} quantity increased!`);
     } else {
-      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-      showSuccess(`${product.name} added to cart! 🛒`);
+      // ✅ Check if the same product exists WITHOUT a color
+      const sameProductNoColor = state.items.find(item => 
+        item.id === product.id && !item.selectedColor
+      );
+      
+      if (validColor && sameProductNoColor) {
+        // Remove the no-color version and add the colored version
+        dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId: sameProductNoColor.uniqueId } });
+        dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
+        showSuccess(`${product.name} updated with color ${validColor}!`);
+      } else {
+        // Add as new item
+        dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
+        showSuccess(`${product.name} added to cart! 🛒`);
+      }
     }
   };
 
