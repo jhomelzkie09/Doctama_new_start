@@ -321,7 +321,8 @@ const OrdersReport: React.FC = () => {
     return s;
   }, [filteredOrders])();
 
-  const totalSales = filteredOrders.reduce((sum, o) => sum + resolveOrderTotal(o), 0);
+  const paidDeliveredOrders = orders.filter(o => o.status === 'delivered' && o.paymentStatus === 'paid');
+  const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + resolveOrderTotal(o), 0);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
