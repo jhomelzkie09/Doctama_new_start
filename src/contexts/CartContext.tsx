@@ -185,6 +185,43 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     cleanupOldCartData();
   }, [cleanupRun]);
 
+  // ✅ Save cart to backend when items change (debounced)
+useEffect(() => {
+  if (!isInitialized) return;
+  
+  const saveCartToBackend = async () => {
+    console.log('🔍 saveCartToBackend triggered');
+    console.log('🔍 state.items:', state.items);
+    
+    if (!user?.id || !hasSyncedWithBackend) {
+      console.log('⚠️ Skipping save - not logged in or not synced');
+      return;
+    }
+    
+    if (state.items.length === 0) {
+      console.log('⚠️ No items to save');
+      return; // ✅ Don't send empty cart (clears backend)
+    }
+    
+    try {
+      const minimalItems = state.items.map(item => ({
+        productId: item.id,
+        quantity: item.quantity,
+        selectedColor: item.selectedColor || null
+      }));
+      
+      console.log('📤 Sending to backend:', minimalItems);
+      await cartService.saveCart(minimalItems);
+      console.log('📦 Cart auto-saved to backend');
+    } catch (error) {
+      console.error('Failed to save cart to backend:', error);
+    }
+  };
+
+  const timeoutId = setTimeout(saveCartToBackend, 2000);
+  return () => clearTimeout(timeoutId);
+}, [state.items, user?.id, hasSyncedWithBackend, isInitialized]);
+
   // ✅ Load cart from backend when user logs in
   useEffect(() => {
     const loadCartFromBackend = async () => {
