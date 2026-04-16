@@ -654,7 +654,7 @@ const AdminOrders = () => {
         )}
       </main>
 
-      {/* Order Details Modal - unchanged */}
+      {/* Order Details Modal */}
       {showOrderModal && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center md:justify-end md:p-6" onClick={() => setShowOrderModal(false)}>
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
@@ -692,7 +692,7 @@ const AdminOrders = () => {
                 </div>
               )}
 
-              {/* Payment Information Section */}
+              {/* Payment Information Section - FIXED (no duplication) */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <CreditCard className="w-4 h-4" /> Payment Information
@@ -706,86 +706,33 @@ const AdminOrders = () => {
                       </span>
                     </div>
                     <PaymentStatusPill status={selectedOrder.paymentStatus} method={selectedOrder.paymentMethod} />
-                    {/* Payment Information Section - Add rejection reason */}
-<section className="space-y-4">
-  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-    <CreditCard className="w-4 h-4" /> Payment Information
-  </h3>
-  <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 space-y-4">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        {getPaymentMethodIcon(selectedOrder.paymentMethod)}
-        <span className="font-black text-slate-700 uppercase text-sm">
-          {getPaymentMethodName(selectedOrder.paymentMethod)}
-        </span>
-      </div>
-      <PaymentStatusPill status={selectedOrder.paymentStatus} method={selectedOrder.paymentMethod} />
-    </div>
-
-            {/* ✅ ADD THIS - Rejection Reason */}
-            {selectedOrder.paymentStatus === 'failed' && selectedOrder.rejectionReason && (
-              <div className="pt-3 border-t border-slate-200">
-                <p className="text-[10px] font-black text-rose-600 uppercase flex items-center gap-1">
-                  <XCircle className="w-3 h-3" /> Rejection Reason
-                </p>
-                <p className="text-xs text-rose-700 mt-1 bg-rose-50 p-2 rounded-lg">
-                  {selectedOrder.rejectionReason}
-                </p>
-                {selectedOrder.rejectedBy && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Rejected by {selectedOrder.rejectedBy}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Rejected Info - Show who rejected */}
-            {selectedOrder.paymentStatus === 'failed' && selectedOrder.rejectedBy && !selectedOrder.rejectionReason && (
-              <div className="pt-3 border-t border-slate-200">
-                <p className="text-[10px] font-black text-rose-600 uppercase flex items-center gap-1">
-                  <Ban className="w-3 h-3" /> Rejected by {selectedOrder.rejectedBy}
-                </p>
-              </div>
-            )}
-
-            {selectedOrder.approvedBy && (
-              <div className="pt-3 border-t border-slate-200">
-                <p className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> Approved by {selectedOrder.approvedBy}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-1">{formatDate(selectedOrder.approvedAt || '')}</p>
-              </div>
-            )}
-
-            {selectedOrder.codPaymentConfirmedAt && (
-              <div className="pt-3 border-t border-slate-200">
-                <p className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> COD Payment Confirmed
-                </p>
-                <p className="text-[10px] text-slate-400 mt-1">{formatDate(selectedOrder.codPaymentConfirmedAt)}</p>
-              </div>
-            )}
-
-            {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentProofImage && (
-              <div className="pt-4 border-t border-slate-200">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-3">Proof of Payment</p>
-                <div className="relative group overflow-hidden rounded-2xl border-2 border-indigo-100 cursor-zoom-in" onClick={() => setShowReceiptModal(true)}>
-                  <img src={selectedOrder.paymentProofImage} alt="Receipt" className="w-full h-40 object-cover group-hover:scale-105 transition-transform" />
-                  <div className="absolute inset-0 bg-indigo-600/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <ZoomIn className="text-white w-8 h-8" />
                   </div>
-                </div>
-                {selectedOrder.paymentProofReference && (
-                  <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Reference Number</p>
-                    <p className="text-sm font-black text-slate-700">{selectedOrder.paymentProofReference}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-                  </div>
+
+                  {/* Rejection Reason */}
+                  {selectedOrder.paymentStatus === 'failed' && selectedOrder.rejectionReason && (
+                    <div className="pt-3 border-t border-slate-200">
+                      <p className="text-[10px] font-black text-rose-600 uppercase flex items-center gap-1">
+                        <XCircle className="w-3 h-3" /> Rejection Reason
+                      </p>
+                      <p className="text-xs text-rose-700 mt-1 bg-rose-50 p-2 rounded-lg">
+                        {selectedOrder.rejectionReason}
+                      </p>
+                      {selectedOrder.rejectedBy && (
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Rejected by {selectedOrder.rejectedBy}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rejected Info - Show who rejected (fallback) */}
+                  {selectedOrder.paymentStatus === 'failed' && selectedOrder.rejectedBy && !selectedOrder.rejectionReason && (
+                    <div className="pt-3 border-t border-slate-200">
+                      <p className="text-[10px] font-black text-rose-600 uppercase flex items-center gap-1">
+                        <Ban className="w-3 h-3" /> Rejected by {selectedOrder.rejectedBy}
+                      </p>
+                    </div>
+                  )}
 
                   {selectedOrder.approvedBy && (
                     <div className="pt-3 border-t border-slate-200">
@@ -889,7 +836,7 @@ const AdminOrders = () => {
 
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
               {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && 
-               (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
+              (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] uppercase tracking-tighter">
                     <AlertTriangle className="w-3 h-3" /> Payment Verification Required
@@ -911,7 +858,7 @@ const AdminOrders = () => {
               )}
 
               {selectedOrder.paymentMethod === 'cod' && selectedOrder.status === 'delivered' && 
-               selectedOrder.paymentStatus === 'pending' && (
+              selectedOrder.paymentStatus === 'pending' && (
                 <button onClick={() => setShowDeliveryConfirmModal(true)}
                   className="w-full py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
                   <Truck className="w-4 h-4" /> Confirm Delivery & Payment Received
