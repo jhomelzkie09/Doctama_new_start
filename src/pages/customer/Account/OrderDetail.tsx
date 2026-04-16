@@ -743,11 +743,6 @@ const OrderDetail = () => {
                         <p className="text-base font-bold text-red-800 mb-2">Payment Rejected</p>
                         
                         <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-red-600 font-medium min-w-[80px]">Rejected by:</span>
-                            <span className="text-gray-800">{order.rejectedBy}</span>
-                          </div>
-                          
                           {order.rejectionReason && (
                             <div className="flex items-start gap-2">
                               <span className="text-red-600 font-medium min-w-[80px]">Reason:</span>
