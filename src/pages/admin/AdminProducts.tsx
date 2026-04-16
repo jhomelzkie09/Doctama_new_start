@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/product.service';
@@ -16,7 +16,9 @@ import {
   Image as ImageIcon,
   Images,
   AlertTriangle,
-  Package
+  Package,
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { Product, Category } from '../../types';
 
@@ -24,7 +26,7 @@ const AdminProducts = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,7 +34,7 @@ const AdminProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
-  const itemsPerPage = 10;
+  const itemsPerPage = 12; // Show 12 products per page
 
   useEffect(() => {
     if (!isAdmin) {
@@ -44,12 +46,13 @@ const AdminProducts = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    setError('');
     try {
       const [productsData, categoriesData] = await Promise.all([
         productService.getProducts(),
         categoryService.getCategories()
       ]);
-      setProducts(productsData);
+      setAllProducts(productsData);
       setCategories(categoriesData);
     } catch (err: any) {
       setError('Failed to load products');
@@ -64,7 +67,7 @@ const AdminProducts = () => {
     
     try {
       await productService.deleteProduct(id);
-      setProducts(products.filter(p => p.id !== id));
+      setAllProducts(allProducts.filter(p => p.id !== id));
     } catch (err: any) {
       alert('Failed to delete product');
     }
@@ -73,27 +76,47 @@ const AdminProducts = () => {
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
       await productService.toggleProductStatus(id, !currentStatus);
-      setProducts(products.map(p => 
+      setAllProducts(allProducts.map(p => 
         p.id === id ? { ...p, isActive: !currentStatus } : p
       ));
     } catch (err: any) {
       alert('Failed to update product status');
-      await fetchData();
     }
   };
 
-  // Auto-deactivate product if stock becomes 0
-  const checkAndDeactivateProduct = async (product: Product) => {
-    if (product.stockQuantity === 0 && product.isActive) {
-      try {
-        await productService.toggleProductStatus(product.id, false);
-        setProducts(products.map(p => 
-          p.id === product.id ? { ...p, isActive: false } : p
-        ));
-      } catch (err) {
-        console.error('Failed to auto-deactivate product:', err);
-      }
-    }
+  // ✅ Filter products based on search and category
+  const filteredProducts = useMemo(() => {
+    return allProducts.filter(product => {
+      const matchesSearch = !searchQuery || 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesCategory = selectedCategory === 'all' || 
+        product.categoryId.toString() === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [allProducts, searchQuery, selectedCategory]);
+
+  // ✅ Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  // ✅ Calculate pagination
+  const totalProducts = filteredProducts.length;
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+  
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
   };
 
   // Get all image URLs for a product (main + additional)
@@ -129,30 +152,6 @@ const AdminProducts = () => {
     target.src = 'https://via.placeholder.com/400x300?text=No+Image';
   };
 
-  // Filter products
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.categoryId.toString() === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  // Run auto-deactivation check on filtered products
-  useEffect(() => {
-    filteredProducts.forEach(product => {
-      if (product.stockQuantity === 0 && product.isActive) {
-        checkAndDeactivateProduct(product);
-      }
-    });
-  }, [filteredProducts]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
   // Get stock status display
   const getStockStatus = (stock: number) => {
     if (stock === 0) {
@@ -164,13 +163,27 @@ const AdminProducts = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -178,15 +191,27 @@ const AdminProducts = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Products Management</h1>
-          <p className="text-gray-600 mt-1">Manage your product inventory</p>
+          <p className="text-gray-600 mt-1">
+            Manage your product inventory 
+            {totalProducts > 0 && <span> • {totalProducts} products</span>}
+          </p>
         </div>
-        <button
-          onClick={() => navigate('/admin/products/new')}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Product
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchData}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => navigate('/admin/products/new')}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -212,7 +237,25 @@ const AdminProducts = () => {
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
+          
+          {/* Clear Filters Button */}
+          {(searchQuery || selectedCategory !== 'all') && (
+            <button
+              onClick={handleClearFilters}
+              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <X className="w-4 h-4" />
+              Clear Filters
+            </button>
+          )}
         </div>
+        
+        {/* Filter Summary */}
+        {(searchQuery || selectedCategory !== 'all') && (
+          <div className="mt-3 text-xs text-gray-500">
+            Showing {totalProducts} filtered {totalProducts === 1 ? 'product' : 'products'}
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
@@ -225,197 +268,220 @@ const AdminProducts = () => {
 
       {/* Products Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Images</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedProducts.map((product) => {
-                const mainImageUrl = getMainImageUrl(product);
-                const additionalImages = getAdditionalImages(product);
-                const totalImages = getAllImageUrls(product).length;
-                const stockStatus = getStockStatus(product.stockQuantity);
-                
-                return (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                          {mainImageUrl ? (
-                            <img 
-                              src={mainImageUrl} 
-                              alt={product.name} 
-                              className="w-full h-full object-cover"
-                              onError={handleImageError}
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <ImageIcon className="w-6 h-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-xs text-gray-500 mb-2">{product.description}</div>
-                          
-                          {additionalImages.length > 0 && (
-                            <div className="flex items-center space-x-1">
-                              {additionalImages.slice(0, 3).map((url, index) => (
-                                <div key={index} className="w-8 h-8 bg-gray-100 rounded border border-gray-200 overflow-hidden">
-                                  <img 
-                                    src={url} 
-                                    alt={`${product.name} ${index + 2}`} 
-                                    className="w-full h-full object-cover"
-                                    onError={handleImageError}
-                                  />
-                                </div>
-                              ))}
-                              {additionalImages.length > 3 && (
-                                <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-600 font-medium">
-                                  +{additionalImages.length - 3}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader className="w-8 h-8 animate-spin text-blue-600" />
+            <span className="ml-3 text-gray-600">Loading products...</span>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Images</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedProducts.map((product) => {
+                    const mainImageUrl = getMainImageUrl(product);
+                    const additionalImages = getAdditionalImages(product);
+                    const totalImages = getAllImageUrls(product).length;
+                    const stockStatus = getStockStatus(product.stockQuantity);
+                    
+                    return (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                              {mainImageUrl ? (
+                                <img 
+                                  src={mainImageUrl} 
+                                  alt={product.name} 
+                                  className="w-full h-full object-cover"
+                                  onError={handleImageError}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                  <ImageIcon className="w-6 h-6 text-gray-400" />
                                 </div>
                               )}
                             </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">{product.name}</div>
+                              <div className="text-xs text-gray-500 mb-2 line-clamp-2">{product.description}</div>
+                              
+                              {additionalImages.length > 0 && (
+                                <div className="flex items-center space-x-1">
+                                  {additionalImages.slice(0, 3).map((url, index) => (
+                                    <div key={index} className="w-8 h-8 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                                      <img 
+                                        src={url} 
+                                        alt={`${product.name} ${index + 2}`} 
+                                        className="w-full h-full object-cover"
+                                        onError={handleImageError}
+                                      />
+                                    </div>
+                                  ))}
+                                  {additionalImages.length > 3 && (
+                                    <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-600 font-medium">
+                                      +{additionalImages.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {categories.find(c => c.id === product.categoryId)?.name || 'Unknown'}
+                        </td>
+                        
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                          ₱{product.price.toFixed(2)}
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${stockStatus.className}`}>
+                            {stockStatus.icon}
+                            {stockStatus.text}
+                          </span>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleToggleStatus(product.id, product.isActive)}
+                            className={`px-2 py-1 text-xs rounded-full ${
+                              product.isActive
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                            } transition-colors`}
+                          >
+                            {product.isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          {totalImages > 0 ? (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Images className="w-4 h-4 mr-1 text-blue-500" />
+                              <span>{totalImages} {totalImages === 1 ? 'image' : 'images'}</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">No images</span>
                           )}
-                        </div>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {categories.find(c => c.id === product.categoryId)?.name || 'Unknown'}
-                    </td>
-                    
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      ₱{product.price.toFixed(2)}
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${stockStatus.className}`}>
-                        {stockStatus.icon}
-                        {stockStatus.text}
-                      </span>
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => navigate(`/admin/products/${product.id}`)}
+                              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                              className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Edit Product"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Empty State */}
+            {paginatedProducts.length === 0 && !loading && (
+              <div className="text-center py-12">
+                <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+                <p className="text-gray-500 mb-6">
+                  {searchQuery || selectedCategory !== 'all' 
+                    ? 'Try adjusting your search or filter criteria'
+                    : 'Get started by adding your first product'}
+                </p>
+                {!searchQuery && selectedCategory === 'all' && (
+                  <button
+                    onClick={() => navigate('/admin/products/new')}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Product
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t flex items-center justify-between bg-gray-50">
+                <div className="text-sm text-gray-500">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalProducts)} of {totalProducts} products
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {getPageNumbers().map((page, index) => (
+                      page === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-3 py-1 text-gray-400">...</span>
+                      ) : (
                         <button
-                          onClick={() => handleToggleStatus(product.id, product.isActive)}
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            product.isActive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                          key={page}
+                          onClick={() => setCurrentPage(page as number)}
+                          className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-700 hover:bg-gray-100'
                           }`}
                         >
-                          {product.isActive ? 'Active' : 'Inactive'}
+                          {page}
                         </button>
-                        {product.stockQuantity === 0 && !product.isActive && (
-                          <span className="text-[10px] text-red-500 flex items-center gap-1">
-                            <AlertTriangle className="w-2.5 h-2.5" />
-                            Auto-deactivated
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      {totalImages > 0 ? (
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Images className="w-4 h-4 mr-1 text-blue-500" />
-                          <span>{totalImages} {totalImages === 1 ? 'image' : 'images'}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">No images</span>
-                      )}
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => navigate(`/admin/products/${product.id}`)}
-                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                          className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Edit Product"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete Product"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Empty State */}
-        {paginatedProducts.length === 0 && (
-          <div className="text-center py-12">
-            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500 mb-6">
-              {searchQuery || selectedCategory !== 'all' 
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by adding your first product'}
-            </p>
-            {!searchQuery && selectedCategory === 'all' && (
-              <button
-                onClick={() => navigate('/admin/products/new')}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Product
-              </button>
+                      )
+                    ))}
+                  </div>
+                  
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             )}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t flex items-center justify-between bg-gray-50">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="flex items-center px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="flex items-center px-3 py-1 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
+          </>
         )}
       </div>
     </div>
