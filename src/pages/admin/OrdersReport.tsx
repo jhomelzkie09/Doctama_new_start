@@ -4,7 +4,7 @@ import ReportFilters from '../../components/admin/ReportFilters';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 import PDFReportModal from '../../components/admin/PDFReportModal';
-import logo from '../../assets/logo.png'; // ✅ Import logo
+import logo from '../../assets/logo.png';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +83,33 @@ const STATUS_CONFIG: Record<string, { bg: string, text: string, border: string, 
 
 const getStatusConfig = (status: string | undefined) =>
   STATUS_CONFIG[status?.toLowerCase() ?? ''] ?? { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' };
+
+// ─── Company Header Component for PDF/Print ───────────────────────────────────
+
+const CompanyHeader: React.FC = () => (
+  <div className="flex items-center gap-4 mb-6 pb-4 border-b-2 border-gray-200">
+    <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
+      <img
+        src={logo}
+        alt="Doctama's Marketing Logo"
+        className="w-14 h-14 object-contain"
+      />
+    </div>
+    <div>
+      <h1 className="text-xl font-bold text-gray-900 leading-tight">
+        Doctama's Marketing
+      </h1>
+      <p className="text-sm text-gray-600 mt-0.5">
+        Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
+      </p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+        <span>📞 +63 998 586 8888</span>
+        <span>✉️ support@doctama.com</span>
+        <span>🌐 www.doctamasmarketing.com</span>
+      </div>
+    </div>
+  </div>
+);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -266,7 +293,6 @@ const OrdersReport: React.FC = () => {
       }
       
       setIsFiltering(true);
-      // Small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 300));
       
       const filtered = orders.filter((order) => {
@@ -413,34 +439,12 @@ const OrdersReport: React.FC = () => {
       {isRefreshing && <LoadingOverlay message="Refreshing data..." />}
       
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
-        {/* ✅ Company Header - Centered */}
-        <div className="flex justify-center mb-2">
-          <div className="flex items-center gap-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
-            <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
-              <img
-                src={logo}
-                alt="Doctama's Marketing Logo"
-                className="w-14 h-14 object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                Doctama's Marketing
-              </h1>
-              <p className="text-sm text-gray-600 mt-0.5">
-                Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
-                <span>📞 +63 998 586 8888</span>
-                <span>✉️ support@doctama.com</span>
-                <span>🌐 www.doctamasmarketing.com</span>
-              </div>
-            </div>
+        {/* Simple Header - No company logo here */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Orders Report</h1>
+            <p className="text-base text-gray-500 mt-1">Monitor your sales performance and order fulfillments.</p>
           </div>
-        </div>
-
-        {/* Header Section with Refresh */}
-        <div className="flex justify-end">
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -512,6 +516,7 @@ const OrdersReport: React.FC = () => {
           </div>
         </div>
 
+        {/* PDF Modal - Includes Company Header */}
         <PDFReportModal
           isOpen={showPDFModal}
           onClose={() => setShowPDFModal(false)}
@@ -521,7 +526,11 @@ const OrdersReport: React.FC = () => {
           period={`${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}`}
           summary={summaryContent}
         >
-          <OrderTable orders={filteredOrders} totalSales={totalSales} />
+          <>
+            <CompanyHeader />
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Orders Report</h2>
+            <OrderTable orders={filteredOrders} totalSales={totalSales} />
+          </>
         </PDFReportModal>
       </div>
     </>

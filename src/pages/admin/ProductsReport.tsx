@@ -4,7 +4,7 @@ import reportService from '../../services/report.service';
 import productService from '../../services/product.service';
 import orderService from '../../services/order.service';
 import PDFReportModal from '../../components/admin/PDFReportModal';
-import logo from '../../assets/logo.png'; // ✅ Import logo
+import logo from '../../assets/logo.png';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,33 @@ const stockStatus = (stock: number): { label: string; className: string; icon: R
     icon: <CheckCircle className="w-3 h-3" />
   };
 };
+
+// ─── Company Header Component for PDF/Print ───────────────────────────────────
+
+const CompanyHeader: React.FC = () => (
+  <div className="flex items-center gap-4 mb-6 pb-4 border-b-2 border-gray-200">
+    <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
+      <img
+        src={logo}
+        alt="Doctama's Marketing Logo"
+        className="w-14 h-14 object-contain"
+      />
+    </div>
+    <div>
+      <h1 className="text-xl font-bold text-gray-900 leading-tight">
+        Doctama's Marketing
+      </h1>
+      <p className="text-sm text-gray-600 mt-0.5">
+        Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
+      </p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+        <span>📞 +63 998 586 8888</span>
+        <span>✉️ support@doctama.com</span>
+        <span>🌐 www.doctamasmarketing.com</span>
+      </div>
+    </div>
+  </div>
+);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -426,11 +453,9 @@ const ProductsReport: React.FC = () => {
       const allProducts = await productService.getProducts();
       const allOrders = await orderService.getAllOrders();
       
-      // Calculate product stats from actual orders
       const productSalesMap = new Map<string | number, { sold: number; revenue: number; returned: number }>();
       const productInfoMap = new Map<string | number, { name: string; category: string; price: number; stock: number }>();
       
-      // Initialize with product info - convert ID to string for consistent comparison
       allProducts.forEach((p: any) => {
         const productId = String(p.id);
         productInfoMap.set(productId, {
@@ -442,11 +467,8 @@ const ProductsReport: React.FC = () => {
         productSalesMap.set(productId, { sold: 0, revenue: 0, returned: 0 });
       });
       
-      // Track debug info
       let deliveredOrdersCount = 0;
       let cancelledOrdersCount = 0;
-      
-      // Calculate sales and returns from orders within date range
       const returnsList: ReturnedProduct[] = [];
       
       allOrders.forEach((order: any) => {
@@ -455,12 +477,10 @@ const ProductsReport: React.FC = () => {
         
         if (!isWithinDateRange) return;
         
-        // Check if order is DELIVERED (sold)
         if (order.status === 'delivered') {
           deliveredOrdersCount++;
           
           order.items?.forEach((item: any) => {
-            // Convert productId to string for consistent comparison
             const productId = String(item.productId);
             const existing = productSalesMap.get(productId);
             if (existing) {
@@ -471,7 +491,6 @@ const ProductsReport: React.FC = () => {
           });
         }
         
-        // Check if order is CANCELLED and REFUNDED (returned)
         if (order.status === 'cancelled' && order.paymentStatus === 'refunded') {
           cancelledOrdersCount++;
           
@@ -481,7 +500,6 @@ const ProductsReport: React.FC = () => {
             if (existing) {
               existing.returned += item.quantity;
               
-              // Add to returns list
               returnsList.push({
                 id: `RET-${order.id}-${item.productId}-${Date.now()}`,
                 orderNumber: order.orderNumber,
@@ -498,7 +516,6 @@ const ProductsReport: React.FC = () => {
         }
       });
       
-      // Build product stats - only include products with sales or stock
       const stats: ProductStat[] = Array.from(productSalesMap.entries())
         .map(([id, sales]) => {
           const info = productInfoMap.get(id);
@@ -518,7 +535,6 @@ const ProductsReport: React.FC = () => {
         })
         .filter((item): item is ProductStat => item !== null);
       
-      // Sort by sold count (most sold first)
       stats.sort((a, b) => b.sold - a.sold);
       
       setProductStats(stats);
@@ -531,7 +547,6 @@ const ProductsReport: React.FC = () => {
         totalReturned: stats.reduce((s, p) => s + p.returned, 0)
       });
       
-      // Extract unique categories
       const uniqueCategories = Array.from(new Set(stats.map(p => p.category)));
       setCategories(uniqueCategories);
       
@@ -546,7 +561,6 @@ const ProductsReport: React.FC = () => {
     loadData();
   }, [dateRange]);
 
-  // Handle filter changes with loading state
   const handleDateRangeChange = (field: 'start' | 'end', value: string) => {
     setDateRange(prev => ({ ...prev, [field]: value }));
   };
@@ -559,12 +573,10 @@ const ProductsReport: React.FC = () => {
     loadData();
   };
 
-  // ── Filter products by category ─────────────────────────────────────────────
   const filteredProducts = filterCategory === 'all' 
     ? productStats 
     : productStats.filter(p => p.category === filterCategory);
 
-  // ── Derived totals ──────────────────────────────────────────────────────────
   const stats = useCallback((): TotalStats => {
     const filtered = filteredProducts;
     const totalReturned = returnedProducts.reduce((sum, r) => sum + r.quantity, 0);
@@ -584,7 +596,6 @@ const ProductsReport: React.FC = () => {
     };
   }, [filteredProducts, returnedProducts])();
 
-  // ── Export ─────────────────────────────────────────────────────────────────
   const handleExport = async (format: 'excel' | 'csv' | 'json') => {
     setExportLoading(true);
     const rows = filteredProducts.map((p) => ({
@@ -605,7 +616,6 @@ const ProductsReport: React.FC = () => {
     setExportLoading(false);
   };
 
-  // ── Print ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
     const content = document.getElementById('report-print-content');
     if (!content) return;
@@ -665,7 +675,6 @@ const ProductsReport: React.FC = () => {
     win.onafterprint = () => win.close();
   };
 
-  // ── PDF modal summary ──────────────────────────────────────────────────────
   const summaryContent = (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
@@ -709,7 +718,6 @@ const ProductsReport: React.FC = () => {
     </div>
   );
 
-  // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -723,37 +731,15 @@ const ProductsReport: React.FC = () => {
 
   return (
     <>
-      {/* Loading Overlays */}
       {(loading || exportLoading) && <LoadingOverlay message={loading ? "Loading inventory data..." : "Generating export file..."} />}
       
       <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
-        {/* ✅ Company Header - Centered */}
-        <div className="flex justify-center mb-2">
-          <div className="flex items-center gap-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
-            <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
-              <img
-                src={logo}
-                alt="Doctama's Marketing Logo"
-                className="w-14 h-14 object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                Doctama's Marketing
-              </h1>
-              <p className="text-sm text-gray-600 mt-0.5">
-                Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
-                <span>📞 +63 998 586 8888</span>
-                <span>✉️ support@doctama.com</span>
-                <span>🌐 www.doctamasmarketing.com</span>
-              </div>
-            </div>
-          </div>
+        {/* Simple Header - No company logo here */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Inventory & Returns Report</h1>
+          <p className="text-sm text-gray-500 mt-1">Track stock levels, product performance, and returned items</p>
         </div>
 
-        {/* Debug Info (for development) */}
         {debugInfo && (
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
             <p className="text-xs text-blue-800 font-medium">Debug Info:</p>
@@ -764,7 +750,6 @@ const ProductsReport: React.FC = () => {
           </div>
         )}
 
-        {/* Date Range Filter */}
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-[200px]">
@@ -826,7 +811,6 @@ const ProductsReport: React.FC = () => {
           </div>
         </div>
 
-        {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Total Products"
@@ -855,10 +839,8 @@ const ProductsReport: React.FC = () => {
           />
         </div>
 
-        {/* Low Stock Alert */}
         <LowStockAlert products={filteredProducts} isLoading={loading} />
 
-        {/* Product Inventory Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
           <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
             <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -880,7 +862,6 @@ const ProductsReport: React.FC = () => {
           </div>
         </div>
 
-        {/* Returned Products Section */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
           <div className="px-5 py-3 bg-orange-50 border-b border-orange-100">
             <div className="flex items-center gap-2">
@@ -894,7 +875,7 @@ const ProductsReport: React.FC = () => {
           <ReturnedProductsTable returns={returnedProducts} isLoading={loading} />
         </div>
 
-        {/* PDF Modal */}
+        {/* PDF Modal - Includes Company Header */}
         <PDFReportModal
           isOpen={showPDFModal}
           onClose={() => setShowPDFModal(false)}
@@ -905,11 +886,14 @@ const ProductsReport: React.FC = () => {
           summary={summaryContent}
         >
           <>
-            <LowStockAlert products={filteredProducts} />
-            <ProductTable products={filteredProducts} stats={stats} />
+            <CompanyHeader />
             <div className="mt-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Returned Products</h3>
-              <ReturnedProductsTable returns={returnedProducts} />
+              <LowStockAlert products={filteredProducts} />
+              <ProductTable products={filteredProducts} stats={stats} />
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Returned Products</h3>
+                <ReturnedProductsTable returns={returnedProducts} />
+              </div>
             </div>
           </>
         </PDFReportModal>
