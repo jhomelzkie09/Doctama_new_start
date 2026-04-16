@@ -28,7 +28,6 @@ class CartService {
       const response = await api.get('/cart');
       return response.data;
     } catch (error: any) {
-      // If 404 or no cart, return null (not an error)
       if (error.response?.status === 404) {
         return null;
       }
@@ -40,13 +39,30 @@ class CartService {
   // Save cart to backend
   async saveCart(items: any[]): Promise<void> {
     try {
-      const cartDto = {
-        items: items.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
+      // ✅ Validate and fix items before sending
+      const validItems = items
+        .filter(item => {
+          const productId = item.productId || item.id;
+          if (!productId || productId === 0) {
+            console.error('❌ Invalid product ID:', item);
+            return false;
+          }
+          return true;
+        })
+        .map(item => ({
+          productId: item.productId || item.id, // ✅ Try both
+          quantity: item.quantity || 1,
           selectedColor: item.selectedColor || null
-        }))
-      };
+        }));
+      
+      if (validItems.length === 0) {
+        console.warn('⚠️ No valid items to save');
+        return;
+      }
+      
+      const cartDto = { items: validItems };
+      console.log('📤 Sending cart to backend:', cartDto);
+      
       await api.post('/cart', cartDto);
       console.log('📦 Cart synced to backend');
     } catch (error) {
@@ -57,13 +73,23 @@ class CartService {
   // Sync cart (merge local and backend)
   async syncCart(items: any[]): Promise<BackendCart | null> {
     try {
-      const cartDto = {
-        items: items.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
+      const validItems = items
+        .filter(item => {
+          const productId = item.productId || item.id;
+          return productId && productId > 0;
+        })
+        .map(item => ({
+          productId: item.productId || item.id,
+          quantity: item.quantity || 1,
           selectedColor: item.selectedColor || null
-        }))
-      };
+        }));
+      
+      if (validItems.length === 0) {
+        console.warn('⚠️ No valid items to sync');
+        return null;
+      }
+      
+      const cartDto = { items: validItems };
       const response = await api.post('/cart/sync', cartDto);
       console.log('📦 Cart synced with backend (merged)');
       return response.data;
