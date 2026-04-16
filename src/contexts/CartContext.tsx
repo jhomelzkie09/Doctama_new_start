@@ -1,8 +1,9 @@
 // contexts/CartContext.tsx
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { Product } from '../types';
 import { useAuth } from './AuthContext';
-import { showSuccess, showError, showInfo, showLoading, dismissToast } from '../utils/toast';
+import { showSuccess, showInfo } from '../utils/toast';
+import cartService from '../services/cart.service';
 
 // Extended CartItem with color support
 export interface CartItem extends Product {
@@ -25,7 +26,6 @@ type CartAction =
 
 // Helper to generate unique ID based on product ID and color
 const generateUniqueId = (productId: number, color?: string): string => {
-  // Only use color if it's a non-empty string
   const validColor = color && color.trim() !== '' ? color : undefined;
   return validColor ? `${productId}-${validColor.toLowerCase()}` : `${productId}`;
 };
@@ -36,20 +36,19 @@ const CartContext = createContext<{
   removeItem: (uniqueId: string) => void;
   updateQuantity: (uniqueId: string, quantity: number) => void;
   clearCart: () => void;
+  isSyncing: boolean;
 } | undefined>(undefined);
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
       const { product, color } = action.payload;
-      // FIX: Only store color if it's a non-empty string
       const validColor = color && color.trim() !== '' ? color : undefined;
       const uniqueId = generateUniqueId(product.id, validColor);
       
       const existingItem = state.items.find(item => item.uniqueId === uniqueId);
       
       if (existingItem) {
-        // Update quantity if item exists
         return {
           ...state,
           items: state.items.map(item =>
@@ -61,11 +60,10 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         };
       }
       
-      // Add new item with valid color (undefined if empty)
       const newItem: CartItem = {
         ...product,
         quantity: 1,
-        selectedColor: validColor, // This will be undefined if color was empty
+        selectedColor: validColor,
         uniqueId
       };
       
@@ -114,6 +112,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
   const { user } = useAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const getCartStorageKey = () => {
     if (user && user.id) {
@@ -122,47 +123,145 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 'cart_guest';
   };
 
+  // ✅ Load cart from backend when user logs in
   useEffect(() => {
-    const loadCart = () => {
-      const storageKey = getCartStorageKey();
-      const savedCart = localStorage.getItem(storageKey);
+    const loadCartFromBackend = async () => {
+      if (!user?.id || hasSyncedWithBackend) return;
       
-      if (savedCart) {
-        try {
-          const parsedCart = JSON.parse(savedCart);
-          let items = Array.isArray(parsedCart) ? parsedCart : parsedCart.items;
+      setIsSyncing(true);
+      console.log('📦 Loading cart from backend for user:', user.id);
+      
+      try {
+        const backendCart = await cartService.getCart();
+        
+        if (backendCart && backendCart.items && backendCart.items.length > 0) {
+          console.log('📦 Found backend cart with', backendCart.items.length, 'items');
           
-          if (Array.isArray(items) && items.length > 0) {
-            // FIX: Clean up any items with empty string colors
-            const validItems = items
-              .filter(item => item.id && item.quantity)
-              .map(item => ({
-                ...item,
-                // Convert empty string colors to undefined
-                selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined
-              }));
-            
-            if (validItems.length > 0) {
-              dispatch({ type: 'LOAD_CART', payload: validItems });
-            } else {
-              dispatch({ type: 'CLEAR_CART' });
+          // Convert backend items to frontend CartItem format
+          const backendItems: CartItem[] = backendCart.items.map(item => ({
+            id: item.productId,
+            name: item.productName,
+            price: item.unitPrice,
+            quantity: item.quantity,
+            imageUrl: item.imageUrl || '',
+            selectedColor: item.selectedColor,
+            uniqueId: generateUniqueId(item.productId, item.selectedColor),
+            description: '',
+            categoryId: 0,
+            stockQuantity: 0,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            height: 0,
+            width: 0,
+            length: 0,
+            colorsVariant: []
+          }));
+          
+          // Get local cart items
+          const storageKey = getCartStorageKey();
+          const savedCart = localStorage.getItem(storageKey);
+          let localItems: CartItem[] = [];
+          
+          if (savedCart) {
+            try {
+              const parsed = JSON.parse(savedCart);
+              localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
+              console.log('📦 Found local cart with', localItems.length, 'items');
+            } catch (e) {
+              console.error('Failed to parse local cart:', e);
             }
-          } else {
-            dispatch({ type: 'CLEAR_CART' });
           }
-        } catch (error) {
-          console.error('Failed to load cart from localStorage:', error);
-          dispatch({ type: 'CLEAR_CART' });
+          
+          // Merge: Backend takes priority, but keep local items not in backend
+          const mergedItems = [...backendItems];
+          
+          for (const localItem of localItems) {
+            const existsInBackend = backendItems.some(
+              b => b.id === localItem.id && b.selectedColor === localItem.selectedColor
+            );
+            if (!existsInBackend) {
+              mergedItems.push(localItem);
+            }
+          }
+          
+          if (mergedItems.length > 0) {
+            dispatch({ type: 'LOAD_CART', payload: mergedItems });
+            console.log('📦 Cart loaded from backend and merged with local. Total items:', mergedItems.length);
+            
+            // Save merged cart back to backend
+            await cartService.saveCart(mergedItems);
+          }
+        } else {
+          console.log('📦 No backend cart found, checking local cart...');
+          
+          // No backend cart, check if we have local cart to upload
+          const storageKey = getCartStorageKey();
+          const savedCart = localStorage.getItem(storageKey);
+          
+          if (savedCart) {
+            try {
+              const parsed = JSON.parse(savedCart);
+              const localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
+              
+              if (localItems.length > 0) {
+                console.log('📦 Uploading local cart to backend...');
+                await cartService.saveCart(localItems);
+                console.log('📦 Local cart uploaded to backend');
+                dispatch({ type: 'LOAD_CART', payload: localItems });
+              }
+            } catch (e) {
+              console.error('Failed to upload local cart:', e);
+            }
+          }
         }
-      } else {
-        dispatch({ type: 'CLEAR_CART' });
+        
+        setHasSyncedWithBackend(true);
+      } catch (error) {
+        console.error('Failed to load cart from backend:', error);
+        // Fallback to local cart
+        loadLocalCart();
+      } finally {
+        setIsSyncing(false);
+        setIsInitialized(true);
       }
     };
 
-    loadCart();
+    loadCartFromBackend();
   }, [user?.id]);
 
+  // ✅ Load local cart (fallback)
+  const loadLocalCart = () => {
+    const storageKey = getCartStorageKey();
+    const savedCart = localStorage.getItem(storageKey);
+    
+    if (savedCart) {
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        let items = Array.isArray(parsedCart) ? parsedCart : parsedCart.items;
+        
+        if (Array.isArray(items) && items.length > 0) {
+          const validItems = items
+            .filter((item: any) => item.id && item.quantity)
+            .map((item: any) => ({
+              ...item,
+              selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined
+            }));
+          
+          if (validItems.length > 0) {
+            dispatch({ type: 'LOAD_CART', payload: validItems });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load cart from localStorage:', error);
+      }
+    }
+    setIsInitialized(true);
+  };
+
+  // ✅ Save cart to localStorage (backup)
   useEffect(() => {
+    if (!isInitialized) return;
+    
     const saveCart = () => {
       const storageKey = getCartStorageKey();
       
@@ -174,35 +273,46 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     saveCart();
-  }, [state.items, user?.id]);
+  }, [state.items, user?.id, isInitialized]);
+
+  // ✅ Save cart to backend when items change (debounced)
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    const saveCartToBackend = async () => {
+      if (!user?.id || !hasSyncedWithBackend) return;
+      
+      try {
+        await cartService.saveCart(state.items);
+        console.log('📦 Cart auto-saved to backend');
+      } catch (error) {
+        console.error('Failed to save cart to backend:', error);
+      }
+    };
+
+    const timeoutId = setTimeout(saveCartToBackend, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [state.items, user?.id, hasSyncedWithBackend, isInitialized]);
 
   const addItem = (product: Product, color?: string) => {
-  // DEBUG
-  console.log('=== CART CONTEXT: addItem called ===');
-  console.log('Product:', product.name);
-  console.log('Color received:', color, 'Type:', typeof color);
-  
-  // FIX: Don't pass empty strings as colors
-  const validColor = color && color.trim() !== '' ? color : undefined;
-  console.log('Valid color after trim:', validColor);
-  
-  const uniqueId = generateUniqueId(product.id, validColor);
-  const existingItem = state.items.find(item => item.uniqueId === uniqueId);
-  
-  if (existingItem) {
-    dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-    showSuccess(`${product.name} quantity increased!`);
-  } else {
-    dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-    showSuccess(`${product.name} added to cart! 🛒`);
-  }
-  
-  // DEBUG: Log the current cart items
-  console.log('Current cart items:', state.items.map(i => ({ 
-    name: i.name, 
-    selectedColor: i.selectedColor 
-  })));
-};
+    console.log('=== CART CONTEXT: addItem called ===');
+    console.log('Product:', product.name);
+    console.log('Color received:', color, 'Type:', typeof color);
+    
+    const validColor = color && color.trim() !== '' ? color : undefined;
+    console.log('Valid color after trim:', validColor);
+    
+    const uniqueId = generateUniqueId(product.id, validColor);
+    const existingItem = state.items.find(item => item.uniqueId === uniqueId);
+    
+    if (existingItem) {
+      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
+      showSuccess(`${product.name} quantity increased!`);
+    } else {
+      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
+      showSuccess(`${product.name} added to cart! 🛒`);
+    }
+  };
 
   const removeItem = (uniqueId: string) => {
     const item = state.items.find(item => item.uniqueId === uniqueId);
@@ -228,11 +338,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     dispatch({ type: 'CLEAR_CART' });
+    
+    if (user?.id) {
+      cartService.clearCart().catch(console.error);
+    }
+    
     showInfo('Cart cleared');
   };
 
   return (
-    <CartContext.Provider value={{ state, addItem, removeItem, updateQuantity, clearCart }}>
+    <CartContext.Provider value={{ state, addItem, removeItem, updateQuantity, clearCart, isSyncing }}>
       {children}
     </CartContext.Provider>
   );

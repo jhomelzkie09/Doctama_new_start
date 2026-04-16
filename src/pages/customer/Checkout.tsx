@@ -37,16 +37,13 @@ import {
   QrCode,
   Copy,
   CheckCheck,
-  Heart,
-  Star,
-  Gift,
   Sparkles,
   Home,
-  History,
-  Plus
+  History
 } from 'lucide-react';
 import orderService from '../../services/order.service';
 import uploadService from '../../services/upload.service';
+import cartService from '../../services/cart.service';
 import { PaymentMethod } from '../../types';
 import { showError, showSuccess, showLoading, dismissToast } from '../../utils/toast';
 import paymaya_logo from '../../assets/paymaya_logo.png';
@@ -324,13 +321,11 @@ const Checkout = () => {
 
   // Helper function to check if two addresses are similar (for deduplication)
   const getAddressKey = (address: SavedAddress): string => {
-    // Normalize address by trimming whitespace and converting to lowercase
     const normalizedAddress = address.address?.trim().toLowerCase() || '';
     const normalizedCity = address.city?.trim().toLowerCase() || '';
     const normalizedProvince = address.province?.trim().toLowerCase() || '';
     const normalizedZipCode = address.zipCode?.trim() || '';
     
-    // Create a unique key based on the core address components
     return `${normalizedAddress}|${normalizedCity}|${normalizedProvince}|${normalizedZipCode}`;
   };
 
@@ -342,7 +337,6 @@ const Checkout = () => {
         return;
       }
       
-      // Use a Map to store unique addresses by their key
       const addressesMap = new Map<string, SavedAddress>();
       
       // Load from localStorage with user-specific key
@@ -352,7 +346,6 @@ const Checkout = () => {
         const parsed = JSON.parse(saved);
         parsed.forEach((addr: SavedAddress) => {
           const key = getAddressKey(addr);
-          // Only add if not already present
           if (!addressesMap.has(key)) {
             addressesMap.set(key, addr);
           }
@@ -365,7 +358,6 @@ const Checkout = () => {
         orders.orders
           .filter(order => order.userId === user.id && order.shippingAddress)
           .forEach(order => {
-            // Parse shipping address
             const addressParts = order.shippingAddress?.split(',') || [];
             const addr: SavedAddress = {
               id: `order-${order.id}`,
@@ -413,7 +405,6 @@ const Checkout = () => {
         }
       }
       
-      // Convert map to array and sort (put 'Recently Used' at top)
       const addresses = Array.from(addressesMap.values());
       const recentIndex = addresses.findIndex(a => a.id === 'recent');
       if (recentIndex > 0) {
@@ -455,13 +446,11 @@ const Checkout = () => {
     const existing = localStorage.getItem(savedKey);
     let addresses: SavedAddress[] = existing ? JSON.parse(existing) : [];
     
-    // Check if similar address already exists using the key function
     const newAddressKey = getAddressKey(newAddress);
     const exists = addresses.some(a => getAddressKey(a) === newAddressKey);
     
     if (!exists) {
       addresses.unshift(newAddress);
-      // Keep only last 10 addresses
       addresses = addresses.slice(0, 10);
       localStorage.setItem(savedKey, JSON.stringify(addresses));
     }
@@ -562,7 +551,6 @@ const Checkout = () => {
     });
     setSelectedAddressId(address.id);
     
-    // Clear any address-related errors
     if (errors.address) {
       setErrors(prev => ({ ...prev, address: '', barangay: '', city: '', province: '', zipCode: '' }));
     }
@@ -649,39 +637,12 @@ const Checkout = () => {
     }
 
     console.log('=== CHECKOUT: Placing order ===');
-  console.log('Cart items:', state.items.map(item => ({
-    name: item.name,
-    selectedColor: item.selectedColor,
-    colorType: typeof item.selectedColor
-  })));
-  
-  // Build order items with logging
-  const orderItems = state.items.map(item => {
-    const orderItem: any = {
-      productId: item.id,
-      productName: item.name,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      imageUrl: item.imageUrl || ''
-    };
+    console.log('Cart items:', state.items.map(item => ({
+      name: item.name,
+      selectedColor: item.selectedColor,
+      colorType: typeof item.selectedColor
+    })));
     
-    console.log(`Processing item: ${item.name}`);
-    console.log(`  - selectedColor: "${item.selectedColor}"`);
-    console.log(`  - has color?`, !!(item.selectedColor && item.selectedColor.trim() !== ''));
-    
-    // ONLY add color if it exists and is not empty
-    if (item.selectedColor && item.selectedColor.trim() !== '') {
-      orderItem.color = item.selectedColor;
-      console.log(`  - ADDED color: "${orderItem.color}"`);
-    } else {
-      console.log(`  - NO color added`);
-    }
-    
-    return orderItem;
-  });
-  
-  console.log('Final order items being sent:', orderItems);
-
     setLoading(true);
     setUploadProgress(0);
     setUploadStatus('uploading');
@@ -706,21 +667,20 @@ const Checkout = () => {
         customerEmail: shippingInfo.email,
         customerPhone: shippingInfo.phone,
         items: state.items.map(item => {
-        const orderItem: any = {
-          productId: item.id,
-          productName: item.name,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          imageUrl: item.imageUrl || ''
-        };
-  
-        // ONLY add color if it exists and is not empty
-        if (item.selectedColor && item.selectedColor.trim() !== '') {
-          orderItem.color = item.selectedColor;
-        }
-        
-        return orderItem;
-      }),
+          const orderItem: any = {
+            productId: item.id,
+            productName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            imageUrl: item.imageUrl || ''
+          };
+    
+          if (item.selectedColor && item.selectedColor.trim() !== '') {
+            orderItem.color = item.selectedColor;
+          }
+          
+          return orderItem;
+        }),
         shippingFee: shippingFee
       };
 
@@ -738,6 +698,9 @@ const Checkout = () => {
       
       const order = await orderService.createOrder(orderData);
       
+      // ✅ Clear backend cart after successful order
+      await cartService.clearCart().catch(err => console.error('Failed to clear backend cart:', err));
+      
       // Save address for future use
       saveAddressToStorage();
       
@@ -746,13 +709,23 @@ const Checkout = () => {
       
       localStorage.removeItem(`checkout_shipping_${user?.id}`);
       
-      clearCart();
+      clearCart(); // Clear local cart
       navigate(`/account/orders/${order.id}?success=true`);
       
     } catch (error: any) {
       console.error('❌ Order failed:', error);
       dismissToast(loadingToast);
-      showError(error.response?.data?.message || 'Failed to place order. Please try again.');
+      
+      let errorMessage = 'Failed to place order. ';
+      if (error.response?.data?.message) {
+        errorMessage += error.response.data.message;
+      } else if (error.message) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Please try again.';
+      }
+      
+      showError(errorMessage);
       setUploadStatus('error');
     } finally {
       setLoading(false);
@@ -855,7 +828,7 @@ const Checkout = () => {
                     Shipping Information
                   </h2>
                   
-                  {/* Saved Addresses Section - Always visible with deduplication */}
+                  {/* Saved Addresses Section */}
                   {savedAddresses.length > 0 && (
                     <div className="mb-6">
                       <div className="flex items-center gap-2 mb-3">
