@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer } from 'react';
 import { useAuth } from './AuthContext';
 import orderService from '../services/order.service';
 import { Order } from '../types';
@@ -12,12 +12,15 @@ interface OrderState {
   totalOrders: number;
   currentPage: number;
   totalPages: number;
+  hasFetchedAllOrders: boolean;
+  hasFetchedUserOrders: boolean;
 }
 
 type OrderAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_ORDERS'; payload: { orders: Order[]; total: number; page: number; pages: number } }
+  | { type: 'SET_ALL_ORDERS'; payload: Order[] }
   | { type: 'SET_USER_ORDERS'; payload: Order[] }
   | { type: 'SET_CURRENT_ORDER'; payload: Order | null }
   | { type: 'UPDATE_ORDER'; payload: Order }
@@ -26,11 +29,11 @@ type OrderAction =
 
 interface OrderContextType {
   state: OrderState;
-  getUserOrders: (userId: string) => Promise<Order[]>;
-  getMyOrders: (page?: number, limit?: number) => Promise<void>;
+  getUserOrders: (userId: string, forceRefresh?: boolean) => Promise<Order[]>;
+  getMyOrders: (page?: number, limit?: number, forceRefresh?: boolean) => Promise<void>;
   getOrderById: (id: number) => Promise<Order | null>;
   createOrder: (orderData: any) => Promise<Order>;
-  getAllOrders: () => Promise<Order[]>;
+  getAllOrders: (forceRefresh?: boolean) => Promise<Order[]>;
   updateOrderStatus: (id: number, status: string) => Promise<Order>;
   updateOrderPayment: (id: number, status: string, details?: any) => Promise<Order>;
   clearOrders: () => void;
@@ -47,15 +50,19 @@ const initialState: OrderState = {
   error: null,
   totalOrders: 0,
   currentPage: 1,
-  totalPages: 1
+  totalPages: 1,
+  hasFetchedAllOrders: false,
+  hasFetchedUserOrders: false
 };
 
 const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
+      
     case 'SET_ERROR':
       return { ...state, error: action.payload };
+      
     case 'SET_ORDERS':
       return {
         ...state,
@@ -66,34 +73,53 @@ const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
         loading: false,
         error: null
       };
+      
+    case 'SET_ALL_ORDERS':
+      return {
+        ...state,
+        orders: action.payload,
+        totalOrders: action.payload.length,
+        loading: false,
+        error: null,
+        hasFetchedAllOrders: true
+      };
+      
     case 'SET_USER_ORDERS':
       return {
         ...state,
         userOrders: action.payload,
         loading: false,
-        error: null
+        error: null,
+        hasFetchedUserOrders: true
       };
+      
     case 'SET_CURRENT_ORDER':
       return { ...state, currentOrder: action.payload, loading: false };
+      
     case 'UPDATE_ORDER':
       return {
         ...state,
         orders: state.orders.map(order =>
-          order.id === action.payload.id ? action.payload : order
+          String(order.id) === String(action.payload.id) ? action.payload : order
         ),
         userOrders: state.userOrders.map(order =>
-          order.id === action.payload.id ? action.payload : order
+          String(order.id) === String(action.payload.id) ? action.payload : order
         ),
-        currentOrder: state.currentOrder?.id === action.payload.id ? action.payload : state.currentOrder
+        currentOrder: state.currentOrder && String(state.currentOrder.id) === String(action.payload.id)
+          ? action.payload
+          : state.currentOrder
       };
+      
     case 'ADD_ORDER':
       return {
         ...state,
         orders: [action.payload, ...state.orders],
         userOrders: [action.payload, ...state.userOrders]
       };
+      
     case 'CLEAR_ORDERS':
       return initialState;
+      
     default:
       return state;
   }
@@ -101,19 +127,16 @@ const orderReducer = (state: OrderState, action: OrderAction): OrderState => {
 
 export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(orderReducer, initialState);
-  const { user, isAuthenticated } = useAuth();
-
-  // Load user orders when user logs in
-  useEffect(() => {
-    if (user && user.id) {
-      getUserOrders(user.id);
-    } else {
-      dispatch({ type: 'CLEAR_ORDERS' });
-    }
-  }, [user?.id]);
+  const { user } = useAuth();
 
   // Get user orders by user ID
-  const getUserOrders = async (userId: string): Promise<Order[]> => {
+  const getUserOrders = async (userId: string, forceRefresh: boolean = false): Promise<Order[]> => {
+    // Skip if already fetched and not forcing refresh
+    if (state.hasFetchedUserOrders && !forceRefresh && state.userOrders.length > 0) {
+      console.log('📦 User orders already fetched, skipping...');
+      return state.userOrders;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const orders = await orderService.getUserOrders(userId);
@@ -129,12 +152,18 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Get current user's orders (paginated)
-  const getMyOrders = async (page: number = 1, limit: number = 10): Promise<void> => {
+  const getMyOrders = async (page: number = 1, limit: number = 10, forceRefresh: boolean = false): Promise<void> => {
+    // Skip if already fetched and not forcing refresh
+    if (state.hasFetchedUserOrders && !forceRefresh && state.userOrders.length > 0) {
+      console.log('📦 My orders already fetched, skipping...');
+      return;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const result = await orderService.getMyOrders(page, limit);
-      dispatch({ 
-        type: 'SET_ORDERS', 
+      dispatch({
+        type: 'SET_ORDERS',
         payload: {
           orders: result.orders,
           total: result.total,
@@ -152,6 +181,15 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Get single order by ID
   const getOrderById = async (id: number): Promise<Order | null> => {
+    // Check if we already have this order in state
+    const existingOrder = state.orders.find(o => String(o.id) === String(id)) ||
+      state.userOrders.find(o => String(o.id) === String(id));
+
+    if (existingOrder) {
+      dispatch({ type: 'SET_CURRENT_ORDER', payload: existingOrder });
+      return existingOrder;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const order = await orderService.getOrderById(id);
@@ -182,12 +220,19 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Admin: Get all orders
-  const getAllOrders = async (): Promise<Order[]> => {
+  // Admin: Get all orders (ONLY when explicitly called)
+  const getAllOrders = async (forceRefresh: boolean = false): Promise<Order[]> => {
+    // Skip if already fetched and not forcing refresh
+    if (state.hasFetchedAllOrders && !forceRefresh && state.orders.length > 0) {
+      console.log('📦 All orders already fetched, skipping...');
+      return state.orders;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
+      console.log('📦 Fetching all orders from server...');
       const orders = await orderService.getAllOrders();
-      dispatch({ type: 'SET_ORDERS', payload: { orders, total: orders.length, page: 1, pages: 1 } });
+      dispatch({ type: 'SET_ALL_ORDERS', payload: orders });
       return orders;
     } catch (error: any) {
       console.error('Error fetching all orders:', error);
@@ -230,17 +275,17 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Clear all orders
+  // Clear all orders (reset fetch flags)
   const clearOrders = () => {
     dispatch({ type: 'CLEAR_ORDERS' });
   };
 
-  // Refresh orders
+  // Refresh orders (force refetch)
   const refreshOrders = async () => {
     if (user && user.id) {
-      await getUserOrders(user.id);
+      await getUserOrders(user.id, true);
     }
-    await getMyOrders();
+    await getMyOrders(1, 10, true);
   };
 
   return (
