@@ -41,7 +41,22 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState(3); // Example count
+  const [notifications, setNotifications] = useState(3);
+
+  // Auto-open submenu based on current path
+  useEffect(() => {
+    const currentPath = location.pathname;
+    menuItems.forEach(item => {
+      if (item.submenu) {
+        const isSubmenuActive = item.submenu.some(sub => 
+          currentPath === sub.path || currentPath.startsWith(sub.path + '/')
+        );
+        if (isSubmenuActive) {
+          setOpenSubmenu(item.title);
+        }
+      }
+    });
+  }, [location.pathname]);
 
   // Load profile picture when user changes
   useEffect(() => {
@@ -128,8 +143,30 @@ const AdminLayout = () => {
     setOpenSubmenu(openSubmenu === title ? null : title);
   };
 
+  // ✅ FIXED: Accurate active state checking
   const isActive = (path: string) => {
+    // Exact match for dashboard
+    if (path === '/admin') {
+      return location.pathname === '/admin';
+    }
+    // For other paths, check if it's an exact match or a direct child
     return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  // ✅ FIXED: Check if a submenu item is active
+  const isSubmenuActive = (submenu: { path: string }[] | undefined) => {
+    if (!submenu) return false;
+    return submenu.some(sub => 
+      location.pathname === sub.path || location.pathname.startsWith(sub.path + '/')
+    );
+  };
+
+  // ✅ FIXED: Check if a parent menu should be highlighted (when any submenu is active)
+  const isParentActive = (item: MenuItem) => {
+    if (item.submenu) {
+      return isSubmenuActive(item.submenu);
+    }
+    return isActive(item.path);
   };
 
   const handleLogout = () => {
@@ -218,13 +255,13 @@ const AdminLayout = () => {
                   }
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 ${
-                  isActive(item.path)
+                  isParentActive(item)
                     ? 'bg-rose-50 text-rose-600 shadow-sm'
                     : 'text-gray-700 hover:bg-gray-100 hover:text-rose-600'
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <span className={isActive(item.path) ? 'text-rose-600' : 'text-gray-500 group-hover:text-rose-600'}>
+                  <span className={isParentActive(item) ? 'text-rose-600' : 'text-gray-500'}>
                     {item.icon}
                   </span>
                   <span className="text-sm font-medium">{item.title}</span>
@@ -249,7 +286,7 @@ const AdminLayout = () => {
                         setSidebarOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-200 ${
-                        location.pathname === sub.path
+                        location.pathname === sub.path || location.pathname.startsWith(sub.path + '/')
                           ? 'bg-rose-50 text-rose-600 font-medium'
                           : 'text-gray-600 hover:bg-gray-100 hover:text-rose-600'
                       }`}
@@ -313,12 +350,10 @@ const AdminLayout = () => {
 
             {/* Right Icons */}
             <div className="flex items-center space-x-2">
-              {/* Search Button */}
               <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <Search className="w-5 h-5 text-gray-600" />
               </button>
 
-              {/* Notifications */}
               <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <Bell className="w-5 h-5 text-gray-600" />
                 {notifications > 0 && (
@@ -326,7 +361,6 @@ const AdminLayout = () => {
                 )}
               </button>
 
-              {/* View Store */}
               <button 
                 onClick={() => window.open('/', '_blank')}
                 className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -335,7 +369,6 @@ const AdminLayout = () => {
                 <span className="text-sm text-gray-600 hidden md:inline">View Store</span>
               </button>
 
-              {/* Admin Profile Quick View */}
               <div className="hidden md:flex items-center space-x-2 ml-2 pl-2 border-l border-gray-200">
                 <div className="w-8 h-8 bg-gradient-to-r from-rose-100 to-amber-100 rounded-full overflow-hidden">
                   {profilePicture ? (
