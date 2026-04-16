@@ -391,25 +391,27 @@ const OrderDetail = () => {
   const getNotification = () => {
     if (!order) return null;
     
-    if (order.approvedBy && order.paymentStatus === 'paid') {
-      return {
-        type: 'approved',
-        icon: <ThumbsUp className="w-6 h-6 text-green-600" />,
-        title: 'Payment Approved!',
-        message: `Your payment has been approved. Your order is now being processed.`,
-        color: 'bg-green-50 border-green-200 text-green-800'
-      };
-    }
-    
-    if (order.rejectedBy && order.paymentStatus === 'failed') {
-      return {
-        type: 'rejected',
-        icon: <ThumbsDown className="w-6 h-6 text-red-600" />,
-        title: 'Payment Rejected',
-        message: order.rejectionReason || 'Your payment was rejected due to invalid or insufficient payment proof.',
-        color: 'bg-red-50 border-red-200 text-red-800'
-      };
-    }
+      if (order.approvedBy && order.paymentStatus === 'paid') {
+        return {
+          type: 'approved',
+          icon: <ThumbsUp className="w-6 h-6 text-green-600" />,
+          title: 'Payment Approved!',
+          message: `Your payment has been approved. Your order is now being processed.`,
+          color: 'bg-green-50 border-green-200 text-green-800'
+        };
+      }
+      
+      if (order.rejectedBy && order.paymentStatus === 'failed') {
+        return {
+          type: 'rejected',
+          icon: <ThumbsDown className="w-6 h-6 text-red-600" />,
+          title: 'Payment Rejected',
+          message: order.rejectionReason 
+            ? `Reason: ${order.rejectionReason}` 
+            : 'Your payment was rejected due to invalid or insufficient payment proof.',
+          color: 'bg-red-50 border-red-200 text-red-800'
+        };
+      }
     
     if (order.status === 'cancelled') {
       return {
@@ -701,6 +703,15 @@ const OrderDetail = () => {
                 </span>
               </div>
 
+              {/* Show rejection reason directly under payment status for failed payments */}
+              {order.paymentStatus === 'failed' && order.rejectionReason && (
+                <div className="mb-3 p-2 bg-red-50 rounded-lg border border-red-100">
+                  <p className="text-xs text-red-600">
+                    <span className="font-semibold">Reason:</span> {order.rejectionReason}
+                  </p>
+                </div>
+              )}
+              
               {/* Approval/Rejection Information */}
               {order.approvedBy && order.paymentStatus === 'paid' && (
                 <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-200">
@@ -721,6 +732,48 @@ const OrderDetail = () => {
                           Note: {order.paymentProofNotes.split('\n')[0]}
                         </p>
                       )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {order.rejectedBy && order.paymentStatus === 'failed' && (
+                <div className="mt-3 p-4 bg-red-50 rounded-xl border border-red-200">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <XCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-base font-bold text-red-800 mb-2">Payment Rejected</p>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-red-600 font-medium min-w-[80px]">Rejected by:</span>
+                          <span className="text-gray-800">{order.rejectedBy}</span>
+                        </div>
+                        
+                        {order.rejectionReason && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-red-600 font-medium min-w-[80px]">Reason:</span>
+                            <span className="text-gray-800 bg-white px-3 py-2 rounded-lg border border-red-100 flex-1">
+                              {order.rejectionReason}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {order.paymentProofNotes && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-red-600 font-medium min-w-[80px]">Notes:</span>
+                            <span className="text-gray-600 italic">{order.paymentProofNotes.split('\n')[0]}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <p className="text-xs text-red-600">
+                          Please contact support or resubmit your payment with valid proof.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
