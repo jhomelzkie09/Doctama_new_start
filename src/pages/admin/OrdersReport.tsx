@@ -4,6 +4,7 @@ import ReportFilters from '../../components/admin/ReportFilters';
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 import PDFReportModal from '../../components/admin/PDFReportModal';
+import logo from '../../assets/logo.png'; // ✅ Import logo
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ const toDisplayDate = (value: string | Date | undefined): string => {
   if (!value) return 'N/A';
   try {
     const d = new Date(value);
-    return isNaN(d.getTime()) ? 'Invalid date' : d.toLocaleDateString('en-US', {
+    return isNaN(d.getTime()) ? 'Invalid date' : d.toLocaleDateString('en-PH', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -333,6 +334,10 @@ const OrdersReport: React.FC = () => {
           <title>Orders Report</title>
           <style>
             body { font-family: system-ui, -apple-system, sans-serif; margin: 40px; color: #111827; }
+            .company-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e5e7eb; }
+            .company-header img { width: 64px; height: 64px; object-fit: contain; }
+            .company-header h1 { margin: 0; font-size: 24px; }
+            .company-header p { margin: 4px 0; color: #475569; }
             h2 { color: #111827; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border-bottom: 1px solid #e5e7eb; padding: 12px 8px; text-align: left; }
@@ -343,6 +348,14 @@ const OrdersReport: React.FC = () => {
           </style>
         </head>
         <body>
+          <div class="company-header">
+            <img src="${logo}" alt="Doctama's Marketing Logo" />
+            <div>
+              <h1>Doctama's Marketing</h1>
+              <p>Gabao, Bacon, Sorsogon City, Sorsogon, Philippines</p>
+              <p>📞 +63 998 586 8888 | ✉️ support@doctama.com | 🌐 www.doctamasmarketing.com</p>
+            </div>
+          </div>
           <h2>Orders Report</h2>
           ${content.innerHTML}
         </body>
@@ -400,12 +413,34 @@ const OrdersReport: React.FC = () => {
       {isRefreshing && <LoadingOverlay message="Refreshing data..." />}
       
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Orders Report</h1>
-            <p className="text-base text-gray-500 mt-1">Monitor your sales performance and order fulfillments.</p>
+        {/* ✅ Company Header - Centered */}
+        <div className="flex justify-center mb-2">
+          <div className="flex items-center gap-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
+            <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
+              <img
+                src={logo}
+                alt="Doctama's Marketing Logo"
+                className="w-14 h-14 object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">
+                Doctama's Marketing
+              </h1>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+                <span>📞 +63 998 586 8888</span>
+                <span>✉️ support@doctama.com</span>
+                <span>🌐 www.doctamasmarketing.com</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Header Section with Refresh */}
+        <div className="flex justify-end">
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}

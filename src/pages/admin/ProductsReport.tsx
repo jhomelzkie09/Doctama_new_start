@@ -4,6 +4,7 @@ import reportService from '../../services/report.service';
 import productService from '../../services/product.service';
 import orderService from '../../services/order.service';
 import PDFReportModal from '../../components/admin/PDFReportModal';
+import logo from '../../assets/logo.png'; // ✅ Import logo
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -616,6 +617,10 @@ const ProductsReport: React.FC = () => {
           <title>Inventory Report</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
+            .company-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e5e7eb; }
+            .company-header img { width: 64px; height: 64px; object-fit: contain; }
+            .company-header h1 { margin: 0; font-size: 24px; }
+            .company-header p { margin: 4px 0; color: #475569; }
             h1 { color: #333; }
             .summary { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px; }
             .alert { margin: 15px 0; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; }
@@ -627,7 +632,14 @@ const ProductsReport: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>Inventory & Returns Report</h1>
+          <div class="company-header">
+            <img src="${logo}" alt="Doctama's Marketing Logo" />
+            <div>
+              <h1>Doctama's Marketing</h1>
+              <p>Gabao, Bacon, Sorsogon City, Sorsogon, Philippines</p>
+              <p>📞 +63 998 586 8888 | ✉️ support@doctama.com | 🌐 www.doctamasmarketing.com</p>
+            </div>
+          </div>
           <div class="summary">
             <p><strong>Period:</strong> ${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}</p>
             <p><strong>Total Products:</strong> ${stats.totalProducts}</p>
@@ -715,10 +727,30 @@ const ProductsReport: React.FC = () => {
       {(loading || exportLoading) && <LoadingOverlay message={loading ? "Loading inventory data..." : "Generating export file..."} />}
       
       <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory & Returns Report</h1>
-          <p className="text-sm text-gray-500 mt-1">Track stock levels, product performance, and returned items</p>
+        {/* ✅ Company Header - Centered */}
+        <div className="flex justify-center mb-2">
+          <div className="flex items-center gap-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
+            <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
+              <img
+                src={logo}
+                alt="Doctama's Marketing Logo"
+                className="w-14 h-14 object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">
+                Doctama's Marketing
+              </h1>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-gray-500">
+                <span>📞 +63 998 586 8888</span>
+                <span>✉️ support@doctama.com</span>
+                <span>🌐 www.doctamasmarketing.com</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Debug Info (for development) */}

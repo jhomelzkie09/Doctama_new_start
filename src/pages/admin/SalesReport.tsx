@@ -3,6 +3,7 @@ import { Eye, Download, Printer, Calendar, Filter, ChevronRight, Loader, Chevron
 import reportService from '../../services/report.service';
 import { useOrders } from '../../contexts/OrderContext';
 import PDFReportModal from '../../components/admin/PDFReportModal';
+import logo from '../../assets/logo.png'; // ✅ Import logo
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -365,6 +366,10 @@ const SalesReport: React.FC = () => {
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; color: #334155; }
             h1 { color: #0f172a; }
+            .company-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e2e8f0; }
+            .company-header img { width: 64px; height: 64px; object-fit: contain; }
+            .company-header h1 { margin: 0; font-size: 24px; }
+            .company-header p { margin: 4px 0; color: #475569; }
             .summary { margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
@@ -374,7 +379,14 @@ const SalesReport: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>Sales Transactions Report</h1>
+          <div class="company-header">
+            <img src="${logo}" alt="Doctama's Marketing Logo" />
+            <div>
+              <h1>Doctama's Marketing</h1>
+              <p>Gabao, Bacon, Sorsogon City, Sorsogon, Philippines</p>
+              <p>📞 +63 998 586 8888 | ✉️ support@doctama.com | 🌐 www.doctamasmarketing.com</p>
+            </div>
+          </div>
           <div class="summary">
             <p><strong>Period:</strong> ${toDisplayDate(dateRange.start)} – ${toDisplayDate(dateRange.end)}</p>
             <p><strong>Total Transactions:</strong> ${filteredOrders.length}</p>
@@ -445,11 +457,29 @@ const SalesReport: React.FC = () => {
       {isGenerating && <LoadingOverlay message="Generating report..." />}
       
       <div className="p-6 md:p-8 space-y-6 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Sales Report</h1>
-            <p className="text-sm text-slate-500 mt-2 font-medium">Generate and export sales transaction reports.</p>
+        {/* ✅ Company Header - Centered */}
+        <div className="flex justify-center mb-2">
+          <div className="flex items-center gap-4 bg-white rounded-2xl shadow-sm border border-slate-100 px-6 py-4">
+            <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white shadow-sm">
+              <img
+                src={logo}
+                alt="Doctama's Marketing Logo"
+                className="w-14 h-14 object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">
+                Doctama's Marketing
+              </h1>
+              <p className="text-sm text-slate-600 mt-0.5">
+                Gabao, Bacon, Sorsogon City, Sorsogon, Philippines
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500">
+                <span>📞 +63 998 586 8888</span>
+                <span>✉️ support@doctama.com</span>
+                <span>🌐 www.doctamasmarketing.com</span>
+              </div>
+            </div>
           </div>
         </div>
 
