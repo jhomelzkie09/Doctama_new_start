@@ -53,15 +53,25 @@ const stripProductForStorage = (item: CartItem): any => {
   };
 };
 
-// ✅ Helper to validate if an item looks legitimate
-const isValidCartItem = (item: any): boolean => {
-  return item && 
-         item.id && 
-         item.id > 0 && 
-         item.name && 
-         item.name.trim() !== '' && 
-         item.price > 0 && 
-         item.quantity > 0;
+// ✅ Helper to validate if a product/item looks legitimate (LENIENT - for adding)
+const isValidProduct = (item: any): boolean => {
+  if (!item) return false;
+  
+  const hasId = typeof item.id === 'number' && item.id > 0;
+  const hasPrice = typeof item.price === 'number' && item.price > 0;
+  
+  return hasId && hasPrice;
+};
+
+// ✅ Helper to validate cart items before saving (STRICT - for saving)
+const isValidCartItemForSave = (item: CartItem): boolean => {
+  if (!item) return false;
+  
+  const hasId = typeof item.id === 'number' && item.id > 0;
+  const hasPrice = typeof item.price === 'number' && item.price > 0;
+  const hasQuantity = typeof item.quantity === 'number' && item.quantity > 0;
+  
+  return hasId && hasPrice && hasQuantity;
 };
 
 const CartContext = createContext<{
@@ -110,9 +120,10 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     
     case 'REMOVE_ITEM': {
       const item = state.items.find(item => item.uniqueId === action.payload.uniqueId);
+      if (!item) return state;
       return {
         items: state.items.filter(item => item.uniqueId !== action.payload.uniqueId),
-        total: state.total - (item ? item.price * item.quantity : 0)
+        total: state.total - (item.price * item.quantity)
       };
     }
     
@@ -147,14 +158,14 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
   const { user } = useAuth();
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isInitialSync, setIsInitialSync] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState<boolean>(false);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [isInitialSync, setIsInitialSync] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const getCartStorageKey = () => {
+  const getCartStorageKey = (): string => {
     if (user && user.id) {
       return `cart_${user.id}`;
     }
@@ -163,7 +174,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ✅ AGGRESSIVE CLEANUP - Remove all suspicious cart data on startup
   useEffect(() => {
-    const aggressiveCleanup = () => {
+    const aggressiveCleanup = (): void => {
       console.log('🧹 Running aggressive cart cleanup...');
       
       Object.keys(localStorage).forEach(key => {
@@ -174,9 +185,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const parsed = JSON.parse(data);
               const items = Array.isArray(parsed) ? parsed : (parsed.items || []);
               
-              // Check for the rogue item (product ID 35 with missing data)
+              // Check for the rogue item (product ID 34 or 35 with missing data)
               const hasRogueItem = items.some((item: any) => 
-                item.id === 35 && (!item.description || item.description === '')
+                (item.id === 34 || item.id === 35) && (!item.description || item.description === '')
               );
               
               // Check for base64 images or oversized data
@@ -203,7 +214,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ✅ Load cart from backend when user logs in
   useEffect(() => {
-    const loadCartFromBackend = async () => {
+    const loadCartFromBackend = async (): Promise<void> => {
       if (!user?.id || hasSyncedWithBackend) return;
       
       setIsSyncing(true);
@@ -218,7 +229,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Convert backend items to frontend CartItem format
           const backendItems: CartItem[] = backendCart.items
-            .filter(item => isValidCartItem({ id: item.productId, name: item.productName, price: item.unitPrice }))
+            .filter(item => item.productId && item.productId > 0 && item.unitPrice > 0)
             .map(item => ({
               id: item.productId,
               name: item.productName,
@@ -262,18 +273,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadCartFromBackend();
-  }, [user?.id]);
+  }, [user?.id, hasSyncedWithBackend]);
 
   // ✅ Save cart to localStorage (backup) - STRIPPED VERSION
   useEffect(() => {
     if (!isInitialized) return;
     
-    const saveCart = () => {
+    const saveCart = (): void => {
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        // Only save valid items
-        const validItems = state.items.filter(isValidCartItem);
+        // Only save valid items (use strict validation)
+        const validItems = state.items.filter(isValidCartItemForSave);
         if (validItems.length > 0) {
           const itemsToStore = validItems.map(stripProductForStorage);
           localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
@@ -312,15 +323,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(saveTimeoutRef.current);
     }
     
-    const saveCartToBackend = async () => {
+    const saveCartToBackend = async (): Promise<void> => {
       // Prevent concurrent saves
       if (isSaving) {
         console.log('⏳ Save already in progress, skipping');
         return;
       }
       
-      // Only save valid items
-      const validItems = state.items.filter(isValidCartItem);
+      // Only save valid items (use strict validation)
+      const validItems = state.items.filter(isValidCartItemForSave);
       
       if (validItems.length === 0) {
         console.log('⚠️ No valid items to save');
@@ -354,11 +365,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [state.items, user?.id, isInitialized, isInitialSync]);
+  }, [state.items, user?.id, isInitialized, isInitialSync, isSaving]);
 
-  const addItem = (product: Product, color?: string) => {
-    // Validate product before adding
-    if (!isValidCartItem(product)) {
+  const addItem = (product: Product, color?: string): void => {
+    // ✅ Use LENIENT validation for adding
+    if (!isValidProduct(product)) {
       console.error('❌ Cannot add invalid product to cart:', product);
       return;
     }
@@ -392,7 +403,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const removeItem = (uniqueId: string) => {
+  const removeItem = (uniqueId: string): void => {
     const item = state.items.find(item => item.uniqueId === uniqueId);
     dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId } });
     if (item) {
@@ -400,7 +411,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateQuantity = (uniqueId: string, quantity: number) => {
+  const updateQuantity = (uniqueId: string, quantity: number): void => {
     if (quantity < 1) {
       removeItem(uniqueId);
       return;
@@ -414,7 +425,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const clearCart = () => {
+  const clearCart = (): void => {
     dispatch({ type: 'CLEAR_CART' });
     
     if (user?.id) {
@@ -431,7 +442,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useCart = () => {
+export const useCart = (): {
+  state: CartState;
+  addItem: (product: Product, color?: string) => void;
+  removeItem: (uniqueId: string) => void;
+  updateQuantity: (uniqueId: string, quantity: number) => void;
+  clearCart: () => void;
+  isSyncing: boolean;
+} => {
   const context = useContext(CartContext);
   if (!context) {
     throw new Error('useCart must be used within a CartProvider');
