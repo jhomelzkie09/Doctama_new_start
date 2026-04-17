@@ -39,6 +39,7 @@ import ProductsReport from './pages/admin/ProductsReport';
 import PromoCodeManagement from './pages/admin/PromoCodeManagement';
 import StockDelivery from './pages/admin/StockDelivery';
 import CreateDelivery from './pages/admin/CreateDelivery';
+import OrderDelivery from './pages/admin/OrderDelivery';
 
 function App() {
   return (
@@ -154,6 +155,7 @@ function App() {
                     <Route path="promo-codes" element={<PromoCodeManagement />} />
                     <Route path="deliveries" element={<StockDelivery />} />
                     <Route path="deliveries/new" element={<CreateDelivery />} />
+                    <Route path="OrdersDelivery" element={<OrderDelivery />} />
                   </Route>
                 </Route>
                 
