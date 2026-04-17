@@ -8,7 +8,7 @@ import cartService from '../services/cart.service';
 // Extended CartItem with color support
 export interface CartItem extends Product {
   quantity: number;
-  selectedColor?: string;
+  selectedColor?: string; // Should be string | undefined, not null
   uniqueId: string;
 }
 
@@ -24,8 +24,16 @@ type CartAction =
   | { type: 'CLEAR_CART' }
   | { type: 'LOAD_CART'; payload: CartItem[] };
 
-const generateUniqueId = (productId: number, color?: string): string => {
-  const validColor = color && color.trim() !== '' ? color : undefined;
+// ✅ Helper to normalize color (convert null/empty to undefined)
+const normalizeColor = (color?: string | null): string | undefined => {
+  if (color === null) return undefined;
+  if (color === undefined) return undefined;
+  if (color.trim() === '') return undefined;
+  return color;
+};
+
+const generateUniqueId = (productId: number, color?: string | null): string => {
+  const validColor = normalizeColor(color);
   return validColor ? `${productId}-${validColor.toLowerCase()}` : `${productId}`;
 };
 
@@ -37,7 +45,7 @@ const stripProductForStorage = (item: CartItem): any => {
     price: item.price,
     quantity: item.quantity,
     imageUrl: item.imageUrl || '',
-    selectedColor: item.selectedColor, // Explicitly include
+    selectedColor: item.selectedColor, // Keep as is (undefined, not null)
     uniqueId: item.uniqueId,
     description: item.description || '',
     categoryId: item.categoryId,
@@ -53,7 +61,8 @@ const stripProductForStorage = (item: CartItem): any => {
   console.log('💾 Stripping product for storage:', { 
     id: stored.id, 
     name: stored.name,
-    selectedColor: stored.selectedColor 
+    selectedColor: stored.selectedColor,
+    selectedColorType: typeof stored.selectedColor
   });
   
   return stored;
@@ -103,9 +112,20 @@ const cleanItemData = <T extends any>(item: T): T => {
     // Create a shallow copy to avoid mutating the original
     const cleaned = Object.assign({}, item) as any;
     
-    // IMPORTANT: Explicitly preserve selectedColor
-    // Store the original selectedColor before any processing
-    const originalSelectedColor = cleaned.selectedColor;
+    // IMPORTANT: Normalize selectedColor - convert null to undefined
+    if ('selectedColor' in cleaned) {
+      const originalColor = cleaned.selectedColor;
+      cleaned.selectedColor = normalizeColor(originalColor);
+      
+      if (originalColor !== cleaned.selectedColor) {
+        console.log('🔄 Normalized selectedColor:', { 
+          from: originalColor, 
+          to: cleaned.selectedColor,
+          typeFrom: typeof originalColor,
+          typeTo: typeof cleaned.selectedColor
+        });
+      }
+    }
     
     // Remove base64 images from images array
     if (cleaned.images && Array.isArray(cleaned.images)) {
@@ -129,11 +149,6 @@ const cleanItemData = <T extends any>(item: T): T => {
       }
     });
     
-    // Restore selectedColor if it was somehow lost
-    if (originalSelectedColor !== undefined) {
-      cleaned.selectedColor = originalSelectedColor;
-    }
-    
     return cleaned;
   }
   
@@ -154,8 +169,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case 'ADD_ITEM': {
       let { product, color } = action.payload;
       
-      // ✅ Store the original color before cleaning
-      const originalColor = color;
+      // ✅ Normalize the color first
+      const normalizedColor = normalizeColor(color);
       
       // ✅ Clean the product data (remove base64 images, etc.)
       product = cleanItemData(product);
@@ -171,14 +186,15 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         console.warn('⚠️ Item has suspicious data, but allowing after cleaning:', product.id);
       }
       
-      // ✅ IMPORTANT: Preserve the color from the payload
-      const validColor = originalColor && originalColor.trim() !== '' ? originalColor : undefined;
+      // ✅ Use normalized color
+      const validColor = normalizedColor;
       const uniqueId = generateUniqueId(product.id, validColor);
       
       console.log('🎨 Adding item with color:', { 
         productId: product.id, 
         productName: product.name,
-        originalColor,
+        originalColor: color,
+        normalizedColor,
         validColor, 
         uniqueId 
       });
@@ -198,11 +214,11 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         };
       }
       
-      // ✅ Create new item with explicit color preservation
+      // ✅ Create new item with normalized color
       const newItem: CartItem = {
         ...product,
         quantity: 1,
-        selectedColor: validColor, // Explicitly set from the validated color
+        selectedColor: validColor, // undefined for no color, string for color
         uniqueId,
         images: undefined // Never store images in cart
       };
@@ -211,6 +227,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         id: newItem.id, 
         name: newItem.name, 
         selectedColor: newItem.selectedColor,
+        selectedColorType: typeof newItem.selectedColor,
         uniqueId: newItem.uniqueId 
       });
       
@@ -247,19 +264,11 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { items: [], total: 0 };
 
     case 'LOAD_CART': {
-      // ✅ Clean and validate items when loading, but don't block by ID
+      // ✅ Clean and validate items when loading
       const cleanedPayload = action.payload
         .map(item => {
-          // Store original selectedColor
-          const originalColor = item.selectedColor;
-          
-          // Clean each item
+          // Clean each item (this will normalize selectedColor)
           const cleaned = cleanItemData(item);
-          
-          // Restore selectedColor if it was lost
-          if (originalColor !== undefined && cleaned.selectedColor === undefined) {
-            cleaned.selectedColor = originalColor;
-          }
           
           // Check if it's valid
           if (!isValidProduct(cleaned)) {
@@ -275,7 +284,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
           console.log('📦 Loaded cart item:', {
             id: cleaned.id,
             name: cleaned.name,
-            selectedColor: cleaned.selectedColor
+            selectedColor: cleaned.selectedColor,
+            selectedColorType: typeof cleaned.selectedColor
           });
           
           return cleaned;
@@ -321,14 +331,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // ✅ Filter and clean items before saving
     const validItems = state.items
-      .map(item => {
-        const cleaned = cleanItemData(item);
-        // Preserve selectedColor
-        if (item.selectedColor !== undefined && cleaned.selectedColor === undefined) {
-          cleaned.selectedColor = item.selectedColor;
-        }
-        return cleaned;
-      })
+      .map(item => cleanItemData(item))
       .filter(item => isValidCartItemForSave(item) && !hasSuspiciousData(item));
     
     if (validItems.length === 0) {
@@ -345,7 +348,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const minimalItems = validItems.map(item => ({
         productId: item.id,
         quantity: item.quantity,
-        selectedColor: item.selectedColor || null
+        selectedColor: item.selectedColor || null // Backend expects null, not undefined
       }));
       
       console.log('📤 Saving cart to backend:', minimalItems);
@@ -378,14 +381,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 
                 // Clean each item instead of deleting everything
                 const cleanedItems = items
-                  .map((item: any) => {
-                    const originalColor = item.selectedColor;
-                    const cleaned = cleanItemData(item);
-                    if (originalColor !== undefined && cleaned.selectedColor === undefined) {
-                      cleaned.selectedColor = originalColor;
-                    }
-                    return cleaned;
-                  })
+                  .map((item: any) => cleanItemData(item))
                   .filter((item: any) => isValidProduct(item));
                 
                 if (cleanedItems.length > 0) {
@@ -475,7 +471,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             price: item.unitPrice,
             quantity: item.quantity,
             imageUrl: item.imageUrl || '',
-            selectedColor: item.selectedColor,
+            selectedColor: normalizeColor(item.selectedColor), // Normalize null to undefined
             uniqueId: generateUniqueId(item.productId, item.selectedColor),
             description: '',
             categoryId: 0,
@@ -490,15 +486,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }));
           
           if (backendItems.length > 0) {
-            // Clean items before dispatching and preserve colors
-            const cleanedItems = backendItems.map(item => {
-              const originalColor = item.selectedColor;
-              const cleaned = cleanItemData(item);
-              if (originalColor !== undefined && cleaned.selectedColor === undefined) {
-                cleaned.selectedColor = originalColor;
-              }
-              return cleaned;
-            });
+            // Clean items before dispatching
+            const cleanedItems = backendItems.map(item => cleanItemData(item));
             dispatch({ type: 'LOAD_CART', payload: cleanedItems });
             console.log('📦 Cart loaded from backend. Total items:', cleanedItems.length);
           }
@@ -527,16 +516,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        // Clean items before saving and preserve colors
+        // Clean items before saving
         const cleanedItems = state.items
-          .map(item => {
-            const originalColor = item.selectedColor;
-            const cleaned = cleanItemData(item);
-            if (originalColor !== undefined && cleaned.selectedColor === undefined) {
-              cleaned.selectedColor = originalColor;
-            }
-            return cleaned;
-          })
+          .map(item => cleanItemData(item))
           .filter(item => isValidCartItemForSave(item));
         
         if (cleanedItems.length > 0) {
@@ -602,16 +584,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id, isInitialized, isInitialSync]);
 
   const addItem = (product: Product, color?: string): void => {
-    // ✅ Store original color before any processing
-    const originalColor = color;
+    // ✅ Normalize the color first
+    const normalizedColor = normalizeColor(color);
     
     // ✅ Clean the product data first
     const cleanedProduct = cleanItemData(product);
-    
-    // ✅ Restore selectedColor if it was lost during cleaning
-    if (originalColor !== undefined && (cleanedProduct as any).selectedColor === undefined) {
-      (cleanedProduct as any).selectedColor = originalColor;
-    }
     
     // ✅ Validate product has required fields
     if (!isValidProduct(cleanedProduct)) {
@@ -623,13 +600,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('🛒 addItem called for:', {
       name: cleanedProduct.name,
       id: cleanedProduct.id,
-      originalColor,
-      cleanedProductColor: (cleanedProduct as any).selectedColor
+      originalColor: color,
+      normalizedColor
     });
     
     userActionRef.current = true;
     
-    const validColor = originalColor && originalColor.trim() !== '' ? originalColor : undefined;
+    const validColor = normalizedColor;
     const uniqueId = generateUniqueId(cleanedProduct.id, validColor);
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
