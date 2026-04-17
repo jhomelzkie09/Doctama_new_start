@@ -19,18 +19,25 @@ import {
   User,
   Mail,
   Phone,
-  MapPin,
-  FileText,
-  CheckCircle
+  CheckCircle,
+  DollarSign,
+  TrendingUp,
+  Edit3,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 
-interface DeliveryItem {
+interface ReceivedItem {
   productId: number;
   productName: string;
-  orderedQuantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  receivedQuantity: number;
+  unitCost: number;
+  totalCost: number;
+  updateSellingPrice: boolean;
+  newSellingPrice?: number;
+  currentSellingPrice?: number;
+  suggestedSellingPrice?: number;
   notes?: string;
 }
 
@@ -52,9 +59,10 @@ const CreateDelivery = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [expandedItem, setExpandedItem] = useState<number | null>(null);
   
-  // Delivery items
-  const [items, setItems] = useState<DeliveryItem[]>([]);
+  // Received items
+  const [items, setItems] = useState<ReceivedItem[]>([]);
   
   // Supplier info
   const [supplier, setSupplier] = useState<SupplierInfo>({
@@ -66,14 +74,16 @@ const CreateDelivery = () => {
   });
   
   // Delivery details
-  const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
-  const [expectedDate, setExpectedDate] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [notes, setNotes] = useState('');
   
-  // Quantity input for modal
+  // Quantity and cost input for modal
   const [quantityInput, setQuantityInput] = useState(1);
-  const [priceInput, setPriceInput] = useState(0);
+  const [costInput, setCostInput] = useState(0);
+  const [updatePriceInput, setUpdatePriceInput] = useState(false);
+  const [newPriceInput, setNewPriceInput] = useState(0);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -97,31 +107,34 @@ const CreateDelivery = () => {
   };
 
   const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    !items.some(item => item.productId === product.id)
   );
 
   const handleAddProduct = () => {
     if (!selectedProduct) return;
     
-    const existingItem = items.find(item => item.productId === selectedProduct.id);
-    if (existingItem) {
-      showError('Product already added. Remove it first to add again.');
-      return;
-    }
+    const suggestedPrice = costInput * 1.3; // 30% markup
     
-    const newItem: DeliveryItem = {
+    const newItem: ReceivedItem = {
       productId: selectedProduct.id,
       productName: selectedProduct.name,
-      orderedQuantity: quantityInput,
-      unitPrice: priceInput,
-      totalPrice: priceInput * quantityInput,
+      receivedQuantity: quantityInput,
+      unitCost: costInput,
+      totalCost: costInput * quantityInput,
+      updateSellingPrice: updatePriceInput,
+      newSellingPrice: updatePriceInput ? newPriceInput || suggestedPrice : undefined,
+      currentSellingPrice: selectedProduct.price,
+      suggestedSellingPrice: suggestedPrice,
       notes: ''
     };
     
     setItems([...items, newItem]);
     setSelectedProduct(null);
     setQuantityInput(1);
-    setPriceInput(0);
+    setCostInput(0);
+    setUpdatePriceInput(false);
+    setNewPriceInput(0);
     setShowProductModal(false);
     setSearchTerm('');
   };
@@ -130,130 +143,209 @@ const CreateDelivery = () => {
     const newItems = [...items];
     newItems.splice(index, 1);
     setItems(newItems);
+    if (expandedItem === index) setExpandedItem(null);
   };
 
   const updateItemQuantity = (index: number, quantity: number) => {
     const newItems = [...items];
-    newItems[index].orderedQuantity = quantity;
-    newItems[index].totalPrice = newItems[index].unitPrice * quantity;
+    newItems[index].receivedQuantity = quantity;
+    newItems[index].totalCost = newItems[index].unitCost * quantity;
     setItems(newItems);
   };
 
-  const updateItemPrice = (index: number, price: number) => {
+  const updateItemCost = (index: number, cost: number) => {
     const newItems = [...items];
-    newItems[index].unitPrice = price;
-    newItems[index].totalPrice = price * newItems[index].orderedQuantity;
+    newItems[index].unitCost = cost;
+    newItems[index].totalCost = cost * newItems[index].receivedQuantity;
+    
+    // Update suggested price based on new cost
+    const product = products.find(p => p.id === newItems[index].productId);
+    if (product) {
+      newItems[index].suggestedSellingPrice = cost * 1.3;
+      if (newItems[index].updateSellingPrice) {
+        newItems[index].newSellingPrice = cost * 1.3;
+      }
+    }
+    
     setItems(newItems);
+  };
+
+  const togglePriceUpdate = (index: number, enabled: boolean) => {
+    const newItems = [...items];
+    newItems[index].updateSellingPrice = enabled;
+    if (enabled && !newItems[index].newSellingPrice) {
+      newItems[index].newSellingPrice = newItems[index].suggestedSellingPrice;
+    }
+    setItems(newItems);
+  };
+
+  const updateNewPrice = (index: number, price: number) => {
+    const newItems = [...items];
+    newItems[index].newSellingPrice = price;
+    setItems(newItems);
+  };
+
+  const calculateMarkup = (cost: number, selling: number) => {
+    if (cost === 0) return 0;
+    return ((selling - cost) / cost) * 100;
   };
 
   const handleSubmit = async () => {
-    // Validate form
-    if (!supplier.name.trim()) {
-      showError('Please enter supplier name');
+  // Validate form
+  if (!supplier.name.trim()) {
+    showError('Please enter supplier name');
+    return;
+  }
+  
+  if (!invoiceNumber.trim()) {
+    showError('Please enter invoice/reference number');
+    return;
+  }
+  
+  if (!deliveryDate) {
+    showError('Please select delivery date');
+    return;
+  }
+  
+  if (items.length === 0) {
+    showError('Please add at least one product received');
+    return;
+  }
+  
+  // Validate items
+  for (const item of items) {
+    if (item.receivedQuantity <= 0) {
+      showError(`Quantity for ${item.productName} must be greater than 0`);
       return;
     }
-    
-    if (!purchaseOrderNumber.trim()) {
-      showError('Please enter purchase order number');
+    if (item.unitCost <= 0) {
+      showError(`Unit cost for ${item.productName} must be greater than 0`);
       return;
     }
+  }
+  
+  setSubmitting(true);
+  const loadingToast = showLoading('Recording stock delivery...');
+  
+  try {
+    // Create delivery record
+    const deliveryData = {
+      purchaseOrderNumber: invoiceNumber,
+      supplierName: supplier.name,
+      supplierContact: supplier.contactPerson,
+      supplierEmail: supplier.email,
+      supplierPhone: supplier.phone,
+      deliveryDate: new Date(deliveryDate).toISOString(),
+      expectedDate: new Date(deliveryDate).toISOString(),
+      notes,
+      trackingNumber,
+      items: items.map(item => ({
+        productId: item.productId,
+        productName: item.productName,
+        orderedQuantity: item.receivedQuantity,
+        receivedQuantity: item.receivedQuantity,
+        unitPrice: item.unitCost,
+        notes: item.notes
+      }))
+    };
     
-    if (!expectedDate) {
-      showError('Please select expected delivery date');
-      return;
+    const createdDelivery = await deliveryService.createDelivery(deliveryData);
+    
+    // Immediately receive the delivery
+    // Use createdDelivery.id or createdDelivery.deliveryId depending on what the API returns
+    const deliveryId = (createdDelivery as any).deliveryId || (createdDelivery as any).id;
+    
+    await deliveryService.receiveDelivery(deliveryId, items.map(item => ({
+      productId: item.productId,
+      receivedQuantity: item.receivedQuantity
+    })));
+    
+    // Update product prices for items marked for update
+    const priceUpdatePromises = items
+      .filter(item => item.updateSellingPrice && item.newSellingPrice)
+      .map(async item => {
+        const product = products.find(p => p.id === item.productId);
+        if (product && item.newSellingPrice) {
+          return productService.updateProduct(item.productId, {
+            ...product,
+            price: item.newSellingPrice
+          });
+        }
+        return Promise.resolve();
+      });
+    
+    await Promise.all(priceUpdatePromises);
+    
+    const updatedPriceCount = items.filter(i => i.updateSellingPrice).length;
+    
+    dismissToast(loadingToast);
+    
+    if (updatedPriceCount > 0) {
+      showSuccess(`Stock received! ${items.length} product(s) added to inventory. ${updatedPriceCount} price(s) updated.`);
+    } else {
+      showSuccess(`Stock received! ${items.length} product(s) added to inventory.`);
     }
     
-    if (items.length === 0) {
-      showError('Please add at least one product');
-      return;
-    }
-    
-    // Validate items
-    for (const item of items) {
-      if (item.orderedQuantity <= 0) {
-        showError(`Quantity for ${item.productName} must be greater than 0`);
-        return;
-      }
-      if (item.unitPrice <= 0) {
-        showError(`Unit price for ${item.productName} must be greater than 0`);
-        return;
-      }
-    }
-    
-    setSubmitting(true);
-    const loadingToast = showLoading('Creating delivery order...');
-    
-    try {
-      const deliveryData = {
-        purchaseOrderNumber,
-        supplierName: supplier.name,
-        supplierContact: supplier.contactPerson,
-        supplierEmail: supplier.email,
-        supplierPhone: supplier.phone,
-        expectedDate: new Date(expectedDate).toISOString(),
-        notes,
-        trackingNumber,
-        items: items.map(item => ({
-          productId: item.productId,
-          productName: item.productName,
-          orderedQuantity: item.orderedQuantity,
-          unitPrice: item.unitPrice,
-          notes: item.notes
-        }))
-      };
-      
-      await deliveryService.createDelivery(deliveryData);
-      
-      dismissToast(loadingToast);
-      showSuccess('Delivery order created successfully!');
-      navigate('/admin/deliveries');
-    } catch (error) {
-      dismissToast(loadingToast);
-      showError('Failed to create delivery order');
-      console.error('Error creating delivery:', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    navigate('/admin/deliveries');
+  } catch (error) {
+    dismissToast(loadingToast);
+    showError('Failed to record stock delivery');
+    console.error('Error recording delivery:', error);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
-  const totalQuantity = items.reduce((sum, item) => sum + item.orderedQuantity, 0);
-  const totalValue = items.reduce((sum, item) => sum + item.totalPrice, 0);
+  const totalQuantity = items.reduce((sum, item) => sum + item.receivedQuantity, 0);
+  const totalCost = items.reduce((sum, item) => sum + item.totalCost, 0);
+  const itemsToUpdatePrice = items.filter(i => i.updateSellingPrice).length;
+
+  const formatCurrency = (n: number) =>
+    `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center min-h-screen bg-stone-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader className="w-6 h-6 animate-spin text-stone-400" />
+          <p className="text-sm text-stone-400 tracking-wide">Loading products…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-stone-50" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+      `}</style>
+
+      <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-start justify-between mb-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/admin/deliveries')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-stone-100 rounded-xl transition-colors"
             >
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5 text-stone-500" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Truck className="w-6 h-6 text-indigo-600" />
-                Create Delivery Order
+              <p className="text-xs font-medium tracking-[0.15em] uppercase text-stone-400 mb-1">Inventory</p>
+              <h1 className="text-3xl font-light text-stone-900 tracking-tight flex items-center gap-3">
+                <Truck className="w-7 h-7 text-stone-600" />
+                Record Stock Delivery
               </h1>
-              <p className="text-gray-600 mt-1">Add new stock delivery from supplier</p>
+              <p className="text-sm text-stone-500 mt-1">Record products received from supplier and update inventory</p>
             </div>
           </div>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 transition disabled:opacity-50"
           >
             {submitting ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Create Delivery Order
+            Record Delivery
           </button>
         </div>
 
@@ -261,69 +353,69 @@ const CreateDelivery = () => {
           {/* Main Form - 2 columns */}
           <div className="lg:col-span-2 space-y-6">
             {/* Supplier Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-indigo-600" />
+            <div className="bg-white border border-stone-200 rounded-2xl p-6">
+              <h2 className="text-base font-medium text-stone-800 mb-4 flex items-center gap-2">
+                <User className="w-4 h-4 text-stone-400" />
                 Supplier Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Supplier Name <span className="text-red-500">*</span>
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+                    Supplier Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={supplier.name}
                     onChange={(e) => setSupplier({ ...supplier, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                     placeholder="Enter supplier name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
                     Contact Person
                   </label>
                   <input
                     type="text"
                     value={supplier.contactPerson}
                     onChange={(e) => setSupplier({ ...supplier, contactPerson: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                     placeholder="Contact person name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
                     Email
                   </label>
                   <input
                     type="email"
                     value={supplier.email}
                     onChange={(e) => setSupplier({ ...supplier, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                     placeholder="supplier@example.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
                     Phone
                   </label>
                   <input
                     type="text"
                     value={supplier.phone}
                     onChange={(e) => setSupplier({ ...supplier, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                     placeholder="Contact number"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
                     Address
                   </label>
                   <textarea
                     value={supplier.address}
                     onChange={(e) => setSupplier({ ...supplier, address: e.target.value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                     placeholder="Supplier address"
                   />
                 </div>
@@ -331,150 +423,225 @@ const CreateDelivery = () => {
             </div>
 
             {/* Delivery Details */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
-                Delivery Details
+            <div className="bg-white border border-stone-200 rounded-2xl p-6">
+              <h2 className="text-base font-medium text-stone-800 mb-4 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-stone-400" />
+                Delivery Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Purchase Order Number <span className="text-red-500">*</span>
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+                    Invoice / Reference # <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={purchaseOrderNumber}
-                    onChange={(e) => setPurchaseOrderNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="PO-2024-001"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
+                    placeholder="INV-2024-001"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Expected Delivery Date <span className="text-red-500">*</span>
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+                    Delivery Date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
-                    value={expectedDate}
-                    onChange={(e) => setExpectedDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    value={deliveryDate}
+                    onChange={(e) => setDeliveryDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-200"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
                     Tracking Number
                   </label>
                   <input
                     type="text"
                     value={trackingNumber}
                     onChange={(e) => setTrackingNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                     placeholder="Tracking / Waybill number"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Additional Notes
+                  <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+                    Notes
                   </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Any special instructions or notes"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
+                    placeholder="Any additional notes"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Order Items */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            {/* Received Items */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-indigo-600" />
-                  Order Items
-                  <span className="text-sm font-normal text-gray-500">({items.length} items)</span>
+                <h2 className="text-base font-medium text-stone-800 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-stone-400" />
+                  Products Received
+                  <span className="text-xs font-normal text-stone-400">({items.length} items)</span>
                 </h2>
                 <button
                   onClick={() => setShowProductModal(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                   Add Product
                 </button>
               </div>
 
               {items.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                  <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No items added yet</p>
+                <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-xl">
+                  <Package className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+                  <p className="text-sm text-stone-400">No products added yet</p>
                   <button
                     onClick={() => setShowProductModal(true)}
-                    className="mt-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                    className="mt-3 text-stone-600 hover:text-stone-800 text-xs font-medium"
                   >
-                    + Add products to this delivery
+                    + Add received products
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {items.map((item, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-gray-900">{item.productName}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.orderedQuantity}
-                              onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 0)}
-                              className="w-24 px-2 py-1 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
+                <div className="space-y-3">
+                  {items.map((item, index) => (
+                    <div key={index} className="border border-stone-200 rounded-xl p-4">
+                      {/* Item Header */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-stone-800">{item.productName}</p>
+                          <div className="flex items-center gap-4 mt-1">
+                            <p className="text-xs text-stone-400">Current Stock: {products.find(p => p.id === item.productId)?.stockQuantity || 0} units</p>
+                            <p className="text-xs text-stone-400">Current Price: {formatCurrency(item.currentSellingPrice || 0)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setExpandedItem(expandedItem === index ? null : index)}
+                            className="p-1.5 text-stone-400 hover:bg-stone-100 rounded-lg transition"
+                          >
+                            {expandedItem === index ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => removeItem(index)}
+                            className="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quantity and Cost Inputs - Always visible */}
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <label className="block text-xs text-stone-400 mb-1">Quantity Received</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.receivedQuantity}
+                            onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-stone-400 mb-1">Unit Cost</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">₱</span>
                             <input
                               type="number"
                               min="0"
                               step="0.01"
-                              value={item.unitPrice}
-                              onChange={(e) => updateItemPrice(index, parseFloat(e.target.value) || 0)}
-                              className="w-32 px-2 py-1 text-right border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                              value={item.unitCost}
+                              onChange={(e) => updateItemCost(index, parseFloat(e.target.value) || 0)}
+                              className="w-full pl-7 pr-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200"
                             />
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium">
-                            ₱{item.totalPrice.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => removeItem(index)}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50">
-                      <tr>
-                        <td colSpan={2} className="px-4 py-3 text-right font-medium">Totals:</td>
-                        <td className="px-4 py-3 text-right font-medium">{totalQuantity} units</td>
-                        <td className="px-4 py-3 text-right font-bold">₱{totalValue.toLocaleString()}</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-right">
+                        <span className="text-xs text-stone-400">Item Total: </span>
+                        <span className="text-sm font-medium text-stone-700 font-mono">{formatCurrency(item.totalCost)}</span>
+                      </div>
+
+                      {/* Price Update Section - Expandable */}
+                      {expandedItem === index && (
+                        <div className="mt-4 pt-4 border-t border-stone-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`update-price-${index}`}
+                                checked={item.updateSellingPrice}
+                                onChange={(e) => togglePriceUpdate(index, e.target.checked)}
+                                className="w-4 h-4 text-stone-900 border-stone-300 rounded focus:ring-stone-200"
+                              />
+                              <label htmlFor={`update-price-${index}`} className="text-sm text-stone-700 cursor-pointer flex items-center gap-1.5">
+                                <DollarSign className="w-3.5 h-3.5 text-stone-400" />
+                                Update selling price
+                              </label>
+                            </div>
+                            {item.updateSellingPrice && (
+                              <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                Will update
+                              </span>
+                            )}
+                          </div>
+
+                          {item.updateSellingPrice && (
+                            <div className="pl-6 space-y-3">
+                              <div className="flex items-center gap-4">
+                                <div>
+                                  <label className="block text-xs text-stone-400 mb-1">New Selling Price</label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">₱</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={item.newSellingPrice || ''}
+                                      onChange={(e) => updateNewPrice(index, parseFloat(e.target.value) || 0)}
+                                      className="w-32 pl-7 pr-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200 font-mono"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-stone-400 mb-1">Markup</label>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-sm font-medium text-stone-700">
+                                      {item.newSellingPrice && item.unitCost > 0 
+                                        ? `${Math.round(calculateMarkup(item.unitCost, item.newSellingPrice))}%`
+                                        : '—'}
+                                    </span>
+                                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => item.suggestedSellingPrice && updateNewPrice(index, item.suggestedSellingPrice)}
+                                  className="text-xs text-stone-500 hover:text-stone-700 underline"
+                                >
+                                  Use suggested (30%)
+                                </button>
+                              </div>
+                              {item.currentSellingPrice && item.newSellingPrice && (
+                                <p className="text-xs text-stone-400">
+                                  Current: {formatCurrency(item.currentSellingPrice)} 
+                                  <span className={`ml-2 ${item.newSellingPrice > item.currentSellingPrice ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    ({item.newSellingPrice > item.currentSellingPrice ? '+' : ''}
+                                    {formatCurrency(item.newSellingPrice - item.currentSellingPrice)})
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -482,27 +649,38 @@ const CreateDelivery = () => {
 
           {/* Summary Sidebar - 1 column */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Order Summary</h3>
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 sticky top-6">
+              <h3 className="text-sm font-medium text-stone-800 mb-4">Delivery Summary</h3>
               <div className="space-y-3">
                 <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Total Items:</span>
-                  <span className="font-medium">{items.length} products</span>
+                  <span className="text-xs text-stone-400">Products Received:</span>
+                  <span className="text-sm font-medium text-stone-700">{items.length} items</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Total Quantity:</span>
-                  <span className="font-medium">{totalQuantity} units</span>
+                  <span className="text-xs text-stone-400">Total Quantity:</span>
+                  <span className="text-sm font-medium text-stone-700">{totalQuantity} units</span>
                 </div>
-                <div className="flex justify-between py-2 border-t">
-                  <span className="text-gray-600">Total Value:</span>
-                  <span className="font-bold text-indigo-600 text-lg">₱{totalValue.toLocaleString()}</span>
+                <div className="flex justify-between py-2 border-t border-stone-100">
+                  <span className="text-xs text-stone-400">Total Cost:</span>
+                  <span className="text-base font-medium text-stone-900 font-mono">{formatCurrency(totalCost)}</span>
                 </div>
               </div>
               
-              <div className="mt-6 pt-4 border-t">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span>Stock will be updated upon receipt</span>
+              {itemsToUpdatePrice > 0 && (
+                <div className="mt-4 pt-4 border-t border-stone-100">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Edit3 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-stone-500">
+                      <span className="font-medium text-emerald-600">{itemsToUpdatePrice}</span> price{itemsToUpdatePrice > 1 ? 's' : ''} will be updated
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mt-6 pt-4 border-t border-stone-100">
+                <div className="flex items-center gap-2 text-xs text-stone-400">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Stock quantities will be updated</span>
                 </div>
               </div>
             </div>
@@ -512,71 +690,76 @@ const CreateDelivery = () => {
 
       {/* Add Product Modal */}
       {showProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl border border-stone-100">
+            <div className="sticky top-0 bg-white border-b border-stone-100 px-6 py-5 flex justify-between items-center rounded-t-2xl">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Add Product</h2>
-                <p className="text-sm text-gray-500">Select a product to add to this delivery</p>
+                <h2 className="text-lg font-semibold text-stone-900">Add Received Product</h2>
+                <p className="text-xs text-stone-400 mt-0.5">Select a product that was delivered</p>
               </div>
               <button
                 onClick={() => {
                   setShowProductModal(false);
                   setSelectedProduct(null);
                   setSearchTerm('');
+                  setQuantityInput(1);
+                  setCostInput(0);
+                  setUpdatePriceInput(false);
+                  setNewPriceInput(0);
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
+                className="p-2 hover:bg-stone-50 rounded-xl transition"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 text-stone-500" />
               </button>
             </div>
             
             <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-300 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200"
                   autoFocus
                 />
               </div>
               
               {/* Product List */}
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
                 {filteredProducts.length === 0 ? (
                   <div className="text-center py-8">
-                    <Package className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500">No products found</p>
+                    <Package className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+                    <p className="text-sm text-stone-400">No products found</p>
                   </div>
                 ) : (
                   filteredProducts.map(product => (
                     <div
                       key={product.id}
-                      onClick={() => setSelectedProduct(product)}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setCostInput(product.price * 0.7); // Default cost = 70% of selling price
+                        setNewPriceInput(product.price);
+                      }}
+                      className={`p-4 border rounded-xl cursor-pointer transition-all ${
                         selectedProduct?.id === product.id
-                          ? 'border-indigo-500 bg-indigo-50'
-                          : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                          ? 'border-stone-400 bg-stone-50'
+                          : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50/50'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <div className="w-10 h-10 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {product.imageUrl ? (
                             <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
-                            <Package className="w-6 h-6 text-gray-400 m-3" />
+                            <Package className="w-5 h-5 text-stone-400" />
                           )}
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">{product.name}</h3>
-                          <p className="text-sm text-gray-500">Current Stock: {product.stockQuantity} units</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-indigo-600">₱{product.price.toLocaleString()}</p>
+                          <h3 className="text-sm font-medium text-stone-800">{product.name}</h3>
+                          <p className="text-xs text-stone-400">Stock: {product.stockQuantity} units • Price: {formatCurrency(product.price)}</p>
                         </div>
                       </div>
                     </div>
@@ -584,48 +767,124 @@ const CreateDelivery = () => {
                 )}
               </div>
               
-              {/* Quantity and Price Input */}
+              {/* Quantity, Cost, and Price Update Input */}
               {selectedProduct && (
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">Order Details for {selectedProduct.name}</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Quantity <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={quantityInput}
-                        onChange={(e) => setQuantityInput(parseInt(e.target.value) || 1)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      />
+                <div className="border-t border-stone-100 pt-4">
+                  <h3 className="text-sm font-medium text-stone-800 mb-3">Delivery Details for {selectedProduct.name}</h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs text-stone-400 mb-1">
+                          Quantity Received <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={quantityInput}
+                          onChange={(e) => setQuantityInput(parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-stone-400 mb-1">
+                          Unit Cost <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">₱</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={costInput}
+                            onChange={(e) => setCostInput(parseFloat(e.target.value) || 0)}
+                            className="w-full pl-7 pr-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-200"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Unit Price <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={priceInput}
-                        onChange={(e) => setPriceInput(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                        placeholder="Enter unit price"
-                      />
+                    
+                    <div className="p-3 bg-stone-50 rounded-xl">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-xs text-stone-400">Total Cost:</span>
+                        <span className="text-sm font-medium text-stone-700 font-mono">{formatCurrency(costInput * quantityInput)}</span>
+                      </div>
+                    </div>
+
+                    {/* Price Update Option */}
+                    <div className="border-t border-stone-100 pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <input
+                          type="checkbox"
+                          id="modal-update-price"
+                          checked={updatePriceInput}
+                          onChange={(e) => {
+                            setUpdatePriceInput(e.target.checked);
+                            if (e.target.checked && !newPriceInput) {
+                              setNewPriceInput(costInput * 1.3);
+                            }
+                          }}
+                          className="w-4 h-4 text-stone-900 border-stone-300 rounded focus:ring-stone-200"
+                        />
+                        <label htmlFor="modal-update-price" className="text-sm text-stone-700 cursor-pointer flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-stone-400" />
+                          Update selling price based on new cost
+                        </label>
+                      </div>
+
+                      {updatePriceInput && (
+                        <div className="pl-6 space-y-3">
+                          <div className="flex items-center gap-4">
+                            <div>
+                              <label className="block text-xs text-stone-400 mb-1">New Selling Price</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">₱</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={newPriceInput || ''}
+                                  onChange={(e) => setNewPriceInput(parseFloat(e.target.value) || 0)}
+                                  className="w-32 pl-7 pr-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200 font-mono"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-stone-400 mb-1">Markup</label>
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium text-stone-700">
+                                  {newPriceInput && costInput > 0 
+                                    ? `${Math.round(calculateMarkup(costInput, newPriceInput))}%`
+                                    : '—'}
+                                </span>
+                                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setNewPriceInput(costInput * 1.3)}
+                              className="text-xs text-stone-500 hover:text-stone-700 underline"
+                            >
+                              Suggest 30% markup
+                            </button>
+                          </div>
+                          <p className="text-xs text-stone-400">
+                            Current price: {formatCurrency(selectedProduct.price)}
+                            {newPriceInput && (
+                              <span className={`ml-2 ${newPriceInput > selectedProduct.price ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                ({newPriceInput > selectedProduct.price ? '+' : ''}
+                                {formatCurrency(newPriceInput - selectedProduct.price)})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total for this item:</span>
-                      <span className="font-bold text-indigo-600">₱{(priceInput * quantityInput).toLocaleString()}</span>
-                    </div>
-                  </div>
+                  
                   <button
                     onClick={handleAddProduct}
-                    disabled={quantityInput <= 0 || priceInput <= 0}
-                    className="mt-4 w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    disabled={quantityInput <= 0 || costInput <= 0}
+                    className="mt-6 w-full py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 transition-colors disabled:opacity-50"
                   >
                     Add to Delivery
                   </button>
