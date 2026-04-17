@@ -20,8 +20,9 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Filter,
-  ArrowUpRight
+  DollarSign,
+  TrendingUp,
+  Edit3
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import { Product } from '../../types';
@@ -38,6 +39,14 @@ const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
   { value: 'last_month', label: 'Last Month' },
   { value: 'this_year', label: 'This Year' },
 ];
+
+// Extended interface for receive items with price update option
+interface ReceiveItemWithPriceUpdate extends DeliveryItem {
+  updateSellingPrice: boolean;
+  newSellingPrice?: number;
+  currentSellingPrice?: number;
+  suggestedSellingPrice?: number;
+}
 
 const StockDelivery = () => {
   const { isAdmin } = useAuth();
@@ -139,22 +148,53 @@ const StockDelivery = () => {
     setShowReceiveModal(true);
   };
 
-  const handleConfirmReceive = async (delivery: DeliveryOrder, receivedItems: DeliveryItem[]) => {
+  const handleConfirmReceive = async (
+    delivery: DeliveryOrder, 
+    receivedItems: ReceiveItemWithPriceUpdate[]
+  ) => {
     setUpdatingStock(true);
     const loadingToast = showLoading('Processing delivery...');
+    
     try {
+      // 1. First, receive the delivery (update stock quantities)
       await deliveryService.receiveDelivery(delivery.id, receivedItems.map(item => ({
         productId: item.productId,
         receivedQuantity: item.receivedQuantity
       })));
+
+      // 2. Then, update product prices for items marked for price update
+      const priceUpdatePromises = receivedItems
+        .filter(item => item.updateSellingPrice && item.newSellingPrice)
+        .map(async item => {
+          const product = products.find(p => p.id === item.productId);
+          if (product && item.newSellingPrice) {
+            return productService.updateProduct(item.productId, {
+              ...product,
+              price: item.newSellingPrice
+            });
+          }
+          return Promise.resolve();
+        });
+
+      await Promise.all(priceUpdatePromises);
+
+      const updatedPriceCount = receivedItems.filter(i => i.updateSellingPrice).length;
+      
       dismissToast(loadingToast);
-      showSuccess('Delivery received successfully! Stock updated.');
+      
+      if (updatedPriceCount > 0) {
+        showSuccess(`Delivery received! Stock updated and ${updatedPriceCount} product price${updatedPriceCount > 1 ? 's' : ''} adjusted.`);
+      } else {
+        showSuccess('Delivery received successfully! Stock updated.');
+      }
+      
       setShowReceiveModal(false);
       setSelectedDelivery(null);
       await loadData();
     } catch (error) {
       dismissToast(loadingToast);
       showError('Failed to process delivery');
+      console.error('Receive error:', error);
     } finally {
       setUpdatingStock(false);
     }
@@ -565,7 +605,7 @@ const StockDelivery = () => {
         </div>
       )}
 
-      {/* ── Receive Modal ── */}
+      {/* ── Receive Modal with Price Update ── */}
       {showReceiveModal && selectedDelivery && (
         <ReceiveDeliveryModal
           delivery={selectedDelivery}
@@ -579,17 +619,39 @@ const StockDelivery = () => {
   );
 };
 
-// ── Receive Delivery Modal ──────────────────────────────────────────────────
+// ── Receive Delivery Modal with Price Update Feature ────────────────────────
 interface ReceiveDeliveryModalProps {
   delivery: DeliveryOrder;
   onClose: () => void;
-  onConfirm: (delivery: DeliveryOrder, items: DeliveryItem[]) => void;
+  onConfirm: (delivery: DeliveryOrder, items: ReceiveItemWithPriceUpdate[]) => void;
   products: Product[];
   loading: boolean;
 }
 
-const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, onClose, onConfirm, products, loading }) => {
-  const [receivedItems, setReceivedItems] = useState<DeliveryItem[]>(delivery.items);
+const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ 
+  delivery, 
+  onClose, 
+  onConfirm, 
+  products, 
+  loading 
+}) => {
+  const [receivedItems, setReceivedItems] = useState<ReceiveItemWithPriceUpdate[]>(() => 
+    delivery.items.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      const currentPrice = product?.price;
+      
+      // Suggest new selling price with 30% markup as default
+      const suggestedPrice = item.unitPrice * 1.3;
+      
+      return {
+        ...item,
+        updateSellingPrice: false,
+        newSellingPrice: undefined,
+        currentSellingPrice: currentPrice,
+        suggestedSellingPrice: Math.round(suggestedPrice * 100) / 100
+      };
+    })
+  );
 
   const updateReceivedQuantity = (index: number, quantity: number) => {
     const updated = [...receivedItems];
@@ -602,16 +664,41 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
     setReceivedItems(updated);
   };
 
+  const togglePriceUpdate = (index: number, enabled: boolean) => {
+    const updated = [...receivedItems];
+    updated[index] = {
+      ...updated[index],
+      updateSellingPrice: enabled,
+      newSellingPrice: enabled ? updated[index].suggestedSellingPrice : undefined
+    };
+    setReceivedItems(updated);
+  };
+
+  const updateNewPrice = (index: number, price: number) => {
+    const updated = [...receivedItems];
+    updated[index] = {
+      ...updated[index],
+      newSellingPrice: price
+    };
+    setReceivedItems(updated);
+  };
+
   const totalOrdered  = receivedItems.reduce((s, i) => s + i.orderedQuantity, 0);
   const totalReceived = receivedItems.reduce((s, i) => s + i.receivedQuantity, 0);
   const totalValue    = receivedItems.reduce((s, i) => s + i.receivedQuantity * i.unitPrice, 0);
+  const itemsToUpdatePrice = receivedItems.filter(i => i.updateSellingPrice).length;
 
   const formatCurrency = (n: number) =>
     `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const calculateMarkup = (cost: number, selling: number) => {
+    if (cost === 0) return 0;
+    return ((selling - cost) / cost) * 100;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-stone-100"
+      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-stone-100"
            style={{ fontFamily: "'DM Sans', sans-serif" }}>
         <div className="sticky top-0 bg-white border-b border-stone-100 px-6 py-5 flex justify-between items-center rounded-t-2xl">
           <div>
@@ -627,22 +714,36 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
 
         <div className="p-6 space-y-5">
           <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-600">
-            Update the quantities received. Stock levels will be adjusted automatically.
+            Update the quantities received. You can also update product selling prices based on new costs.
           </div>
 
           <div className="space-y-3">
             {receivedItems.map((item, idx) => {
               const pct = item.orderedQuantity > 0 ? (item.receivedQuantity / item.orderedQuantity) * 100 : 0;
+              const currentMarkup = item.currentSellingPrice && item.unitPrice > 0 
+                ? calculateMarkup(item.unitPrice, item.currentSellingPrice)
+                : 0;
+              
               return (
                 <div key={idx} className="border border-stone-100 rounded-xl p-4 hover:border-stone-200 transition-colors">
+                  {/* Product Header */}
                   <div className="flex justify-between items-start mb-3">
-                    <div>
+                    <div className="flex-1">
                       <p className="text-sm font-medium text-stone-800">{item.productName}</p>
-                      <p className="text-xs text-stone-400 mt-0.5">Expected: {item.orderedQuantity} units</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <p className="text-xs text-stone-400">Expected: {item.orderedQuantity} units</p>
+                        <p className="text-xs text-stone-400">Cost: {formatCurrency(item.unitPrice)}/unit</p>
+                        {item.currentSellingPrice && (
+                          <p className="text-xs text-stone-500">
+                            Current Price: {formatCurrency(item.currentSellingPrice)}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs font-mono text-stone-500">{formatCurrency(item.unitPrice)} each</span>
                   </div>
-                  <div className="flex items-center gap-3">
+
+                  {/* Quantity Input */}
+                  <div className="flex items-center gap-3 mb-3">
                     <label className="text-xs text-stone-500 whitespace-nowrap">Received</label>
                     <input
                       type="number"
@@ -661,23 +762,104 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
                     </div>
                     <span className="text-xs text-stone-400 w-8 text-right">{Math.round(pct)}%</span>
                   </div>
+
+                  {/* Price Update Section */}
+                  <div className="bg-stone-50/50 rounded-lg p-3 mt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`update-price-${idx}`}
+                          checked={item.updateSellingPrice}
+                          onChange={e => togglePriceUpdate(idx, e.target.checked)}
+                          className="w-4 h-4 text-stone-900 border-stone-300 rounded focus:ring-stone-200"
+                        />
+                        <label htmlFor={`update-price-${idx}`} className="text-sm text-stone-700 cursor-pointer flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-stone-400" />
+                          Update selling price based on new cost
+                        </label>
+                      </div>
+                      {item.updateSellingPrice && (
+                        <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          Will update price
+                        </span>
+                      )}
+                    </div>
+
+                    {item.updateSellingPrice && (
+                      <div className="mt-3 pl-6">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <label className="text-xs text-stone-400 block mb-1">New Selling Price</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">₱</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.newSellingPrice || ''}
+                                onChange={e => updateNewPrice(idx, parseFloat(e.target.value) || 0)}
+                                className="w-32 pl-7 pr-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-200 font-mono"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-stone-400 block mb-1">Markup</label>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-medium text-stone-700">
+                                {item.newSellingPrice && item.unitPrice > 0 
+                                  ? `${Math.round(calculateMarkup(item.unitPrice, item.newSellingPrice))}%`
+                                  : '—'}
+                              </span>
+                              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => item.suggestedSellingPrice && updateNewPrice(idx, item.suggestedSellingPrice)}
+                            className="text-xs text-stone-500 hover:text-stone-700 underline"
+                          >
+                            Use suggested (30% markup)
+                          </button>
+                        </div>
+                        {item.currentSellingPrice && item.newSellingPrice && (
+                          <p className="text-xs text-stone-400 mt-2">
+                            Current price: {formatCurrency(item.currentSellingPrice)} 
+                            <span className={`ml-2 ${item.newSellingPrice > item.currentSellingPrice ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              ({item.newSellingPrice > item.currentSellingPrice ? '+' : ''}
+                              {formatCurrency(item.newSellingPrice - item.currentSellingPrice)})
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
 
           {/* Summary */}
-          <div className="bg-stone-50 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-400 mb-1">Units Received</p>
-              <p className="text-xl font-light text-stone-900">
-                {totalReceived} <span className="text-stone-400 text-sm">/ {totalOrdered}</span>
-              </p>
+          <div className="bg-stone-50 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-stone-400 mb-1">Units Received</p>
+                <p className="text-xl font-light text-stone-900">
+                  {totalReceived} <span className="text-stone-400 text-sm">/ {totalOrdered}</span>
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-stone-400 mb-1">Total Cost Value</p>
+                <p className="text-xl font-light text-stone-900 font-mono">{formatCurrency(totalValue)}</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-stone-400 mb-1">Total Value</p>
-              <p className="text-xl font-light text-stone-900 font-mono">{formatCurrency(totalValue)}</p>
-            </div>
+            {itemsToUpdatePrice > 0 && (
+              <div className="pt-3 border-t border-stone-200 flex items-center gap-2 text-xs">
+                <Edit3 className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="text-stone-600">
+                  <span className="font-medium text-emerald-600">{itemsToUpdatePrice}</span> product{itemsToUpdatePrice > 1 ? 's' : ''} will have price{itemsToUpdatePrice > 1 ? 's' : ''} updated
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-1">
