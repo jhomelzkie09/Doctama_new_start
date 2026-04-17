@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/product.service';
@@ -9,7 +9,7 @@ import {
   AlertCircle, ChevronLeft, ChevronRight, Grid, List, 
   Layers, ShoppingBag, ArrowUpRight, Inbox, CheckCircle2, AlertTriangle,
   TrendingUp, DollarSign, Calendar, BarChart3, X, TrendingDown,
-  Clock, Award, Star, Zap
+  Clock, Award, Star, Zap, RefreshCw
 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import { showSuccess, showError, showWarning, showInfo } from '../../utils/toast';
@@ -28,7 +28,7 @@ const ProductsManagement = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,15 +59,9 @@ const ProductsManagement = () => {
         categoryService.getCategories()
       ]);
       
-      // Calculate sold counts for sorting
-      const productsWithSales = await Promise.all(productsData.map(async (product) => {
-        const stats = await calculateProductStats(product.id);
-        return { ...product, _soldCount: stats.totalSold };
-      }));
-      
-      // Sort by sold count (highest first)
-      const sortedProducts = productsWithSales.sort((a, b) => (b._soldCount || 0) - (a._soldCount || 0));
-      setProducts(sortedProducts);
+      // Filter out inactive products and sort by name
+      const activeProducts = productsData.filter(p => p.isActive !== false);
+      setAllProducts(activeProducts);
       setCategories(categoriesData);
     } catch (err: any) {
       setError('Failed to load products');
@@ -75,6 +69,60 @@ const ProductsManagement = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Filter products based on search and category
+  const filteredProducts = useMemo(() => {
+    return allProducts.filter(product => {
+      const matchesSearch = !searchQuery || 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesCategory = selectedCategory === 'all' || 
+        product.categoryId.toString() === selectedCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [allProducts, searchQuery, selectedCategory]);
+
+  // ✅ Calculate stats from filtered products
+  const totalProducts = filteredProducts.length;
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+  const activeCount = filteredProducts.filter(p => p.isActive).length;
+  const lowStockCount = filteredProducts.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
+  const outOfStockCount = filteredProducts.filter(p => p.stockQuantity === 0).length;
+
+  // ✅ Get current page products
+  const currentProducts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return filteredProducts.slice(start, end);
+  }, [filteredProducts, currentPage]);
+
+  // ✅ Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  // ✅ Handle refresh
+  const handleRefresh = () => {
+    fetchData();
+  };
+
+  // ✅ Handle search change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // ✅ Handle category change
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCategory(e.target.value);
+  };
+
+  // ✅ Clear all filters
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
   };
 
   const calculateProductStats = async (productId: number): Promise<ProductStats> => {
@@ -172,56 +220,40 @@ const ProductsManagement = () => {
     if (!window.confirm('Delete this product permanently?')) return;
     try {
       await productService.deleteProduct(id);
-      setProducts(products.filter(p => p.id !== id));
+      setAllProducts(allProducts.filter(p => p.id !== id));
       showSuccess('Product deleted successfully');
     } catch (err: any) {
       showError('Failed to delete product');
     }
   };
 
-  // Auto-deactivate product when stock becomes 0
-  const handleAutoDeactivate = async (product: Product) => {
-    if (product.stockQuantity === 0 && product.isActive) {
-      try {
-        await productService.toggleProductStatus(product.id, false);
-        setProducts(products.map(p => 
-          p.id === product.id ? { ...p, isActive: false } : p
-        ));
-        showWarning(`${product.name} has been auto-deactivated (out of stock)`);
-      } catch (err) {
-        console.error('Failed to auto-deactivate product:', err);
-      }
-    }
-  };
-
   const formatCurrency = (amount: number) => {
-    return `₱${amount.toFixed(2).toLocaleString()}`;
+    return `₱${amount.toLocaleString()}`;
   };
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.categoryId.toString() === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  // Run auto-deactivation check on all products
-  useEffect(() => {
-    filteredProducts.forEach(product => {
-      if (product.stockQuantity === 0 && product.isActive) {
-        handleAutoDeactivate(product);
-      }
-    });
-  }, [filteredProducts]);
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getCategoryName = (categoryId: number) => categories.find(c => c.id === categoryId)?.name || 'General';
 
-  // Stats Logic
-  const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
-  const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
+  // ✅ Generate page numbers for pagination
+  const getPageNumbers = (): (number | string)[] => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   if (loading) {
     return (
@@ -239,9 +271,19 @@ const ProductsManagement = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Inventory</h1>
-            <p className="text-slate-500 font-medium">Manage and monitor your product catalog</p>
+            <p className="text-slate-500 font-medium">
+              Manage and monitor your product catalog 
+              {totalProducts > 0 && <span> • {totalProducts} products</span>}
+            </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
             <div className="hidden sm:flex bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
               <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-400'}`}><Grid className="w-5 h-5" /></button>
               <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-400'}`}><List className="w-5 h-5" /></button>
@@ -259,8 +301,8 @@ const ProductsManagement = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Products', value: products.length, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Active Items', value: products.filter(p => p.isActive).length, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            { label: 'Total Products', value: totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Active Items', value: activeCount, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             { label: 'Low Stock', value: lowStockCount, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50' },
             { label: 'Out of Stock', value: outOfStockCount, icon: ShoppingBag, color: 'text-rose-600', bg: 'bg-rose-50' },
           ].map((stat, i) => (
@@ -275,33 +317,51 @@ const ProductsManagement = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-700 placeholder:text-slate-400"
-            />
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-700 placeholder:text-slate-400"
+              />
+            </div>
+            <div className="flex gap-3">
+              <select
+                value={selectedCategory}
+                onChange={handleCategoryChange}
+                className="px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-600 font-medium"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select>
+              {(searchQuery || selectedCategory !== 'all') && (
+                <button
+                  onClick={handleClearFilters}
+                  className="px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" />
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-600 font-medium"
-            >
-              <option value="all">All Categories</option>
-              {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-            </select>
-          </div>
+          
+          {/* Filter Summary */}
+          {(searchQuery || selectedCategory !== 'all') && (
+            <div className="mt-3 text-xs text-slate-500">
+              Showing {totalProducts} filtered {totalProducts === 1 ? 'product' : 'products'}
+            </div>
+          )}
         </div>
 
         {/* Content Area */}
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {paginatedProducts.map((product) => {
+            {currentProducts.map((product) => {
               const isOutOfStock = product.stockQuantity === 0;
               const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
               
@@ -312,6 +372,7 @@ const ProductsManagement = () => {
                       src={product.imageUrl || 'https://via.placeholder.com/400x300'} 
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
                     />
                     <div className="absolute top-3 left-3">
                       <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg backdrop-blur-md ${
@@ -320,7 +381,6 @@ const ProductsManagement = () => {
                         {product.isActive ? 'Active' : 'Draft'}
                       </span>
                     </div>
-                    {/* Stock Warning Badge */}
                     {isOutOfStock && (
                       <div className="absolute top-3 right-3">
                         <span className="px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg bg-rose-500/90 text-white flex items-center gap-1">
@@ -377,7 +437,6 @@ const ProductsManagement = () => {
             })}
           </div>
         ) : (
-          /* List View with stats button */
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <table className="w-full text-left">
               <thead className="bg-slate-50/50 border-b border-slate-200">
@@ -389,7 +448,7 @@ const ProductsManagement = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedProducts.map((product) => {
+                {currentProducts.map((product) => {
                   const isOutOfStock = product.stockQuantity === 0;
                   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
                   
@@ -397,13 +456,13 @@ const ProductsManagement = () => {
                     <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <img src={product.imageUrl} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                          <img src={product.imageUrl} className="w-10 h-10 rounded-lg object-cover" alt="" loading="lazy" />
                           <div>
                             <p className="font-bold text-slate-900 text-sm">{product.name}</p>
                             <p className="text-xs text-slate-400">{getCategoryName(product.categoryId)}</p>
                           </div>
                         </div>
-                        </td>
+                      </td>
                       <td className="px-6 py-4">
                         {isOutOfStock ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
@@ -421,7 +480,7 @@ const ProductsManagement = () => {
                             {product.stockQuantity} in stock
                           </span>
                         )}
-                        </td>
+                      </td>
                       <td className="px-6 py-4 font-bold text-slate-900">{formatCurrency(product.price)}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
@@ -445,7 +504,7 @@ const ProductsManagement = () => {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                        </td>
+                      </td>
                     </tr>
                   );
                 })}
@@ -455,7 +514,7 @@ const ProductsManagement = () => {
         )}
 
         {/* Empty State */}
-        {filteredProducts.length === 0 && (
+        {currentProducts.length === 0 && !loading && (
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
             <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Inbox className="w-10 h-10 text-slate-300" />
@@ -465,23 +524,46 @@ const ProductsManagement = () => {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Enhanced Pagination */}
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-between">
             <p className="text-sm font-medium text-slate-500">
-              Showing <span className="text-slate-900">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of {filteredProducts.length}
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
+              {Math.min(currentPage * itemsPerPage, totalProducts)} of{' '}
+              {totalProducts} products
             </p>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button 
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => p - 1)}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 disabled:opacity-50 hover:bg-slate-50 transition-all"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
+              
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page, index) => (
+                  page === '...' ? (
+                    <span key={`ellipsis-${index}`} className="px-3 py-1 text-slate-400">...</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page as number)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                ))}
+              </div>
+              
               <button 
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => p + 1)}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 className="p-2 border border-slate-200 rounded-xl bg-white text-slate-600 disabled:opacity-50 hover:bg-slate-50 transition-all"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -491,7 +573,7 @@ const ProductsManagement = () => {
         )}
       </div>
 
-      {/* Product Statistics Modal */}
+      {/* Product Statistics Modal - unchanged */}
       {showStatsModal && selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -521,7 +603,6 @@ const ProductsManagement = () => {
                 </div>
               ) : productStats ? (
                 <div className="space-y-6">
-                  {/* Key Metrics */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
@@ -573,7 +654,6 @@ const ProductsManagement = () => {
                     </div>
                   </div>
 
-                  {/* Last Sale Info */}
                   {productStats.lastSoldDate && (
                     <div className="bg-gray-50 rounded-xl p-4">
                       <div className="flex items-center justify-between">
@@ -603,7 +683,6 @@ const ProductsManagement = () => {
                     </div>
                   )}
 
-                  {/* Monthly Sales Chart */}
                   {productStats.monthlyData.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-3">Monthly Sales Performance</h3>
@@ -630,7 +709,6 @@ const ProductsManagement = () => {
                     </div>
                   )}
 
-                  {/* Performance Note */}
                   {productStats.totalSold === 0 && (
                     <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                       <div className="flex items-start gap-3">
