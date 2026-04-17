@@ -9,7 +9,7 @@ import cartService from '../services/cart.service';
 export interface CartItem extends Product {
   quantity: number;
   selectedColor?: string;
-  uniqueId: string; // Unique identifier combining product ID and color
+  uniqueId: string;
 }
 
 interface CartState {
@@ -24,13 +24,11 @@ type CartAction =
   | { type: 'CLEAR_CART' }
   | { type: 'LOAD_CART'; payload: CartItem[] };
 
-// Helper to generate unique ID based on product ID and color
 const generateUniqueId = (productId: number, color?: string): string => {
   const validColor = color && color.trim() !== '' ? color : undefined;
   return validColor ? `${productId}-${validColor.toLowerCase()}` : `${productId}`;
 };
 
-// ✅ Helper to strip unnecessary data before saving to localStorage
 const stripProductForStorage = (item: CartItem): any => {
   return {
     id: item.id,
@@ -49,28 +47,21 @@ const stripProductForStorage = (item: CartItem): any => {
     width: item.width || 0,
     length: item.length || 0,
     colorsVariant: item.colorsVariant || []
-    // ❌ images array is excluded to prevent base64 storage
   };
 };
 
-// ✅ Helper to validate if a product/item looks legitimate (LENIENT - for adding)
 const isValidProduct = (item: any): boolean => {
   if (!item) return false;
-  
   const hasId = typeof item.id === 'number' && item.id > 0;
   const hasPrice = typeof item.price === 'number' && item.price > 0;
-  
   return hasId && hasPrice;
 };
 
-// ✅ Helper to validate cart items before saving (STRICT - for saving)
 const isValidCartItemForSave = (item: CartItem): boolean => {
   if (!item) return false;
-  
   const hasId = typeof item.id === 'number' && item.id > 0;
   const hasPrice = typeof item.price === 'number' && item.price > 0;
   const hasQuantity = typeof item.quantity === 'number' && item.quantity > 0;
-  
   return hasId && hasPrice && hasQuantity;
 };
 
@@ -162,7 +153,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [isInitialSync, setIsInitialSync] = useState<boolean>(true);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  
+  // ✅ Flag to track if save was triggered by user action (should be immediate)
+  const userActionRef = useRef<boolean>(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const getCartStorageKey = (): string => {
@@ -170,6 +163,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return `cart_${user.id}`;
     }
     return 'cart_guest';
+  };
+
+  // ✅ Helper function to actually save to backend
+  const saveToBackend = async (): Promise<void> => {
+    if (!user?.id) return;
+    
+    const validItems = state.items.filter(isValidCartItemForSave);
+    
+    if (validItems.length === 0) {
+      console.log('⚠️ No valid items to save');
+      return;
+    }
+    
+    try {
+      const minimalItems = validItems.map(item => ({
+        productId: item.id,
+        quantity: item.quantity,
+        selectedColor: item.selectedColor || null
+      }));
+      
+      console.log('📤 Saving cart to backend:', minimalItems);
+      await cartService.saveCart(minimalItems);
+      console.log('📦 Cart saved to backend successfully');
+    } catch (error) {
+      console.error('Failed to save cart to backend:', error);
+    }
   };
 
   // ✅ AGGRESSIVE CLEANUP - Remove all suspicious cart data on startup
@@ -185,12 +204,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const parsed = JSON.parse(data);
               const items = Array.isArray(parsed) ? parsed : (parsed.items || []);
               
-              // Check for the rogue item (product ID 34 or 35 with missing data)
               const hasRogueItem = items.some((item: any) => 
                 (item.id === 34 || item.id === 35) && (!item.description || item.description === '')
               );
               
-              // Check for base64 images or oversized data
               const hasBase64 = data.includes('data:image');
               const isOversized = data.length > 50000;
               
@@ -227,7 +244,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (backendCart && backendCart.items && backendCart.items.length > 0) {
           console.log('📦 Found backend cart with', backendCart.items.length, 'items');
           
-          // Convert backend items to frontend CartItem format
           const backendItems: CartItem[] = backendCart.items
             .filter(item => item.productId && item.productId > 0 && item.unitPrice > 0)
             .map(item => ({
@@ -254,7 +270,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             dispatch({ type: 'LOAD_CART', payload: backendItems });
             console.log('📦 Cart loaded from backend. Total items:', backendItems.length);
           } else {
-            // Backend had items but they were invalid - clear the backend
             console.log('⚠️ Backend cart had invalid items, clearing...');
             await cartService.clearCart();
           }
@@ -275,7 +290,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadCartFromBackend();
   }, [user?.id, hasSyncedWithBackend]);
 
-  // ✅ Save cart to localStorage (backup) - STRIPPED VERSION
+  // ✅ Save cart to localStorage (backup)
   useEffect(() => {
     if (!isInitialized) return;
     
@@ -283,12 +298,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        // Only save valid items (use strict validation)
         const validItems = state.items.filter(isValidCartItemForSave);
         if (validItems.length > 0) {
           const itemsToStore = validItems.map(stripProductForStorage);
           localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
-          console.log('📦 Cart saved to localStorage (stripped)');
+          console.log('📦 Cart saved to localStorage');
         } else {
           localStorage.removeItem(storageKey);
         }
@@ -300,9 +314,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveCart();
   }, [state.items, user?.id, isInitialized]);
 
-  // ✅ Save cart to backend when items change (DEBOUNCED, NO INITIAL SYNC)
+  // ✅ Save cart to backend when items change
+  // If triggered by user action -> SAVE IMMEDIATELY
+  // Otherwise -> DEBOUNCE
   useEffect(() => {
-    // Don't save during initial sync
     if (isInitialSync) {
       console.log('⏳ Initial sync in progress, skipping save');
       return;
@@ -323,64 +338,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(saveTimeoutRef.current);
     }
     
-    const saveCartToBackend = async (): Promise<void> => {
-      // Prevent concurrent saves
-      if (isSaving) {
-        console.log('⏳ Save already in progress, skipping');
-        return;
-      }
-      
-      // Only save valid items (use strict validation)
-      const validItems = state.items.filter(isValidCartItemForSave);
-      
-      if (validItems.length === 0) {
-        console.log('⚠️ No valid items to save');
-        return;
-      }
-      
-      setIsSaving(true);
-      
-      try {
-        const minimalItems = validItems.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
-          selectedColor: item.selectedColor || null
-        }));
-        
-        console.log('📤 Saving cart to backend:', minimalItems);
-        await cartService.saveCart(minimalItems);
-        console.log('📦 Cart saved to backend successfully');
-      } catch (error) {
-        console.error('Failed to save cart to backend:', error);
-      } finally {
-        setIsSaving(false);
-      }
-    };
-
-    // Debounce: Wait 1 second after the last change before saving
-    saveTimeoutRef.current = setTimeout(saveCartToBackend, 1000);
+    // ✅ If this was triggered by a user action, save IMMEDIATELY
+    if (userActionRef.current) {
+      console.log('⚡ User action detected - saving immediately');
+      userActionRef.current = false;
+      saveToBackend();
+      return;
+    }
+    
+    // Otherwise, debounce (for programmatic updates)
+    console.log('⏳ Debouncing save...');
+    saveTimeoutRef.current = setTimeout(() => {
+      saveToBackend();
+    }, 1000);
     
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [state.items, user?.id, isInitialized, isInitialSync, isSaving]);
+  }, [state.items, user?.id, isInitialized, isInitialSync]);
 
+  // ✅ USER ACTIONS - Mark as user action and dispatch
   const addItem = (product: Product, color?: string): void => {
-    // ✅ Use LENIENT validation for adding
     if (!isValidProduct(product)) {
       console.error('❌ Cannot add invalid product to cart:', product);
       return;
     }
     
-    console.log('=== CART CONTEXT: addItem called ===');
-    console.log('Product:', product.name);
-    console.log('Color received:', color, 'Type:', typeof color);
+    console.log('🛒 addItem called for:', product.name);
+    
+    // ✅ Mark as user action for immediate save
+    userActionRef.current = true;
     
     const validColor = color && color.trim() !== '' ? color : undefined;
-    console.log('Valid color after trim:', validColor);
-    
     const uniqueId = generateUniqueId(product.id, validColor);
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
@@ -405,6 +396,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const removeItem = (uniqueId: string): void => {
     const item = state.items.find(item => item.uniqueId === uniqueId);
+    
+    // ✅ Mark as user action for immediate save
+    userActionRef.current = true;
+    
     dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId } });
     if (item) {
       showInfo(`${item.name} removed from cart`);
@@ -418,6 +413,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     const item = state.items.find(item => item.uniqueId === uniqueId);
+    
+    // ✅ Mark as user action for immediate save
+    userActionRef.current = true;
+    
     dispatch({ type: 'UPDATE_QUANTITY', payload: { uniqueId, quantity } });
     
     if (item) {
@@ -426,6 +425,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const clearCart = (): void => {
+    // ✅ Mark as user action for immediate save
+    userActionRef.current = true;
+    
     dispatch({ type: 'CLEAR_CART' });
     
     if (user?.id) {
