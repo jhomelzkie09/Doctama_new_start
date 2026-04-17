@@ -1,5 +1,5 @@
 // contexts/CartContext.tsx
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, useRef } from 'react';
 import { Product } from '../types';
 import { useAuth } from './AuthContext';
 import { showSuccess, showInfo } from '../utils/toast';
@@ -53,6 +53,17 @@ const stripProductForStorage = (item: CartItem): any => {
   };
 };
 
+// ✅ Helper to validate if an item looks legitimate
+const isValidCartItem = (item: any): boolean => {
+  return item && 
+         item.id && 
+         item.id > 0 && 
+         item.name && 
+         item.name.trim() !== '' && 
+         item.price > 0 && 
+         item.quantity > 0;
+};
+
 const CartContext = createContext<{
   state: CartState;
   addItem: (product: Product, color?: string) => void;
@@ -88,7 +99,6 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         quantity: 1,
         selectedColor: validColor,
         uniqueId,
-        // Ensure images array is not duplicated
         images: undefined
       };
       
@@ -140,7 +150,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [cleanupRun, setCleanupRun] = useState(false);
+  const [isInitialSync, setIsInitialSync] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const getCartStorageKey = () => {
     if (user && user.id) {
@@ -149,78 +161,45 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 'cart_guest';
   };
 
-  // ✅ One-time cleanup of old localStorage data
+  // ✅ AGGRESSIVE CLEANUP - Remove all suspicious cart data on startup
   useEffect(() => {
-    if (cleanupRun) return;
-    
-    const cleanupOldCartData = () => {
-      const cleanedKey = 'cart_cleaned_v2';
-      
-      if (localStorage.getItem(cleanedKey)) {
-        setCleanupRun(true);
-        return;
-      }
-      
-      console.log('🧹 Running one-time cart cleanup...');
+    const aggressiveCleanup = () => {
+      console.log('🧹 Running aggressive cart cleanup...');
       
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('cart_')) {
           try {
             const data = localStorage.getItem(key);
-            if (data && (data.includes('data:image') || data.length > 50000)) {
-              console.log(`🗑️ Deleting large cart data: ${key}`);
-              localStorage.removeItem(key);
+            if (data) {
+              const parsed = JSON.parse(data);
+              const items = Array.isArray(parsed) ? parsed : (parsed.items || []);
+              
+              // Check for the rogue item (product ID 35 with missing data)
+              const hasRogueItem = items.some((item: any) => 
+                item.id === 35 && (!item.description || item.description === '')
+              );
+              
+              // Check for base64 images or oversized data
+              const hasBase64 = data.includes('data:image');
+              const isOversized = data.length > 50000;
+              
+              if (hasRogueItem || hasBase64 || isOversized) {
+                console.log(`🗑️ Deleting suspicious cart data: ${key}`);
+                localStorage.removeItem(key);
+              }
             }
           } catch (e) {
-            console.error(`Failed to clean ${key}:`, e);
+            console.error(`Failed to parse ${key}:`, e);
+            localStorage.removeItem(key);
           }
         }
       });
       
-      localStorage.setItem(cleanedKey, 'true');
-      setCleanupRun(true);
-      console.log('✅ Cart cleanup complete');
+      console.log('✅ Aggressive cleanup complete');
     };
     
-    cleanupOldCartData();
-  }, [cleanupRun]);
-
-  // ✅ Save cart to backend when items change (debounced)
-useEffect(() => {
-  if (!isInitialized) return;
-  
-  const saveCartToBackend = async () => {
-    console.log('🔍 saveCartToBackend triggered');
-    console.log('🔍 state.items:', state.items);
-    
-    if (!user?.id || !hasSyncedWithBackend) {
-      console.log('⚠️ Skipping save - not logged in or not synced');
-      return;
-    }
-    
-    if (state.items.length === 0) {
-      console.log('⚠️ No items to save');
-      return; // ✅ Don't send empty cart (clears backend)
-    }
-    
-    try {
-      const minimalItems = state.items.map(item => ({
-        productId: item.id,
-        quantity: item.quantity,
-        selectedColor: item.selectedColor || null
-      }));
-      
-      console.log('📤 Sending to backend:', minimalItems);
-      await cartService.saveCart(minimalItems);
-      console.log('📦 Cart auto-saved to backend');
-    } catch (error) {
-      console.error('Failed to save cart to backend:', error);
-    }
-  };
-
-  const timeoutId = setTimeout(saveCartToBackend, 2000);
-  return () => clearTimeout(timeoutId);
-}, [state.items, user?.id, hasSyncedWithBackend, isInitialized]);
+    aggressiveCleanup();
+  }, []);
 
   // ✅ Load cart from backend when user logs in
   useEffect(() => {
@@ -228,6 +207,7 @@ useEffect(() => {
       if (!user?.id || hasSyncedWithBackend) return;
       
       setIsSyncing(true);
+      setIsInitialSync(true);
       console.log('📦 Loading cart from backend for user:', user.id);
       
       try {
@@ -237,167 +217,52 @@ useEffect(() => {
           console.log('📦 Found backend cart with', backendCart.items.length, 'items');
           
           // Convert backend items to frontend CartItem format
-          const backendItems: CartItem[] = backendCart.items.map(item => ({
-            id: item.productId,
-            name: item.productName,
-            price: item.unitPrice,
-            quantity: item.quantity,
-            imageUrl: item.imageUrl || '',
-            selectedColor: item.selectedColor,
-            uniqueId: generateUniqueId(item.productId, item.selectedColor),
-            description: '',
-            categoryId: 0,
-            stockQuantity: 0,
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            height: 0,
-            width: 0,
-            length: 0,
-            colorsVariant: [],
-            images: undefined
-          }));
+          const backendItems: CartItem[] = backendCart.items
+            .filter(item => isValidCartItem({ id: item.productId, name: item.productName, price: item.unitPrice }))
+            .map(item => ({
+              id: item.productId,
+              name: item.productName,
+              price: item.unitPrice,
+              quantity: item.quantity,
+              imageUrl: item.imageUrl || '',
+              selectedColor: item.selectedColor,
+              uniqueId: generateUniqueId(item.productId, item.selectedColor),
+              description: '',
+              categoryId: 0,
+              stockQuantity: 0,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              height: 0,
+              width: 0,
+              length: 0,
+              colorsVariant: [],
+              images: undefined
+            }));
           
-          // Get local cart items
-          const storageKey = getCartStorageKey();
-          const savedCart = localStorage.getItem(storageKey);
-          let localItems: CartItem[] = [];
-          
-          if (savedCart) {
-            try {
-              const parsed = JSON.parse(savedCart);
-              localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
-              console.log('📦 Found local cart with', localItems.length, 'items');
-            } catch (e) {
-              console.error('Failed to parse local cart:', e);
-            }
-          }
-          
-          // ✅ Merge and deduplicate
-          const mergedMap = new Map<string, CartItem>();
-          
-          // Add backend items first
-          backendItems.forEach(item => {
-            const key = `${item.id}-${item.selectedColor || 'default'}`;
-            mergedMap.set(key, item);
-          });
-          
-          // Add local items (if not already in backend)
-          localItems.forEach(item => {
-            const key = `${item.id}-${item.selectedColor || 'default'}`;
-            if (!mergedMap.has(key)) {
-              mergedMap.set(key, item);
-            }
-          });
-          
-          const mergedItems = Array.from(mergedMap.values());
-          
-          if (mergedItems.length > 0) {
-            dispatch({ type: 'LOAD_CART', payload: mergedItems });
-            console.log('📦 Cart loaded and merged. Total items:', mergedItems.length);
-            
-            // Save merged cart back to backend
-            await cartService.saveCart(mergedItems);
+          if (backendItems.length > 0) {
+            dispatch({ type: 'LOAD_CART', payload: backendItems });
+            console.log('📦 Cart loaded from backend. Total items:', backendItems.length);
+          } else {
+            // Backend had items but they were invalid - clear the backend
+            console.log('⚠️ Backend cart had invalid items, clearing...');
+            await cartService.clearCart();
           }
         } else {
-          console.log('📦 No backend cart found, checking local cart...');
-          
-          // No backend cart, check if we have local cart to upload
-          const storageKey = getCartStorageKey();
-          const savedCart = localStorage.getItem(storageKey);
-          
-          if (savedCart) {
-            try {
-              const parsed = JSON.parse(savedCart);
-              let localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
-              
-              // ✅ Deduplicate local items
-              const dedupedMap = new Map<string, CartItem>();
-              localItems.forEach((item: any) => {
-                const key = `${item.id}-${item.selectedColor || 'default'}`;
-                const existing = dedupedMap.get(key);
-                if (existing) {
-                  existing.quantity += item.quantity;
-                } else {
-                  dedupedMap.set(key, {
-                    ...item,
-                    images: undefined,
-                    selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined,
-                    uniqueId: generateUniqueId(item.id, item.selectedColor)
-                  });
-                }
-              });
-              
-              const dedupedItems = Array.from(dedupedMap.values());
-              
-              if (dedupedItems.length > 0) {
-                console.log('📦 Uploading deduplicated local cart to backend...');
-                await cartService.saveCart(dedupedItems);
-                console.log('📦 Local cart uploaded to backend');
-                dispatch({ type: 'LOAD_CART', payload: dedupedItems });
-              }
-            } catch (e) {
-              console.error('Failed to upload local cart:', e);
-            }
-          }
+          console.log('📦 No backend cart found');
         }
         
         setHasSyncedWithBackend(true);
       } catch (error) {
         console.error('Failed to load cart from backend:', error);
-        // Fallback to local cart
-        loadLocalCart();
       } finally {
         setIsSyncing(false);
+        setIsInitialSync(false);
         setIsInitialized(true);
       }
     };
 
     loadCartFromBackend();
   }, [user?.id]);
-
-  // ✅ Load local cart (fallback)
-  const loadLocalCart = () => {
-    const storageKey = getCartStorageKey();
-    const savedCart = localStorage.getItem(storageKey);
-    
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        let items = Array.isArray(parsedCart) ? parsedCart : parsedCart.items;
-        
-        if (Array.isArray(items) && items.length > 0) {
-          // ✅ Deduplicate items
-          const dedupedMap = new Map<string, CartItem>();
-          
-          items
-            .filter((item: any) => item.id && item.quantity)
-            .forEach((item: any) => {
-              const key = `${item.id}-${item.selectedColor || 'default'}`;
-              const existing = dedupedMap.get(key);
-              if (existing) {
-                existing.quantity += item.quantity;
-              } else {
-                dedupedMap.set(key, {
-                  ...item,
-                  images: undefined,
-                  selectedColor: item.selectedColor && item.selectedColor.trim() !== '' ? item.selectedColor : undefined,
-                  uniqueId: generateUniqueId(item.id, item.selectedColor)
-                });
-              }
-            });
-          
-          const validItems = Array.from(dedupedMap.values());
-          
-          if (validItems.length > 0) {
-            dispatch({ type: 'LOAD_CART', payload: validItems });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load cart from localStorage:', error);
-      }
-    }
-    setIsInitialized(true);
-  };
 
   // ✅ Save cart to localStorage (backup) - STRIPPED VERSION
   useEffect(() => {
@@ -407,10 +272,15 @@ useEffect(() => {
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        // ✅ Strip unnecessary data before saving
-        const itemsToStore = state.items.map(stripProductForStorage);
-        localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
-        console.log('📦 Cart saved to localStorage (stripped)');
+        // Only save valid items
+        const validItems = state.items.filter(isValidCartItem);
+        if (validItems.length > 0) {
+          const itemsToStore = validItems.map(stripProductForStorage);
+          localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
+          console.log('📦 Cart saved to localStorage (stripped)');
+        } else {
+          localStorage.removeItem(storageKey);
+        }
       } else {
         localStorage.removeItem(storageKey);
       }
@@ -419,33 +289,80 @@ useEffect(() => {
     saveCart();
   }, [state.items, user?.id, isInitialized]);
 
-  // ✅ Save cart to backend when items change (debounced)
+  // ✅ Save cart to backend when items change (DEBOUNCED, NO INITIAL SYNC)
   useEffect(() => {
-    if (!isInitialized) return;
+    // Don't save during initial sync
+    if (isInitialSync) {
+      console.log('⏳ Initial sync in progress, skipping save');
+      return;
+    }
+    
+    if (!isInitialized) {
+      console.log('⏳ Not initialized, skipping save');
+      return;
+    }
+    
+    if (!user?.id) {
+      console.log('⚠️ No user, skipping save');
+      return;
+    }
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
     
     const saveCartToBackend = async () => {
-      if (!user?.id || !hasSyncedWithBackend) return;
+      // Prevent concurrent saves
+      if (isSaving) {
+        console.log('⏳ Save already in progress, skipping');
+        return;
+      }
+      
+      // Only save valid items
+      const validItems = state.items.filter(isValidCartItem);
+      
+      if (validItems.length === 0) {
+        console.log('⚠️ No valid items to save');
+        return;
+      }
+      
+      setIsSaving(true);
       
       try {
-        // ✅ Only send minimal data to backend
-        const minimalItems = state.items.map(item => ({
+        const minimalItems = validItems.map(item => ({
           productId: item.id,
           quantity: item.quantity,
           selectedColor: item.selectedColor || null
         }));
         
+        console.log('📤 Saving cart to backend:', minimalItems);
         await cartService.saveCart(minimalItems);
-        console.log('📦 Cart auto-saved to backend (minimal data)');
+        console.log('📦 Cart saved to backend successfully');
       } catch (error) {
         console.error('Failed to save cart to backend:', error);
+      } finally {
+        setIsSaving(false);
       }
     };
 
-    const timeoutId = setTimeout(saveCartToBackend, 2000);
-    return () => clearTimeout(timeoutId);
-  }, [state.items, user?.id, hasSyncedWithBackend, isInitialized]);
+    // Debounce: Wait 1 second after the last change before saving
+    saveTimeoutRef.current = setTimeout(saveCartToBackend, 1000);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [state.items, user?.id, isInitialized, isInitialSync]);
 
   const addItem = (product: Product, color?: string) => {
+    // Validate product before adding
+    if (!isValidCartItem(product)) {
+      console.error('❌ Cannot add invalid product to cart:', product);
+      return;
+    }
+    
     console.log('=== CART CONTEXT: addItem called ===');
     console.log('Product:', product.name);
     console.log('Color received:', color, 'Type:', typeof color);
@@ -457,22 +374,18 @@ useEffect(() => {
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
     if (existingItem) {
-      // Update quantity if exact same item exists
       dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
       showSuccess(`${product.name} quantity increased!`);
     } else {
-      // ✅ Check if the same product exists WITHOUT a color
       const sameProductNoColor = state.items.find(item => 
         item.id === product.id && !item.selectedColor
       );
       
       if (validColor && sameProductNoColor) {
-        // Remove the no-color version and add the colored version
         dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId: sameProductNoColor.uniqueId } });
         dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
         showSuccess(`${product.name} updated with color ${validColor}!`);
       } else {
-        // Add as new item
         dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
         showSuccess(`${product.name} added to cart! 🛒`);
       }
