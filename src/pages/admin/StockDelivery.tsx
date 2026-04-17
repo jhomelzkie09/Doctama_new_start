@@ -121,7 +121,11 @@ const StockDelivery = () => {
         deliveryService.getDeliveryStats()
       ]);
       setProducts(productsData);
-      setDeliveries(deliveriesData);
+      // Filter to only show deliveries that have been received (came in)
+      const receivedDeliveries = deliveriesData.filter(d => 
+        d.status === 'received' || d.status === 'partial'
+      );
+      setDeliveries(receivedDeliveries);
       setStats(statsData);
     } catch (err) {
       setError('Failed to load delivery data');
@@ -238,7 +242,7 @@ const StockDelivery = () => {
             className="btn-primary flex items-center gap-2 px-5 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl"
           >
             <Plus className="w-4 h-4" />
-            New Order
+            New Delivery
           </button>
         </div>
 
@@ -246,30 +250,30 @@ const StockDelivery = () => {
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
             {
-              label: 'Pending',
-              value: filteredStats.pendingCount,
-              sub: 'awaiting receipt',
-              accent: 'border-amber-200',
-              valueColor: 'text-amber-600',
-              icon: Clock,
-              iconColor: 'text-amber-400 bg-amber-50'
+              label: 'Partial',
+              value: filteredStats.partialCount,
+              sub: 'partially received',
+              accent: 'border-orange-200',
+              valueColor: 'text-orange-600',
+              icon: AlertTriangle,
+              iconColor: 'text-orange-400 bg-orange-50'
             },
             {
               label: 'Received',
               value: filteredStats.receivedCount,
-              sub: 'completed',
+              sub: 'fully received',
               accent: 'border-emerald-200',
               valueColor: 'text-emerald-600',
               icon: CheckCircle,
               iconColor: 'text-emerald-400 bg-emerald-50'
             },
             {
-              label: 'Total Orders',
+              label: 'Total Deliveries',
               value: filteredStats.totalDeliveries,
               sub: TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label.toLowerCase() ?? 'all time',
               accent: 'border-stone-200',
               valueColor: 'text-stone-800',
-              icon: Package,
+              icon: Truck,
               iconColor: 'text-stone-400 bg-stone-100'
             }
           ].map(({ label, value, sub, accent, valueColor, icon: Icon, iconColor }) => (
@@ -295,7 +299,7 @@ const StockDelivery = () => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search by PO number, delivery number or supplier…"
+                placeholder="Search by inventory number or supplier…"
                 value={searchQuery}
                 onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-200 focus:border-stone-300"
@@ -316,10 +320,8 @@ const StockDelivery = () => {
               className="py-2.5 pl-3 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-[120px]"
             >
               <option value="all">All Status</option>
-              <option value="pending">Pending</option>
               <option value="received">Received</option>
               <option value="partial">Partial</option>
-              <option value="cancelled">Cancelled</option>
             </select>
 
             <button
@@ -356,7 +358,7 @@ const StockDelivery = () => {
                 <table className="w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   <thead>
                     <tr className="border-b border-stone-100">
-                      {['Delivery #', 'PO #', 'Supplier', 'Expected', 'Date Received', 'Items', 'Status', ''].map(h => (
+                      {['Inventory #', 'Supplier', 'Date Received', 'Items', 'Status', ''].map(h => (
                         <th key={h} className="px-6 py-4 text-left text-xs font-medium text-stone-400 uppercase tracking-wider whitespace-nowrap">
                           {h}
                         </th>
@@ -366,7 +368,6 @@ const StockDelivery = () => {
                   <tbody className="divide-y divide-stone-50">
                     {paginatedDeliveries.map(delivery => {
                       const sc = getStatusConfig(delivery.status);
-                      const isOverdue = delivery.status === 'pending' && new Date(delivery.expectedDate) < new Date();
 
                       return (
                         <tr key={delivery.id} className="delivery-row">
@@ -376,21 +377,10 @@ const StockDelivery = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="font-mono text-xs text-stone-400">
-                              {delivery.purchaseOrderNumber}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
                             <p className="text-sm font-medium text-stone-800">{delivery.supplierName}</p>
                             {delivery.supplierContact && (
                               <p className="text-xs text-stone-400 mt-0.5">{delivery.supplierContact}</p>
                             )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className={`text-sm ${isOverdue ? 'text-rose-500 font-medium' : 'text-stone-600'}`}>
-                              {formatDate(delivery.expectedDate)}
-                            </p>
-                            {isOverdue && <p className="text-xs text-rose-400 mt-0.5">Overdue</p>}
                           </td>
                           <td className="px-6 py-4">
                             {delivery.receivedAt ? (
@@ -416,11 +406,11 @@ const StockDelivery = () => {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-1">
-                              {delivery.status !== 'received' && delivery.status !== 'cancelled' && (
+                              {delivery.status === 'partial' && (
                                 <button
                                   onClick={() => handleReceiveDelivery(delivery)}
                                   className="action-btn p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg"
-                                  title="Receive Delivery"
+                                  title="Complete Receiving"
                                 >
                                   <CheckCircle className="w-4 h-4" />
                                 </button>
@@ -476,14 +466,14 @@ const StockDelivery = () => {
               <p className="text-sm text-stone-400 mb-6 max-w-xs mx-auto">
                 {timeFilter !== 'all'
                   ? `No deliveries for ${TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label.toLowerCase()}`
-                  : 'Get started by creating your first delivery order'}
+                  : 'Record deliveries as they arrive to track inventory'}
               </p>
               <button
                 onClick={() => navigate('/admin/deliveries/new')}
                 className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl"
               >
                 <Plus className="w-4 h-4" />
-                Create Delivery Order
+                Record New Delivery
               </button>
             </div>
           )}
@@ -498,7 +488,7 @@ const StockDelivery = () => {
               <div>
                 <h2 className="text-lg font-semibold text-stone-900">Delivery Details</h2>
                 <p className="text-xs text-stone-400 mt-0.5" style={{ fontFamily: 'DM Mono, monospace' }}>
-                  #{selectedDelivery.deliveryNumber}
+                  Inventory #{selectedDelivery.deliveryNumber}
                 </p>
               </div>
               <button onClick={() => setShowDeliveryModal(false)} className="p-2 hover:bg-stone-50 rounded-xl transition">
@@ -516,10 +506,9 @@ const StockDelivery = () => {
                   {selectedDelivery.supplierPhone && <p className="text-xs text-stone-500">{selectedDelivery.supplierPhone}</p>}
                 </div>
                 <div className="bg-stone-50 rounded-xl p-4">
-                  <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Order Info</p>
-                  <p className="text-xs text-stone-600 font-mono">PO: {selectedDelivery.purchaseOrderNumber}</p>
-                  <p className="text-xs text-stone-500 mt-1">Delivery: {formatDate(selectedDelivery.deliveryDate)}</p>
-                  <p className="text-xs text-stone-500">Expected: {formatDate(selectedDelivery.expectedDate)}</p>
+                  <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Delivery Info</p>
+                  <p className="text-xs text-stone-600 font-mono">PO Ref: {selectedDelivery.purchaseOrderNumber}</p>
+                  <p className="text-xs text-stone-500 mt-1">Delivered: {formatDate(selectedDelivery.deliveryDate)}</p>
                   {selectedDelivery.trackingNumber && (
                     <p className="text-xs text-stone-500">Tracking: {selectedDelivery.trackingNumber}</p>
                   )}
@@ -537,12 +526,12 @@ const StockDelivery = () => {
               )}
 
               <div>
-                <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-3">Order Items</p>
+                <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-3">Received Items</p>
                 <div className="border border-stone-100 rounded-xl overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-stone-50 border-b border-stone-100">
                       <tr>
-                        {['Product', 'Ordered', 'Received', 'Unit Price', 'Total'].map(h => (
+                        {['Product', 'Quantity', 'Unit Price', 'Total'].map(h => (
                           <th key={h} className="px-4 py-3 text-left text-xs font-medium text-stone-400">{h}</th>
                         ))}
                       </tr>
@@ -551,14 +540,13 @@ const StockDelivery = () => {
                       {selectedDelivery.items.map((item, idx) => (
                         <tr key={idx} className="hover:bg-stone-50/50">
                           <td className="px-4 py-3 text-sm font-medium text-stone-800">{item.productName}</td>
-                          <td className="px-4 py-3 text-sm text-stone-500">{item.orderedQuantity}</td>
                           <td className="px-4 py-3">
-                            <span className={`text-sm font-medium ${item.receivedQuantity === item.orderedQuantity ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            <span className={`text-sm font-medium ${item.receivedQuantity > 0 ? 'text-emerald-600' : 'text-stone-400'}`}>
                               {item.receivedQuantity}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-stone-500 font-mono">{formatCurrency(item.unitPrice)}</td>
-                          <td className="px-4 py-3 text-sm text-stone-700 font-mono">{formatCurrency(item.totalPrice)}</td>
+                          <td className="px-4 py-3 text-sm text-stone-700 font-mono">{formatCurrency(item.receivedQuantity * item.unitPrice)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -627,9 +615,9 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
            style={{ fontFamily: "'DM Sans', sans-serif" }}>
         <div className="sticky top-0 bg-white border-b border-stone-100 px-6 py-5 flex justify-between items-center rounded-t-2xl">
           <div>
-            <h2 className="text-lg font-semibold text-stone-900">Receive Delivery</h2>
+            <h2 className="text-lg font-semibold text-stone-900">Complete Receiving</h2>
             <p className="text-xs text-stone-400 mt-0.5">
-              PO #{delivery.purchaseOrderNumber} · {delivery.supplierName}
+              Inventory #{delivery.deliveryNumber} · {delivery.supplierName}
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-stone-50 rounded-xl transition">
@@ -639,7 +627,7 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
 
         <div className="p-6 space-y-5">
           <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-600">
-            Enter the actual quantities received. Stock levels will be updated automatically upon confirmation.
+            Update the quantities received. Stock levels will be adjusted automatically.
           </div>
 
           <div className="space-y-3">
@@ -650,12 +638,12 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <p className="text-sm font-medium text-stone-800">{item.productName}</p>
-                      <p className="text-xs text-stone-400 mt-0.5">Ordered: {item.orderedQuantity} units</p>
+                      <p className="text-xs text-stone-400 mt-0.5">Expected: {item.orderedQuantity} units</p>
                     </div>
                     <span className="text-xs font-mono text-stone-500">{formatCurrency(item.unitPrice)} each</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <label className="text-xs text-stone-500 whitespace-nowrap">Qty received</label>
+                    <label className="text-xs text-stone-500 whitespace-nowrap">Received</label>
                     <input
                       type="number"
                       min="0"
@@ -706,7 +694,7 @@ const ReceiveDeliveryModal: React.FC<ReceiveDeliveryModalProps> = ({ delivery, o
             >
               {loading
                 ? <Loader className="w-4 h-4 animate-spin" />
-                : <><CheckCircle className="w-4 h-4" /> Confirm Receipt</>
+                : <><CheckCircle className="w-4 h-4" /> Complete Receipt</>
               }
             </button>
           </div>
