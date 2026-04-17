@@ -31,13 +31,13 @@ const generateUniqueId = (productId: number, color?: string): string => {
 
 const stripProductForStorage = (item: CartItem): any => {
   // Only store essential data, never store base64 images
-  return {
+  const stored = {
     id: item.id,
     name: item.name,
     price: item.price,
     quantity: item.quantity,
     imageUrl: item.imageUrl || '',
-    selectedColor: item.selectedColor,
+    selectedColor: item.selectedColor, // Explicitly include
     uniqueId: item.uniqueId,
     description: item.description || '',
     categoryId: item.categoryId,
@@ -49,6 +49,14 @@ const stripProductForStorage = (item: CartItem): any => {
     length: item.length || 0,
     colorsVariant: item.colorsVariant || []
   };
+  
+  console.log('💾 Stripping product for storage:', { 
+    id: stored.id, 
+    name: stored.name,
+    selectedColor: stored.selectedColor 
+  });
+  
+  return stored;
 };
 
 const isValidProduct = (item: any): boolean => {
@@ -90,11 +98,16 @@ const hasSuspiciousData = (item: any): boolean => {
 const cleanItemData = <T extends any>(item: T): T => {
   if (!item) return item;
   
-  // If it has an images array with base64, clear it
+  // If it's an object, create a clean copy preserving ALL properties
   if (typeof item === 'object' && item !== null) {
-    const cleaned = { ...item } as any;
+    // Create a shallow copy to avoid mutating the original
+    const cleaned = Object.assign({}, item) as any;
     
-    // Remove base64 images
+    // IMPORTANT: Explicitly preserve selectedColor
+    // Store the original selectedColor before any processing
+    const originalSelectedColor = cleaned.selectedColor;
+    
+    // Remove base64 images from images array
     if (cleaned.images && Array.isArray(cleaned.images)) {
       cleaned.images = cleaned.images.filter((img: any) => {
         if (typeof img === 'string' && img.startsWith('data:image')) {
@@ -105,13 +118,21 @@ const cleanItemData = <T extends any>(item: T): T => {
       });
     }
     
-    // Remove any other base64 strings
+    // Remove any other base64 strings (but NOT selectedColor)
     Object.keys(cleaned).forEach(key => {
+      // Skip selectedColor - never clean it
+      if (key === 'selectedColor') return;
+      
       if (typeof cleaned[key] === 'string' && cleaned[key].startsWith('data:image')) {
         console.log(`🧹 Stripped base64 from field: ${key}`);
         cleaned[key] = '';
       }
     });
+    
+    // Restore selectedColor if it was somehow lost
+    if (originalSelectedColor !== undefined) {
+      cleaned.selectedColor = originalSelectedColor;
+    }
     
     return cleaned;
   }
@@ -133,6 +154,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case 'ADD_ITEM': {
       let { product, color } = action.payload;
       
+      // ✅ Store the original color before cleaning
+      const originalColor = color;
+      
       // ✅ Clean the product data (remove base64 images, etc.)
       product = cleanItemData(product);
       
@@ -147,12 +171,22 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         console.warn('⚠️ Item has suspicious data, but allowing after cleaning:', product.id);
       }
       
-      const validColor = color && color.trim() !== '' ? color : undefined;
+      // ✅ IMPORTANT: Preserve the color from the payload
+      const validColor = originalColor && originalColor.trim() !== '' ? originalColor : undefined;
       const uniqueId = generateUniqueId(product.id, validColor);
+      
+      console.log('🎨 Adding item with color:', { 
+        productId: product.id, 
+        productName: product.name,
+        originalColor,
+        validColor, 
+        uniqueId 
+      });
       
       const existingItem = state.items.find(item => item.uniqueId === uniqueId);
       
       if (existingItem) {
+        console.log('📦 Item already exists, increasing quantity');
         return {
           ...state,
           items: state.items.map(item =>
@@ -164,13 +198,21 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         };
       }
       
+      // ✅ Create new item with explicit color preservation
       const newItem: CartItem = {
         ...product,
         quantity: 1,
-        selectedColor: validColor,
+        selectedColor: validColor, // Explicitly set from the validated color
         uniqueId,
         images: undefined // Never store images in cart
       };
+      
+      console.log('✅ Created new cart item:', { 
+        id: newItem.id, 
+        name: newItem.name, 
+        selectedColor: newItem.selectedColor,
+        uniqueId: newItem.uniqueId 
+      });
       
       return {
         items: [...state.items, newItem],
@@ -208,8 +250,16 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       // ✅ Clean and validate items when loading, but don't block by ID
       const cleanedPayload = action.payload
         .map(item => {
+          // Store original selectedColor
+          const originalColor = item.selectedColor;
+          
           // Clean each item
           const cleaned = cleanItemData(item);
+          
+          // Restore selectedColor if it was lost
+          if (originalColor !== undefined && cleaned.selectedColor === undefined) {
+            cleaned.selectedColor = originalColor;
+          }
           
           // Check if it's valid
           if (!isValidProduct(cleaned)) {
@@ -221,6 +271,12 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
           if (hasSuspiciousData(cleaned)) {
             console.warn(`⚠️ Item has suspicious data, but keeping after clean: ${item.id}`);
           }
+          
+          console.log('📦 Loaded cart item:', {
+            id: cleaned.id,
+            name: cleaned.name,
+            selectedColor: cleaned.selectedColor
+          });
           
           return cleaned;
         })
@@ -265,7 +321,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // ✅ Filter and clean items before saving
     const validItems = state.items
-      .map(item => cleanItemData(item))
+      .map(item => {
+        const cleaned = cleanItemData(item);
+        // Preserve selectedColor
+        if (item.selectedColor !== undefined && cleaned.selectedColor === undefined) {
+          cleaned.selectedColor = item.selectedColor;
+        }
+        return cleaned;
+      })
       .filter(item => isValidCartItemForSave(item) && !hasSuspiciousData(item));
     
     if (validItems.length === 0) {
@@ -315,7 +378,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 
                 // Clean each item instead of deleting everything
                 const cleanedItems = items
-                  .map((item: any) => cleanItemData(item))
+                  .map((item: any) => {
+                    const originalColor = item.selectedColor;
+                    const cleaned = cleanItemData(item);
+                    if (originalColor !== undefined && cleaned.selectedColor === undefined) {
+                      cleaned.selectedColor = originalColor;
+                    }
+                    return cleaned;
+                  })
                   .filter((item: any) => isValidProduct(item));
                 
                 if (cleanedItems.length > 0) {
@@ -420,8 +490,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }));
           
           if (backendItems.length > 0) {
-            // Clean items before dispatching
-            const cleanedItems = backendItems.map(item => cleanItemData(item));
+            // Clean items before dispatching and preserve colors
+            const cleanedItems = backendItems.map(item => {
+              const originalColor = item.selectedColor;
+              const cleaned = cleanItemData(item);
+              if (originalColor !== undefined && cleaned.selectedColor === undefined) {
+                cleaned.selectedColor = originalColor;
+              }
+              return cleaned;
+            });
             dispatch({ type: 'LOAD_CART', payload: cleanedItems });
             console.log('📦 Cart loaded from backend. Total items:', cleanedItems.length);
           }
@@ -450,9 +527,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        // Clean items before saving
+        // Clean items before saving and preserve colors
         const cleanedItems = state.items
-          .map(item => cleanItemData(item))
+          .map(item => {
+            const originalColor = item.selectedColor;
+            const cleaned = cleanItemData(item);
+            if (originalColor !== undefined && cleaned.selectedColor === undefined) {
+              cleaned.selectedColor = originalColor;
+            }
+            return cleaned;
+          })
           .filter(item => isValidCartItemForSave(item));
         
         if (cleanedItems.length > 0) {
@@ -462,7 +546,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Only save if data size is reasonable
           if (jsonData.length < 100000) {
             localStorage.setItem(storageKey, jsonData);
-            console.log('📦 Cart saved to localStorage');
+            console.log('📦 Cart saved to localStorage with items:', itemsToStore.length);
           } else {
             console.warn('⚠️ Cart data too large, skipping localStorage save');
           }
@@ -518,8 +602,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id, isInitialized, isInitialSync]);
 
   const addItem = (product: Product, color?: string): void => {
+    // ✅ Store original color before any processing
+    const originalColor = color;
+    
     // ✅ Clean the product data first
     const cleanedProduct = cleanItemData(product);
+    
+    // ✅ Restore selectedColor if it was lost during cleaning
+    if (originalColor !== undefined && (cleanedProduct as any).selectedColor === undefined) {
+      (cleanedProduct as any).selectedColor = originalColor;
+    }
     
     // ✅ Validate product has required fields
     if (!isValidProduct(cleanedProduct)) {
@@ -528,11 +620,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    console.log('🛒 addItem called for:', cleanedProduct.name, 'ID:', cleanedProduct.id);
+    console.log('🛒 addItem called for:', {
+      name: cleanedProduct.name,
+      id: cleanedProduct.id,
+      originalColor,
+      cleanedProductColor: (cleanedProduct as any).selectedColor
+    });
     
     userActionRef.current = true;
     
-    const validColor = color && color.trim() !== '' ? color : undefined;
+    const validColor = originalColor && originalColor.trim() !== '' ? originalColor : undefined;
     const uniqueId = generateUniqueId(cleanedProduct.id, validColor);
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
