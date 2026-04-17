@@ -408,71 +408,80 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.id]);
 
   // ✅ Load cart from backend when user logs in
-  useEffect(() => {
-    const loadCartFromBackend = async (): Promise<void> => {
-      if (!user?.id || hasSyncedWithBackend) return;
+  // Replace the loadCartFromBackend function with this:
+
+// ✅ Load cart from backend when user logs in
+useEffect(() => {
+  const loadCartFromBackend = async (): Promise<void> => {
+    if (!user?.id || hasSyncedWithBackend) return;
+    
+    setIsSyncing(true);
+    setIsInitialSync(true);
+    console.log('📦 Loading cart from backend for user:', user.id);
+    
+    try {
+      const backendCart = await cartService.getCart();
       
-      setIsSyncing(true);
-      setIsInitialSync(true);
-      console.log('📦 Loading cart from backend for user:', user.id);
-      
-      try {
-        const backendCart = await cartService.getCart();
+      if (backendCart && backendCart.items && backendCart.items.length > 0) {
+        console.log('📦 Found backend cart with', backendCart.items.length, 'items');
+        console.log('📦 Raw backend items:', backendCart.items.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          selectedColor: item.selectedColor,
+          selectedColorType: typeof item.selectedColor
+        })));
         
-        if (backendCart && backendCart.items && backendCart.items.length > 0) {
-          console.log('📦 Found backend cart with', backendCart.items.length, 'items');
+        // ✅ Clean and validate items from backend
+        const validItems = backendCart.items.filter(item => {
+          // Check required fields
+          if (!item.productId || item.productId <= 0) {
+            console.warn(`🗑️ Item with invalid productId: ${item.productId}`);
+            return false;
+          }
           
-          // ✅ Clean and validate items from backend
-          const validItems = backendCart.items.filter(item => {
-            // Check required fields
-            if (!item.productId || item.productId <= 0) {
-              console.warn(`🗑️ Item with invalid productId: ${item.productId}`);
-              return false;
-            }
-            
-            if (!item.unitPrice || item.unitPrice <= 0) {
-              console.warn(`🗑️ Item with invalid price: ${item.unitPrice}`);
-              return false;
-            }
-            
-            if (!item.productName || item.productName.trim() === '') {
-              console.warn(`🗑️ Item with empty name`);
-              return false;
-            }
-            
-            return true;
+          if (!item.unitPrice || item.unitPrice <= 0) {
+            console.warn(`🗑️ Item with invalid price: ${item.unitPrice}`);
+            return false;
+          }
+          
+          if (!item.productName || item.productName.trim() === '') {
+            console.warn(`🗑️ Item with empty name`);
+            return false;
+          }
+          
+          return true;
+        });
+        
+        if (validItems.length === 0) {
+          console.log('⚠️ No valid items in backend cart - clearing');
+          await cartService.clearCart();
+          setHasSyncedWithBackend(true);
+          setIsSyncing(false);
+          setIsInitialSync(false);
+          setIsInitialized(true);
+          return;
+        }
+        
+        const backendItems: CartItem[] = validItems.map(item => {
+          // ✅ IMPORTANT: Don't normalize null to undefined if the item actually has no color
+          // Only normalize if it's explicitly null (meaning no color was selected)
+          const selectedColor = item.selectedColor === null ? undefined : item.selectedColor;
+          
+          console.log('📦 Processing backend item:', {
+            productId: item.productId,
+            productName: item.productName,
+            originalSelectedColor: item.selectedColor,
+            processedSelectedColor: selectedColor
           });
           
-          if (validItems.length === 0) {
-            console.log('⚠️ No valid items in backend cart - clearing');
-            await cartService.clearCart();
-            setHasSyncedWithBackend(true);
-            setIsSyncing(false);
-            setIsInitialSync(false);
-            setIsInitialized(true);
-            return;
-          }
-          
-          if (validItems.length !== backendCart.items.length) {
-            console.log(`🧹 Filtered out ${backendCart.items.length - validItems.length} invalid items`);
-            // Re-save only valid items
-            await cartService.clearCart();
-            const validMinimalItems = validItems.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              selectedColor: item.selectedColor || null
-            }));
-            await cartService.saveCart(validMinimalItems);
-          }
-          
-          const backendItems: CartItem[] = validItems.map(item => ({
+          return {
             id: item.productId,
             name: item.productName,
             price: item.unitPrice,
             quantity: item.quantity,
             imageUrl: item.imageUrl || '',
-            selectedColor: normalizeColor(item.selectedColor), // Normalize null to undefined
-            uniqueId: generateUniqueId(item.productId, item.selectedColor),
+            selectedColor: selectedColor,
+            uniqueId: generateUniqueId(item.productId, selectedColor),
             description: '',
             categoryId: 0,
             stockQuantity: 0,
@@ -483,30 +492,44 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             length: 0,
             colorsVariant: [],
             images: undefined
-          }));
-          
-          if (backendItems.length > 0) {
-            // Clean items before dispatching
-            const cleanedItems = backendItems.map(item => cleanItemData(item));
-            dispatch({ type: 'LOAD_CART', payload: cleanedItems });
-            console.log('📦 Cart loaded from backend. Total items:', cleanedItems.length);
-          }
-        } else {
-          console.log('📦 No backend cart found');
-        }
+          };
+        });
         
-        setHasSyncedWithBackend(true);
-      } catch (error) {
-        console.error('Failed to load cart from backend:', error);
-      } finally {
-        setIsSyncing(false);
-        setIsInitialSync(false);
-        setIsInitialized(true);
+        if (backendItems.length > 0) {
+          // Clean items before dispatching
+          const cleanedItems = backendItems.map(item => {
+            // Don't use cleanItemData on the color - preserve it exactly
+            const cleaned = cleanItemData(item);
+            // Ensure selectedColor is preserved
+            cleaned.selectedColor = item.selectedColor;
+            return cleaned;
+          });
+          
+          console.log('📦 Final items being dispatched:', cleanedItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            selectedColor: item.selectedColor
+          })));
+          
+          dispatch({ type: 'LOAD_CART', payload: cleanedItems });
+          console.log('📦 Cart loaded from backend. Total items:', cleanedItems.length);
+        }
+      } else {
+        console.log('📦 No backend cart found');
       }
-    };
+      
+      setHasSyncedWithBackend(true);
+    } catch (error) {
+      console.error('Failed to load cart from backend:', error);
+    } finally {
+      setIsSyncing(false);
+      setIsInitialSync(false);
+      setIsInitialized(true);
+    }
+  };
 
-    loadCartFromBackend();
-  }, [user?.id, hasSyncedWithBackend]);
+  loadCartFromBackend();
+}, [user?.id, hasSyncedWithBackend]);
 
   // ✅ Save cart to localStorage (backup) - clean data before saving
   useEffect(() => {
@@ -584,50 +607,51 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id, isInitialized, isInitialSync]);
 
   const addItem = (product: Product, color?: string): void => {
-    // ✅ Normalize the color first
-    const normalizedColor = normalizeColor(color);
+  // ✅ Normalize the color first
+  const normalizedColor = normalizeColor(color);
+  
+  // ✅ Clean the product data first
+  const cleanedProduct = cleanItemData(product);
+  
+  // ✅ Validate product has required fields
+  if (!isValidProduct(cleanedProduct)) {
+    console.error('❌ Cannot add invalid product to cart:', cleanedProduct.id, cleanedProduct.name);
+    showInfo('Unable to add this product to cart');
+    return;
+  }
+  
+  console.log('🛒 addItem called for:', {
+    name: cleanedProduct.name,
+    id: cleanedProduct.id,
+    originalColor: color,
+    normalizedColor,
+    productColorsVariant: product.colorsVariant
+  });
+  
+  userActionRef.current = true;
+  
+  const validColor = normalizedColor;
+  const uniqueId = generateUniqueId(cleanedProduct.id, validColor);
+  const existingItem = state.items.find(item => item.uniqueId === uniqueId);
+  
+  if (existingItem) {
+    dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
+    showSuccess(`${cleanedProduct.name} quantity increased!`);
+  } else {
+    const sameProductNoColor = state.items.find(item => 
+      item.id === cleanedProduct.id && !item.selectedColor
+    );
     
-    // ✅ Clean the product data first
-    const cleanedProduct = cleanItemData(product);
-    
-    // ✅ Validate product has required fields
-    if (!isValidProduct(cleanedProduct)) {
-      console.error('❌ Cannot add invalid product to cart:', cleanedProduct.id, cleanedProduct.name);
-      showInfo('Unable to add this product to cart');
-      return;
-    }
-    
-    console.log('🛒 addItem called for:', {
-      name: cleanedProduct.name,
-      id: cleanedProduct.id,
-      originalColor: color,
-      normalizedColor
-    });
-    
-    userActionRef.current = true;
-    
-    const validColor = normalizedColor;
-    const uniqueId = generateUniqueId(cleanedProduct.id, validColor);
-    const existingItem = state.items.find(item => item.uniqueId === uniqueId);
-    
-    if (existingItem) {
+    if (validColor && sameProductNoColor) {
+      dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId: sameProductNoColor.uniqueId } });
       dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
-      showSuccess(`${cleanedProduct.name} quantity increased!`);
+      showSuccess(`${cleanedProduct.name} updated with color ${validColor}!`);
     } else {
-      const sameProductNoColor = state.items.find(item => 
-        item.id === cleanedProduct.id && !item.selectedColor
-      );
-      
-      if (validColor && sameProductNoColor) {
-        dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId: sameProductNoColor.uniqueId } });
-        dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
-        showSuccess(`${cleanedProduct.name} updated with color ${validColor}!`);
-      } else {
-        dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
-        showSuccess(`${cleanedProduct.name} added to cart! 🛒`);
-      }
+      dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
+      showSuccess(`${cleanedProduct.name} added to cart! 🛒`);
     }
-  };
+  }
+};
 
   const removeItem = (uniqueId: string): void => {
     const item = state.items.find(item => item.uniqueId === uniqueId);
