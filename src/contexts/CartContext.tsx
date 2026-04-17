@@ -30,6 +30,7 @@ const generateUniqueId = (productId: number, color?: string): string => {
 };
 
 const stripProductForStorage = (item: CartItem): any => {
+  // Only store essential data, never store base64 images
   return {
     id: item.id,
     name: item.name,
@@ -54,7 +55,8 @@ const isValidProduct = (item: any): boolean => {
   if (!item) return false;
   const hasId = typeof item.id === 'number' && item.id > 0;
   const hasPrice = typeof item.price === 'number' && item.price > 0;
-  return hasId && hasPrice;
+  const hasName = typeof item.name === 'string' && item.name.trim() !== '';
+  return hasId && hasPrice && hasName;
 };
 
 const isValidCartItemForSave = (item: CartItem): boolean => {
@@ -62,24 +64,59 @@ const isValidCartItemForSave = (item: CartItem): boolean => {
   const hasId = typeof item.id === 'number' && item.id > 0;
   const hasPrice = typeof item.price === 'number' && item.price > 0;
   const hasQuantity = typeof item.quantity === 'number' && item.quantity > 0;
-  return hasId && hasPrice && hasQuantity;
+  const hasName = typeof item.name === 'string' && item.name.trim() !== '';
+  return hasId && hasPrice && hasQuantity && hasName;
 };
 
-// ✅ ROGUE PRODUCT IDs - Block these completely
-const ROGUE_PRODUCT_IDS = [34, 35];
-
-// ✅ Helper to check if an item is a known rogue item
-const isRogueItem = (productId: number): boolean => {
-  return ROGUE_PRODUCT_IDS.includes(productId);
+// ✅ Check for corrupted/suspicious data (not blocking by ID)
+const hasSuspiciousData = (item: any): boolean => {
+  // Check for base64 images in the item (these cause localStorage bloat)
+  const itemStr = JSON.stringify(item);
+  if (itemStr.includes('data:image') && itemStr.length > 50000) {
+    console.warn('⚠️ Item contains large base64 image data');
+    return true;
+  }
+  
+  // Check if the entire item is oversized
+  if (itemStr.length > 100000) {
+    console.warn('⚠️ Item data is suspiciously large');
+    return true;
+  }
+  
+  return false;
 };
 
-// ✅ Check if an item has valid product data
-const hasValidProductData = (item: any): boolean => {
-  // Rogue items often have empty descriptions, 0 stock, etc.
-  if (!item.name || item.name === '') return false;
-  if (!item.price || item.price <= 0) return false;
-  if (item.description === '' && ROGUE_PRODUCT_IDS.includes(item.id)) return false;
-  return true;
+// ✅ Clean item data - strip base64 images but keep the item
+const cleanItemData = <T extends any>(item: T): T => {
+  if (!item) return item;
+  
+  // If it has an images array with base64, clear it
+  if (typeof item === 'object' && item !== null) {
+    const cleaned = { ...item } as any;
+    
+    // Remove base64 images
+    if (cleaned.images && Array.isArray(cleaned.images)) {
+      cleaned.images = cleaned.images.filter((img: any) => {
+        if (typeof img === 'string' && img.startsWith('data:image')) {
+          console.log('🧹 Stripped base64 image from item');
+          return false;
+        }
+        return true;
+      });
+    }
+    
+    // Remove any other base64 strings
+    Object.keys(cleaned).forEach(key => {
+      if (typeof cleaned[key] === 'string' && cleaned[key].startsWith('data:image')) {
+        console.log(`🧹 Stripped base64 from field: ${key}`);
+        cleaned[key] = '';
+      }
+    });
+    
+    return cleaned;
+  }
+  
+  return item;
 };
 
 const CartContext = createContext<{
@@ -94,18 +131,20 @@ const CartContext = createContext<{
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const { product, color } = action.payload;
+      let { product, color } = action.payload;
       
-      // ✅ Block rogue items at the reducer level
-      if (isRogueItem(product.id)) {
-        console.error('⚠️⚠️⚠️ BLOCKED rogue item in reducer:', product.id, product.name);
+      // ✅ Clean the product data (remove base64 images, etc.)
+      product = cleanItemData(product);
+      
+      // ✅ Validate product has required fields
+      if (!isValidProduct(product)) {
+        console.error('❌ BLOCKED item with invalid data:', product.id, product.name);
         return state;
       }
       
-      // ✅ Also check for valid product data
-      if (!hasValidProductData(product)) {
-        console.error('⚠️⚠️⚠️ BLOCKED item with invalid data:', product.id, product.name);
-        return state;
+      // ✅ Warn about suspicious data but still allow
+      if (hasSuspiciousData(product)) {
+        console.warn('⚠️ Item has suspicious data, but allowing after cleaning:', product.id);
       }
       
       const validColor = color && color.trim() !== '' ? color : undefined;
@@ -130,7 +169,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         quantity: 1,
         selectedColor: validColor,
         uniqueId,
-        images: undefined
+        images: undefined // Never store images in cart
       };
       
       return {
@@ -166,37 +205,34 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { items: [], total: 0 };
 
     case 'LOAD_CART': {
-      // ✅ AGGRESSIVELY filter out rogue items when loading cart
-      const filteredPayload = action.payload.filter(item => {
-        // Block by ID
-        if (isRogueItem(item.id)) {
-          console.warn(`🗑️ BLOCKED rogue item from LOAD_CART (ID): ${item.id} - ${item.name}`);
-          return false;
-        }
-        
-        // Block by invalid data
-        if (!hasValidProductData(item)) {
-          console.warn(`🗑️ BLOCKED item with invalid data: ${item.id} - ${item.name}`);
-          return false;
-        }
-        
-        // Block items with suspiciously large data (base64 images)
-        const itemStr = JSON.stringify(item);
-        if (itemStr.includes('data:image') && itemStr.length > 10000) {
-          console.warn(`🗑️ BLOCKED item with large base64 image: ${item.id} - ${item.name}`);
-          return false;
-        }
-        
-        return true;
-      });
+      // ✅ Clean and validate items when loading, but don't block by ID
+      const cleanedPayload = action.payload
+        .map(item => {
+          // Clean each item
+          const cleaned = cleanItemData(item);
+          
+          // Check if it's valid
+          if (!isValidProduct(cleaned)) {
+            console.warn(`🗑️ Removed invalid item during LOAD_CART: ${item.id} - ${item.name}`);
+            return null;
+          }
+          
+          // Warn about suspicious data
+          if (hasSuspiciousData(cleaned)) {
+            console.warn(`⚠️ Item has suspicious data, but keeping after clean: ${item.id}`);
+          }
+          
+          return cleaned;
+        })
+        .filter((item): item is CartItem => item !== null);
       
-      if (filteredPayload.length !== action.payload.length) {
-        console.log(`🧹 Filtered out ${action.payload.length - filteredPayload.length} rogue items from LOAD_CART`);
+      if (cleanedPayload.length !== action.payload.length) {
+        console.log(`🧹 Cleaned ${action.payload.length - cleanedPayload.length} invalid items from LOAD_CART`);
       }
       
       return { 
-        items: filteredPayload, 
-        total: filteredPayload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
+        items: cleanedPayload, 
+        total: cleanedPayload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
       };
     }
       
@@ -227,19 +263,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const saveToBackend = async (): Promise<void> => {
     if (!user?.id) return;
     
-    // ✅ Filter out rogue items before saving
+    // ✅ Filter and clean items before saving
     const validItems = state.items
-      .filter(item => {
-        if (isRogueItem(item.id)) {
-          console.warn(`🗑️ BLOCKED rogue item from save: ID ${item.id} - ${item.name}`);
-          return false;
-        }
-        if (!hasValidProductData(item)) {
-          console.warn(`🗑️ BLOCKED item with invalid data from save: ${item.id}`);
-          return false;
-        }
-        return isValidCartItemForSave(item);
-      });
+      .map(item => cleanItemData(item))
+      .filter(item => isValidCartItemForSave(item) && !hasSuspiciousData(item));
     
     if (validItems.length === 0) {
       console.log('⚠️ No valid items to save - clearing backend cart');
@@ -266,14 +293,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // ✅ AGGRESSIVE CLEANUP - Remove all suspicious cart data on startup
+  // ✅ Clean localStorage on startup (remove base64 bloat, but keep valid items)
   useEffect(() => {
-    const aggressiveCleanup = async (): Promise<void> => {
-      console.log('🧹 Running aggressive cart cleanup...');
+    const cleanupStorage = (): void => {
+      console.log('🧹 Cleaning localStorage cart data...');
       
-      let foundRogueItem = false;
-      
-      // Check all localStorage cart keys
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('cart_')) {
           try {
@@ -282,53 +306,39 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const parsed = JSON.parse(data);
               const items = Array.isArray(parsed) ? parsed : (parsed.items || []);
               
-              // Check for rogue items by ID
-              const hasRogueById = items.some((item: any) => 
-                ROGUE_PRODUCT_IDS.includes(item.id)
-              );
-              
-              // Check for items with suspicious data
-              const hasInvalidData = items.some((item: any) => 
-                !item.name || item.name === '' || !item.price || item.price <= 0
-              );
-              
+              // Check for base64 bloat
               const hasBase64 = data.includes('data:image');
               const isOversized = data.length > 50000;
               
-              if (hasRogueById || hasInvalidData || hasBase64 || isOversized) {
-                console.log(`🗑️ Deleting suspicious cart data: ${key}`, {
-                  hasRogueById,
-                  hasInvalidData,
-                  hasBase64,
-                  isOversized
-                });
-                localStorage.removeItem(key);
-                foundRogueItem = true;
+              if (hasBase64 || isOversized) {
+                console.log(`🧹 Cleaning cart data: ${key}`);
+                
+                // Clean each item instead of deleting everything
+                const cleanedItems = items
+                  .map((item: any) => cleanItemData(item))
+                  .filter((item: any) => isValidProduct(item));
+                
+                if (cleanedItems.length > 0) {
+                  const cleanData = JSON.stringify(cleanedItems);
+                  localStorage.setItem(key, cleanData);
+                  console.log(`✅ Restored ${cleanedItems.length} cleaned items to ${key}`);
+                } else {
+                  localStorage.removeItem(key);
+                  console.log(`🗑️ Removed empty cart: ${key}`);
+                }
               }
             }
           } catch (e) {
-            console.error(`Failed to parse ${key}:`, e);
+            console.error(`Failed to process ${key}:`, e);
             localStorage.removeItem(key);
-            foundRogueItem = true;
           }
         }
       });
       
-      // ✅ If we found rogue items and user is logged in, clear backend cart too
-      if (foundRogueItem && user?.id) {
-        try {
-          console.log('🧹 Clearing backend cart due to rogue items...');
-          await cartService.clearCart();
-          console.log('✅ Backend cart cleared');
-        } catch (e) {
-          console.error('Failed to clear backend cart:', e);
-        }
-      }
-      
-      console.log('✅ Aggressive cleanup complete');
+      console.log('✅ localStorage cleanup complete');
     };
     
-    aggressiveCleanup();
+    cleanupStorage();
   }, [user?.id]);
 
   // ✅ Load cart from backend when user logs in
@@ -346,35 +356,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (backendCart && backendCart.items && backendCart.items.length > 0) {
           console.log('📦 Found backend cart with', backendCart.items.length, 'items');
           
-          // ✅ AGGRESSIVELY FILTER OUT ROGUE ITEMS FROM BACKEND
-          const filteredItems = backendCart.items.filter(item => {
-            // Block by ID
-            if (ROGUE_PRODUCT_IDS.includes(item.productId)) {
-              console.warn(`🗑️ IGNORING rogue item from backend (ID): ${item.productId}`);
-              return false;
-            }
-            
-            // Block invalid product data
+          // ✅ Clean and validate items from backend
+          const validItems = backendCart.items.filter(item => {
+            // Check required fields
             if (!item.productId || item.productId <= 0) {
-              console.warn(`🗑️ IGNORING item with invalid productId: ${item.productId}`);
+              console.warn(`🗑️ Item with invalid productId: ${item.productId}`);
               return false;
             }
             
             if (!item.unitPrice || item.unitPrice <= 0) {
-              console.warn(`🗑️ IGNORING item with invalid price: ${item.unitPrice}`);
+              console.warn(`🗑️ Item with invalid price: ${item.unitPrice}`);
               return false;
             }
             
-            if (!item.productName || item.productName === '') {
-              console.warn(`🗑️ IGNORING item with empty name`);
+            if (!item.productName || item.productName.trim() === '') {
+              console.warn(`🗑️ Item with empty name`);
               return false;
             }
             
             return true;
           });
           
-          if (filteredItems.length === 0) {
-            console.log('⚠️ All backend items were invalid - clearing backend cart');
+          if (validItems.length === 0) {
+            console.log('⚠️ No valid items in backend cart - clearing');
             await cartService.clearCart();
             setHasSyncedWithBackend(true);
             setIsSyncing(false);
@@ -383,11 +387,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
-          if (filteredItems.length !== backendCart.items.length) {
-            console.log(`🧹 Filtered out ${backendCart.items.length - filteredItems.length} rogue items from backend`);
-            // Clear and re-save valid items only
+          if (validItems.length !== backendCart.items.length) {
+            console.log(`🧹 Filtered out ${backendCart.items.length - validItems.length} invalid items`);
+            // Re-save only valid items
             await cartService.clearCart();
-            const validMinimalItems = filteredItems.map(item => ({
+            const validMinimalItems = validItems.map(item => ({
               productId: item.productId,
               quantity: item.quantity,
               selectedColor: item.selectedColor || null
@@ -395,7 +399,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await cartService.saveCart(validMinimalItems);
           }
           
-          const backendItems: CartItem[] = filteredItems.map(item => ({
+          const backendItems: CartItem[] = validItems.map(item => ({
             id: item.productId,
             name: item.productName,
             price: item.unitPrice,
@@ -416,8 +420,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }));
           
           if (backendItems.length > 0) {
-            dispatch({ type: 'LOAD_CART', payload: backendItems });
-            console.log('📦 Cart loaded from backend. Total items:', backendItems.length);
+            // Clean items before dispatching
+            const cleanedItems = backendItems.map(item => cleanItemData(item));
+            dispatch({ type: 'LOAD_CART', payload: cleanedItems });
+            console.log('📦 Cart loaded from backend. Total items:', cleanedItems.length);
           }
         } else {
           console.log('📦 No backend cart found');
@@ -436,7 +442,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadCartFromBackend();
   }, [user?.id, hasSyncedWithBackend]);
 
-  // ✅ Save cart to localStorage (backup) - with aggressive filtering
+  // ✅ Save cart to localStorage (backup) - clean data before saving
   useEffect(() => {
     if (!isInitialized) return;
     
@@ -444,23 +450,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        // ✅ Filter out rogue items before saving to localStorage
-        const validItems = state.items.filter(item => {
-          if (isRogueItem(item.id)) {
-            console.warn(`🗑️ BLOCKED rogue item from localStorage: ID ${item.id} - ${item.name}`);
-            return false;
-          }
-          if (!hasValidProductData(item)) {
-            console.warn(`🗑️ BLOCKED item with invalid data from localStorage: ${item.id}`);
-            return false;
-          }
-          return isValidCartItemForSave(item);
-        });
+        // Clean items before saving
+        const cleanedItems = state.items
+          .map(item => cleanItemData(item))
+          .filter(item => isValidCartItemForSave(item));
         
-        if (validItems.length > 0) {
-          const itemsToStore = validItems.map(stripProductForStorage);
-          localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
-          console.log('📦 Cart saved to localStorage');
+        if (cleanedItems.length > 0) {
+          const itemsToStore = cleanedItems.map(stripProductForStorage);
+          const jsonData = JSON.stringify(itemsToStore);
+          
+          // Only save if data size is reasonable
+          if (jsonData.length < 100000) {
+            localStorage.setItem(storageKey, jsonData);
+            console.log('📦 Cart saved to localStorage');
+          } else {
+            console.warn('⚠️ Cart data too large, skipping localStorage save');
+          }
         } else {
           localStorage.removeItem(storageKey);
         }
@@ -513,46 +518,39 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id, isInitialized, isInitialSync]);
 
   const addItem = (product: Product, color?: string): void => {
-    // ✅ Block rogue items at the entry point
-    if (isRogueItem(product.id)) {
-      console.error('⚠️⚠️⚠️ BLOCKED rogue item in addItem:', product.id, product.name);
-      showInfo('This product is currently unavailable');
+    // ✅ Clean the product data first
+    const cleanedProduct = cleanItemData(product);
+    
+    // ✅ Validate product has required fields
+    if (!isValidProduct(cleanedProduct)) {
+      console.error('❌ Cannot add invalid product to cart:', cleanedProduct.id, cleanedProduct.name);
+      showInfo('Unable to add this product to cart');
       return;
     }
     
-    if (!isValidProduct(product)) {
-      console.error('❌ Cannot add invalid product to cart:', product);
-      return;
-    }
-    
-    if (!hasValidProductData(product)) {
-      console.error('❌ Cannot add product with invalid data:', product);
-      return;
-    }
-    
-    console.log('🛒 addItem called for:', product.name);
+    console.log('🛒 addItem called for:', cleanedProduct.name, 'ID:', cleanedProduct.id);
     
     userActionRef.current = true;
     
     const validColor = color && color.trim() !== '' ? color : undefined;
-    const uniqueId = generateUniqueId(product.id, validColor);
+    const uniqueId = generateUniqueId(cleanedProduct.id, validColor);
     const existingItem = state.items.find(item => item.uniqueId === uniqueId);
     
     if (existingItem) {
-      dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-      showSuccess(`${product.name} quantity increased!`);
+      dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
+      showSuccess(`${cleanedProduct.name} quantity increased!`);
     } else {
       const sameProductNoColor = state.items.find(item => 
-        item.id === product.id && !item.selectedColor
+        item.id === cleanedProduct.id && !item.selectedColor
       );
       
       if (validColor && sameProductNoColor) {
         dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId: sameProductNoColor.uniqueId } });
-        dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-        showSuccess(`${product.name} updated with color ${validColor}!`);
+        dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
+        showSuccess(`${cleanedProduct.name} updated with color ${validColor}!`);
       } else {
-        dispatch({ type: 'ADD_ITEM', payload: { product, color: validColor } });
-        showSuccess(`${product.name} added to cart! 🛒`);
+        dispatch({ type: 'ADD_ITEM', payload: { product: cleanedProduct, color: validColor } });
+        showSuccess(`${cleanedProduct.name} added to cart! 🛒`);
       }
     }
   };
