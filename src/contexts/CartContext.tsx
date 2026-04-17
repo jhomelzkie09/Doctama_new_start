@@ -65,9 +65,21 @@ const isValidCartItemForSave = (item: CartItem): boolean => {
   return hasId && hasPrice && hasQuantity;
 };
 
+// ✅ ROGUE PRODUCT IDs - Block these completely
+const ROGUE_PRODUCT_IDS = [34, 35];
+
 // ✅ Helper to check if an item is a known rogue item
 const isRogueItem = (productId: number): boolean => {
-  return productId === 34 || productId === 35;
+  return ROGUE_PRODUCT_IDS.includes(productId);
+};
+
+// ✅ Check if an item has valid product data
+const hasValidProductData = (item: any): boolean => {
+  // Rogue items often have empty descriptions, 0 stock, etc.
+  if (!item.name || item.name === '') return false;
+  if (!item.price || item.price <= 0) return false;
+  if (item.description === '' && ROGUE_PRODUCT_IDS.includes(item.id)) return false;
+  return true;
 };
 
 const CartContext = createContext<{
@@ -87,6 +99,12 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       // ✅ Block rogue items at the reducer level
       if (isRogueItem(product.id)) {
         console.error('⚠️⚠️⚠️ BLOCKED rogue item in reducer:', product.id, product.name);
+        return state;
+      }
+      
+      // ✅ Also check for valid product data
+      if (!hasValidProductData(product)) {
+        console.error('⚠️⚠️⚠️ BLOCKED item with invalid data:', product.id, product.name);
         return state;
       }
       
@@ -148,14 +166,33 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { items: [], total: 0 };
 
     case 'LOAD_CART': {
-      // ✅ Filter out rogue items when loading cart
+      // ✅ AGGRESSIVELY filter out rogue items when loading cart
       const filteredPayload = action.payload.filter(item => {
+        // Block by ID
         if (isRogueItem(item.id)) {
-          console.warn(`⚠️ BLOCKED rogue item from LOAD_CART: ID ${item.id}`);
+          console.warn(`🗑️ BLOCKED rogue item from LOAD_CART (ID): ${item.id} - ${item.name}`);
           return false;
         }
+        
+        // Block by invalid data
+        if (!hasValidProductData(item)) {
+          console.warn(`🗑️ BLOCKED item with invalid data: ${item.id} - ${item.name}`);
+          return false;
+        }
+        
+        // Block items with suspiciously large data (base64 images)
+        const itemStr = JSON.stringify(item);
+        if (itemStr.includes('data:image') && itemStr.length > 10000) {
+          console.warn(`🗑️ BLOCKED item with large base64 image: ${item.id} - ${item.name}`);
+          return false;
+        }
+        
         return true;
       });
+      
+      if (filteredPayload.length !== action.payload.length) {
+        console.log(`🧹 Filtered out ${action.payload.length - filteredPayload.length} rogue items from LOAD_CART`);
+      }
       
       return { 
         items: filteredPayload, 
@@ -194,14 +231,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const validItems = state.items
       .filter(item => {
         if (isRogueItem(item.id)) {
-          console.warn(`⚠️ BLOCKED rogue item from save: ID ${item.id}`);
+          console.warn(`🗑️ BLOCKED rogue item from save: ID ${item.id} - ${item.name}`);
+          return false;
+        }
+        if (!hasValidProductData(item)) {
+          console.warn(`🗑️ BLOCKED item with invalid data from save: ${item.id}`);
           return false;
         }
         return isValidCartItemForSave(item);
       });
     
     if (validItems.length === 0) {
-      console.log('⚠️ No valid items to save');
+      console.log('⚠️ No valid items to save - clearing backend cart');
+      try {
+        await cartService.clearCart();
+      } catch (e) {
+        console.error('Failed to clear backend cart:', e);
+      }
       return;
     }
     
@@ -227,6 +273,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       let foundRogueItem = false;
       
+      // Check all localStorage cart keys
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('cart_')) {
           try {
@@ -235,15 +282,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const parsed = JSON.parse(data);
               const items = Array.isArray(parsed) ? parsed : (parsed.items || []);
               
-              const hasRogueItem = items.some((item: any) => 
-                isRogueItem(item.id) && (!item.description || item.description === '')
+              // Check for rogue items by ID
+              const hasRogueById = items.some((item: any) => 
+                ROGUE_PRODUCT_IDS.includes(item.id)
+              );
+              
+              // Check for items with suspicious data
+              const hasInvalidData = items.some((item: any) => 
+                !item.name || item.name === '' || !item.price || item.price <= 0
               );
               
               const hasBase64 = data.includes('data:image');
               const isOversized = data.length > 50000;
               
-              if (hasRogueItem || hasBase64 || isOversized) {
-                console.log(`🗑️ Deleting suspicious cart data: ${key}`);
+              if (hasRogueById || hasInvalidData || hasBase64 || isOversized) {
+                console.log(`🗑️ Deleting suspicious cart data: ${key}`, {
+                  hasRogueById,
+                  hasInvalidData,
+                  hasBase64,
+                  isOversized
+                });
                 localStorage.removeItem(key);
                 foundRogueItem = true;
               }
@@ -251,6 +309,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch (e) {
             console.error(`Failed to parse ${key}:`, e);
             localStorage.removeItem(key);
+            foundRogueItem = true;
           }
         }
       });
@@ -258,7 +317,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ✅ If we found rogue items and user is logged in, clear backend cart too
       if (foundRogueItem && user?.id) {
         try {
-          console.log('🧹 Clearing backend cart due to rogue item...');
+          console.log('🧹 Clearing backend cart due to rogue items...');
           await cartService.clearCart();
           console.log('✅ Backend cart cleared');
         } catch (e) {
@@ -287,23 +346,53 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (backendCart && backendCart.items && backendCart.items.length > 0) {
           console.log('📦 Found backend cart with', backendCart.items.length, 'items');
           
-          // ✅ FILTER OUT ROGUE ITEMS FROM BACKEND
+          // ✅ AGGRESSIVELY FILTER OUT ROGUE ITEMS FROM BACKEND
           const filteredItems = backendCart.items.filter(item => {
-            if (isRogueItem(item.productId)) {
-              console.warn(`⚠️ IGNORING rogue item from backend: ID ${item.productId}`);
+            // Block by ID
+            if (ROGUE_PRODUCT_IDS.includes(item.productId)) {
+              console.warn(`🗑️ IGNORING rogue item from backend (ID): ${item.productId}`);
               return false;
             }
-            return item.productId && item.productId > 0 && item.unitPrice > 0;
+            
+            // Block invalid product data
+            if (!item.productId || item.productId <= 0) {
+              console.warn(`🗑️ IGNORING item with invalid productId: ${item.productId}`);
+              return false;
+            }
+            
+            if (!item.unitPrice || item.unitPrice <= 0) {
+              console.warn(`🗑️ IGNORING item with invalid price: ${item.unitPrice}`);
+              return false;
+            }
+            
+            if (!item.productName || item.productName === '') {
+              console.warn(`🗑️ IGNORING item with empty name`);
+              return false;
+            }
+            
+            return true;
           });
           
           if (filteredItems.length === 0) {
-            console.log('⚠️ All backend items were rogue - clearing backend cart');
+            console.log('⚠️ All backend items were invalid - clearing backend cart');
             await cartService.clearCart();
             setHasSyncedWithBackend(true);
             setIsSyncing(false);
             setIsInitialSync(false);
             setIsInitialized(true);
             return;
+          }
+          
+          if (filteredItems.length !== backendCart.items.length) {
+            console.log(`🧹 Filtered out ${backendCart.items.length - filteredItems.length} rogue items from backend`);
+            // Clear and re-save valid items only
+            await cartService.clearCart();
+            const validMinimalItems = filteredItems.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              selectedColor: item.selectedColor || null
+            }));
+            await cartService.saveCart(validMinimalItems);
           }
           
           const backendItems: CartItem[] = filteredItems.map(item => ({
@@ -329,9 +418,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (backendItems.length > 0) {
             dispatch({ type: 'LOAD_CART', payload: backendItems });
             console.log('📦 Cart loaded from backend. Total items:', backendItems.length);
-          } else {
-            console.log('⚠️ Backend cart had invalid items, clearing...');
-            await cartService.clearCart();
           }
         } else {
           console.log('📦 No backend cart found');
@@ -350,7 +436,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadCartFromBackend();
   }, [user?.id, hasSyncedWithBackend]);
 
-  // ✅ Save cart to localStorage (backup)
+  // ✅ Save cart to localStorage (backup) - with aggressive filtering
   useEffect(() => {
     if (!isInitialized) return;
     
@@ -361,7 +447,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ✅ Filter out rogue items before saving to localStorage
         const validItems = state.items.filter(item => {
           if (isRogueItem(item.id)) {
-            console.warn(`⚠️ BLOCKED rogue item from localStorage: ID ${item.id}`);
+            console.warn(`🗑️ BLOCKED rogue item from localStorage: ID ${item.id} - ${item.name}`);
+            return false;
+          }
+          if (!hasValidProductData(item)) {
+            console.warn(`🗑️ BLOCKED item with invalid data from localStorage: ${item.id}`);
             return false;
           }
           return isValidCartItemForSave(item);
@@ -426,11 +516,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // ✅ Block rogue items at the entry point
     if (isRogueItem(product.id)) {
       console.error('⚠️⚠️⚠️ BLOCKED rogue item in addItem:', product.id, product.name);
+      showInfo('This product is currently unavailable');
       return;
     }
     
     if (!isValidProduct(product)) {
       console.error('❌ Cannot add invalid product to cart:', product);
+      return;
+    }
+    
+    if (!hasValidProductData(product)) {
+      console.error('❌ Cannot add product with invalid data:', product);
       return;
     }
     
