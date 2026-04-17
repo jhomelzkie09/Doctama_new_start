@@ -92,7 +92,7 @@ const OrderDelivery: React.FC = () => {
   const loadDeliveries = async () => {
     setLoading(true);
     try {
-      const response = await api.get<PendingDeliveriesResponse>('/orders/delivery/pending');
+      const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
       setShippedOrders(response.data.shipped);
       setProcessingOrders(response.data.processing);
       setStats(response.data.stats);
