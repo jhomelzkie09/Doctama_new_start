@@ -75,6 +75,19 @@ const CartContext = createContext<{
 } | undefined>(undefined);
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
+
+   if (action.type === 'ADD_ITEM') {
+    const product = action.payload.product;
+    console.trace(`🔴 ADD_ITEM reducer: ${product.name} (ID: ${product.id})`);
+    
+    if (product.id === 35 || product.id === 34) {
+      console.error('⚠️⚠️⚠️ ROGUE ITEM IN REDUCER!');
+      console.log('Action:', action);
+      console.log('Current state items:', state.items.map(i => ({ id: i.id, name: i.name })));
+      debugger;
+    }
+  }
+
   switch (action.type) {
     case 'ADD_ITEM': {
       const { product, color } = action.payload;
@@ -361,6 +374,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ✅ USER ACTIONS - Mark as user action and dispatch
   const addItem = (product: Product, color?: string): void => {
+
+    // At the top of CartProvider, add this:
+const originalDispatch = dispatch;
+
+// Wrap dispatch to log all cart actions
+const debugDispatch = (action: CartAction): void => {
+  if (action.type === 'ADD_ITEM') {
+    const product = action.payload.product;
+    console.trace(`🔴🔴🔴 ADD_ITEM called for: ${product.name} (ID: ${product.id})`);
+    console.log('🔴 Color:', action.payload.color);
+    
+    // If it's the rogue item, pause execution to inspect
+    if (product.id === 35 || product.id === 34) {
+      console.error('⚠️⚠️⚠️ ROGUE ITEM BEING ADDED!');
+      console.log('Product:', product);
+      debugger; // This will pause the debugger if DevTools is open
+    }
+  }
+  originalDispatch(action);
+};
+
+// Use debugDispatch instead of dispatch in the reducer
     if (!isValidProduct(product)) {
       console.error('❌ Cannot add invalid product to cart:', product);
       return;
