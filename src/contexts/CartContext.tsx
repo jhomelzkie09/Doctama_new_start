@@ -65,6 +65,11 @@ const isValidCartItemForSave = (item: CartItem): boolean => {
   return hasId && hasPrice && hasQuantity;
 };
 
+// ✅ Helper to check if an item is a known rogue item
+const isRogueItem = (productId: number): boolean => {
+  return productId === 34 || productId === 35;
+};
+
 const CartContext = createContext<{
   state: CartState;
   addItem: (product: Product, color?: string) => void;
@@ -75,22 +80,16 @@ const CartContext = createContext<{
 } | undefined>(undefined);
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
-
-   if (action.type === 'ADD_ITEM') {
-    const product = action.payload.product;
-    console.trace(`🔴 ADD_ITEM reducer: ${product.name} (ID: ${product.id})`);
-    
-    if (product.id === 35 || product.id === 34) {
-      console.error('⚠️⚠️⚠️ ROGUE ITEM IN REDUCER!');
-      console.log('Action:', action);
-      console.log('Current state items:', state.items.map(i => ({ id: i.id, name: i.name })));
-      debugger;
-    }
-  }
-
   switch (action.type) {
     case 'ADD_ITEM': {
       const { product, color } = action.payload;
+      
+      // ✅ Block rogue items at the reducer level
+      if (isRogueItem(product.id)) {
+        console.error('⚠️⚠️⚠️ BLOCKED rogue item in reducer:', product.id, product.name);
+        return state;
+      }
+      
       const validColor = color && color.trim() !== '' ? color : undefined;
       const uniqueId = generateUniqueId(product.id, validColor);
       
@@ -148,11 +147,21 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case 'CLEAR_CART':
       return { items: [], total: 0 };
 
-    case 'LOAD_CART':
+    case 'LOAD_CART': {
+      // ✅ Filter out rogue items when loading cart
+      const filteredPayload = action.payload.filter(item => {
+        if (isRogueItem(item.id)) {
+          console.warn(`⚠️ BLOCKED rogue item from LOAD_CART: ID ${item.id}`);
+          return false;
+        }
+        return true;
+      });
+      
       return { 
-        items: action.payload, 
-        total: action.payload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
+        items: filteredPayload, 
+        total: filteredPayload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
       };
+    }
       
     default:
       return state;
@@ -167,7 +176,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [isInitialSync, setIsInitialSync] = useState<boolean>(true);
   
-  // ✅ Flag to track if save was triggered by user action (should be immediate)
   const userActionRef = useRef<boolean>(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -182,7 +190,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const saveToBackend = async (): Promise<void> => {
     if (!user?.id) return;
     
-    const validItems = state.items.filter(isValidCartItemForSave);
+    // ✅ Filter out rogue items before saving
+    const validItems = state.items
+      .filter(item => {
+        if (isRogueItem(item.id)) {
+          console.warn(`⚠️ BLOCKED rogue item from save: ID ${item.id}`);
+          return false;
+        }
+        return isValidCartItemForSave(item);
+      });
     
     if (validItems.length === 0) {
       console.log('⚠️ No valid items to save');
@@ -206,8 +222,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ✅ AGGRESSIVE CLEANUP - Remove all suspicious cart data on startup
   useEffect(() => {
-    const aggressiveCleanup = (): void => {
+    const aggressiveCleanup = async (): Promise<void> => {
       console.log('🧹 Running aggressive cart cleanup...');
+      
+      let foundRogueItem = false;
       
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('cart_')) {
@@ -218,7 +236,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const items = Array.isArray(parsed) ? parsed : (parsed.items || []);
               
               const hasRogueItem = items.some((item: any) => 
-                (item.id === 34 || item.id === 35) && (!item.description || item.description === '')
+                isRogueItem(item.id) && (!item.description || item.description === '')
               );
               
               const hasBase64 = data.includes('data:image');
@@ -227,6 +245,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (hasRogueItem || hasBase64 || isOversized) {
                 console.log(`🗑️ Deleting suspicious cart data: ${key}`);
                 localStorage.removeItem(key);
+                foundRogueItem = true;
               }
             }
           } catch (e) {
@@ -236,11 +255,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
       
+      // ✅ If we found rogue items and user is logged in, clear backend cart too
+      if (foundRogueItem && user?.id) {
+        try {
+          console.log('🧹 Clearing backend cart due to rogue item...');
+          await cartService.clearCart();
+          console.log('✅ Backend cart cleared');
+        } catch (e) {
+          console.error('Failed to clear backend cart:', e);
+        }
+      }
+      
       console.log('✅ Aggressive cleanup complete');
     };
     
     aggressiveCleanup();
-  }, []);
+  }, [user?.id]);
 
   // ✅ Load cart from backend when user logs in
   useEffect(() => {
@@ -257,27 +287,44 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (backendCart && backendCart.items && backendCart.items.length > 0) {
           console.log('📦 Found backend cart with', backendCart.items.length, 'items');
           
-          const backendItems: CartItem[] = backendCart.items
-            .filter(item => item.productId && item.productId > 0 && item.unitPrice > 0)
-            .map(item => ({
-              id: item.productId,
-              name: item.productName,
-              price: item.unitPrice,
-              quantity: item.quantity,
-              imageUrl: item.imageUrl || '',
-              selectedColor: item.selectedColor,
-              uniqueId: generateUniqueId(item.productId, item.selectedColor),
-              description: '',
-              categoryId: 0,
-              stockQuantity: 0,
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              height: 0,
-              width: 0,
-              length: 0,
-              colorsVariant: [],
-              images: undefined
-            }));
+          // ✅ FILTER OUT ROGUE ITEMS FROM BACKEND
+          const filteredItems = backendCart.items.filter(item => {
+            if (isRogueItem(item.productId)) {
+              console.warn(`⚠️ IGNORING rogue item from backend: ID ${item.productId}`);
+              return false;
+            }
+            return item.productId && item.productId > 0 && item.unitPrice > 0;
+          });
+          
+          if (filteredItems.length === 0) {
+            console.log('⚠️ All backend items were rogue - clearing backend cart');
+            await cartService.clearCart();
+            setHasSyncedWithBackend(true);
+            setIsSyncing(false);
+            setIsInitialSync(false);
+            setIsInitialized(true);
+            return;
+          }
+          
+          const backendItems: CartItem[] = filteredItems.map(item => ({
+            id: item.productId,
+            name: item.productName,
+            price: item.unitPrice,
+            quantity: item.quantity,
+            imageUrl: item.imageUrl || '',
+            selectedColor: item.selectedColor,
+            uniqueId: generateUniqueId(item.productId, item.selectedColor),
+            description: '',
+            categoryId: 0,
+            stockQuantity: 0,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            height: 0,
+            width: 0,
+            length: 0,
+            colorsVariant: [],
+            images: undefined
+          }));
           
           if (backendItems.length > 0) {
             dispatch({ type: 'LOAD_CART', payload: backendItems });
@@ -311,7 +358,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storageKey = getCartStorageKey();
       
       if (state.items.length > 0) {
-        const validItems = state.items.filter(isValidCartItemForSave);
+        // ✅ Filter out rogue items before saving to localStorage
+        const validItems = state.items.filter(item => {
+          if (isRogueItem(item.id)) {
+            console.warn(`⚠️ BLOCKED rogue item from localStorage: ID ${item.id}`);
+            return false;
+          }
+          return isValidCartItemForSave(item);
+        });
+        
         if (validItems.length > 0) {
           const itemsToStore = validItems.map(stripProductForStorage);
           localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
@@ -328,8 +383,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.items, user?.id, isInitialized]);
 
   // ✅ Save cart to backend when items change
-  // If triggered by user action -> SAVE IMMEDIATELY
-  // Otherwise -> DEBOUNCE
   useEffect(() => {
     if (isInitialSync) {
       console.log('⏳ Initial sync in progress, skipping save');
@@ -346,12 +399,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Clear any existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     
-    // ✅ If this was triggered by a user action, save IMMEDIATELY
     if (userActionRef.current) {
       console.log('⚡ User action detected - saving immediately');
       userActionRef.current = false;
@@ -359,7 +410,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Otherwise, debounce (for programmatic updates)
     console.log('⏳ Debouncing save...');
     saveTimeoutRef.current = setTimeout(() => {
       saveToBackend();
@@ -372,30 +422,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [state.items, user?.id, isInitialized, isInitialSync]);
 
-  // ✅ USER ACTIONS - Mark as user action and dispatch
   const addItem = (product: Product, color?: string): void => {
-
-    // At the top of CartProvider, add this:
-const originalDispatch = dispatch;
-
-// Wrap dispatch to log all cart actions
-const debugDispatch = (action: CartAction): void => {
-  if (action.type === 'ADD_ITEM') {
-    const product = action.payload.product;
-    console.trace(`🔴🔴🔴 ADD_ITEM called for: ${product.name} (ID: ${product.id})`);
-    console.log('🔴 Color:', action.payload.color);
-    
-    // If it's the rogue item, pause execution to inspect
-    if (product.id === 35 || product.id === 34) {
-      console.error('⚠️⚠️⚠️ ROGUE ITEM BEING ADDED!');
-      console.log('Product:', product);
-      debugger; // This will pause the debugger if DevTools is open
+    // ✅ Block rogue items at the entry point
+    if (isRogueItem(product.id)) {
+      console.error('⚠️⚠️⚠️ BLOCKED rogue item in addItem:', product.id, product.name);
+      return;
     }
-  }
-  originalDispatch(action);
-};
-
-// Use debugDispatch instead of dispatch in the reducer
+    
     if (!isValidProduct(product)) {
       console.error('❌ Cannot add invalid product to cart:', product);
       return;
@@ -403,7 +436,6 @@ const debugDispatch = (action: CartAction): void => {
     
     console.log('🛒 addItem called for:', product.name);
     
-    // ✅ Mark as user action for immediate save
     userActionRef.current = true;
     
     const validColor = color && color.trim() !== '' ? color : undefined;
@@ -432,7 +464,6 @@ const debugDispatch = (action: CartAction): void => {
   const removeItem = (uniqueId: string): void => {
     const item = state.items.find(item => item.uniqueId === uniqueId);
     
-    // ✅ Mark as user action for immediate save
     userActionRef.current = true;
     
     dispatch({ type: 'REMOVE_ITEM', payload: { uniqueId } });
@@ -449,7 +480,6 @@ const debugDispatch = (action: CartAction): void => {
     
     const item = state.items.find(item => item.uniqueId === uniqueId);
     
-    // ✅ Mark as user action for immediate save
     userActionRef.current = true;
     
     dispatch({ type: 'UPDATE_QUANTITY', payload: { uniqueId, quantity } });
@@ -460,7 +490,6 @@ const debugDispatch = (action: CartAction): void => {
   };
 
   const clearCart = (): void => {
-    // ✅ Mark as user action for immediate save
     userActionRef.current = true;
     
     dispatch({ type: 'CLEAR_CART' });
