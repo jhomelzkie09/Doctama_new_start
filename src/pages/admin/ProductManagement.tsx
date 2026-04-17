@@ -9,7 +9,7 @@ import {
   AlertCircle, ChevronLeft, ChevronRight, Grid, List, 
   Layers, ShoppingBag, ArrowUpRight, Inbox, CheckCircle2, AlertTriangle,
   TrendingUp, DollarSign, Calendar, BarChart3, X, TrendingDown,
-  Clock, Award, Star, Zap, RefreshCw
+  Clock, Award, Star, Zap, RefreshCw, Palette
 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import { showSuccess, showError, showWarning, showInfo } from '../../utils/toast';
@@ -24,6 +24,9 @@ interface ProductStats {
   monthlyData: { month: string; sales: number }[];
 }
 
+// ✅ Filter type for stat cards
+type StockFilter = 'all' | 'inStock' | 'lowStock' | 'outOfStock';
+
 const ProductsManagement = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -35,6 +38,7 @@ const ProductsManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productStats, setProductStats] = useState<ProductStats | null>(null);
@@ -59,9 +63,7 @@ const ProductsManagement = () => {
         categoryService.getCategories()
       ]);
       
-      // Filter out inactive products and sort by name
-      const activeProducts = productsData.filter(p => p.isActive !== false);
-      setAllProducts(activeProducts);
+      setAllProducts(productsData);
       setCategories(categoriesData);
     } catch (err: any) {
       setError('Failed to load products');
@@ -71,7 +73,7 @@ const ProductsManagement = () => {
     }
   };
 
-  // ✅ Filter products based on search and category
+  // ✅ Filter products based on search, category, and stock status
   const filteredProducts = useMemo(() => {
     return allProducts.filter(product => {
       const matchesSearch = !searchQuery || 
@@ -81,16 +83,22 @@ const ProductsManagement = () => {
       const matchesCategory = selectedCategory === 'all' || 
         product.categoryId.toString() === selectedCategory;
       
-      return matchesSearch && matchesCategory;
+      const matchesStockFilter = stockFilter === 'all' || 
+        (stockFilter === 'inStock' && product.stockQuantity > 5) ||
+        (stockFilter === 'lowStock' && product.stockQuantity > 0 && product.stockQuantity <= 5) ||
+        (stockFilter === 'outOfStock' && product.stockQuantity === 0);
+      
+      return matchesSearch && matchesCategory && matchesStockFilter;
     });
-  }, [allProducts, searchQuery, selectedCategory]);
+  }, [allProducts, searchQuery, selectedCategory, stockFilter]);
 
-  // ✅ Calculate stats from filtered products
-  const totalProducts = filteredProducts.length;
-  const totalPages = Math.ceil(totalProducts / itemsPerPage);
-  const activeCount = filteredProducts.filter(p => p.isActive).length;
-  const lowStockCount = filteredProducts.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
-  const outOfStockCount = filteredProducts.filter(p => p.stockQuantity === 0).length;
+  // ✅ Calculate stats from ALL products (not filtered)
+  const totalProducts = allProducts.length;
+  const inStockCount = allProducts.filter(p => p.stockQuantity > 5).length;
+  const lowStockCount = allProducts.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
+  const outOfStockCount = allProducts.filter(p => p.stockQuantity === 0).length;
+  
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   // ✅ Get current page products
   const currentProducts = useMemo(() => {
@@ -102,7 +110,7 @@ const ProductsManagement = () => {
   // ✅ Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, stockFilter]);
 
   // ✅ Handle refresh
   const handleRefresh = () => {
@@ -119,10 +127,32 @@ const ProductsManagement = () => {
     setSelectedCategory(e.target.value);
   };
 
+  // ✅ Handle stock filter click
+  const handleStockFilterClick = (filter: StockFilter) => {
+    setStockFilter(filter === stockFilter ? 'all' : filter);
+  };
+
   // ✅ Clear all filters
   const handleClearFilters = () => {
     setSearchQuery('');
     setSelectedCategory('all');
+    setStockFilter('all');
+  };
+
+  // ✅ Helper to get color display name
+  const getColorDisplayName = (color: string): string => {
+    const colorNames: Record<string, string> = {
+      'red': 'Red', 'blue': 'Blue', 'green': 'Green', 'yellow': 'Yellow',
+      'black': 'Black', 'white': 'White', 'gray': 'Gray', 'grey': 'Gray',
+      'brown': 'Brown', 'beige': 'Beige', 'navy': 'Navy', 'teal': 'Teal',
+      'maroon': 'Maroon', 'purple': 'Purple', 'pink': 'Pink', 'orange': 'Orange',
+      'natural': 'Natural', 'walnut': 'Walnut', 'oak': 'Oak', 'mahogany': 'Mahogany',
+      'espresso': 'Espresso', 'cherry': 'Cherry', 'maple': 'Maple', 'cream': 'Cream',
+      'ivory': 'Ivory', 'silver': 'Silver', 'gold': 'Gold', 'wenge': 'Wenge',
+      'teak': 'Teak', 'acacia': 'Acacia', 'ash': 'Ash', 'beech': 'Beech',
+      'pine': 'Pine', 'rosewood': 'Rosewood', 'ebony': 'Ebony'
+    };
+    return colorNames[color.toLowerCase()] || color;
   };
 
   const calculateProductStats = async (productId: number): Promise<ProductStats> => {
@@ -298,23 +328,50 @@ const ProductsManagement = () => {
           </div>
         </div>
 
-        {/* Quick Stats */}
+        {/* ✅ Clickable Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Products', value: totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Active Items', value: activeCount, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { label: 'Low Stock', value: lowStockCount, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { label: 'Out of Stock', value: outOfStockCount, icon: ShoppingBag, color: 'text-rose-600', bg: 'bg-rose-50' },
+            { label: 'Total Products', value: totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', filter: 'all' as StockFilter },
+            { label: 'In Stock', value: inStockCount, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', filter: 'inStock' as StockFilter },
+            { label: 'Low Stock', value: lowStockCount, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50', filter: 'lowStock' as StockFilter },
+            { label: 'Out of Stock', value: outOfStockCount, icon: ShoppingBag, color: 'text-rose-600', bg: 'bg-rose-50', filter: 'outOfStock' as StockFilter },
           ].map((stat, i) => (
-            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-              <div className={`${stat.bg} ${stat.color} p-3 rounded-xl`}><stat.icon className="w-6 h-6" /></div>
-              <div>
-                <p className="text-slate-500 text-sm font-medium">{stat.label}</p>
-                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+            <div 
+              key={i} 
+              onClick={() => handleStockFilterClick(stat.filter)}
+              className={`bg-white p-5 rounded-2xl border transition-all cursor-pointer ${
+                stockFilter === stat.filter 
+                  ? 'border-indigo-500 shadow-lg shadow-indigo-100 ring-2 ring-indigo-200' 
+                  : 'border-slate-100 shadow-sm hover:shadow-md hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`${stat.bg} ${stat.color} p-3 rounded-xl`}><stat.icon className="w-6 h-6" /></div>
+                <div>
+                  <p className="text-slate-500 text-sm font-medium">{stat.label}</p>
+                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                </div>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Active Filter Indicator */}
+        {stockFilter !== 'all' && (
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-sm text-slate-500">Filtered by:</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              stockFilter === 'inStock' ? 'bg-emerald-100 text-emerald-700' :
+              stockFilter === 'lowStock' ? 'bg-amber-100 text-amber-700' :
+              'bg-rose-100 text-rose-700'
+            }`}>
+              {stockFilter === 'inStock' ? 'In Stock' : stockFilter === 'lowStock' ? 'Low Stock' : 'Out of Stock'}
+            </span>
+            <button onClick={() => setStockFilter('all')} className="text-xs text-indigo-600 hover:underline ml-2">
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6">
@@ -338,22 +395,22 @@ const ProductsManagement = () => {
                 <option value="all">All Categories</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
-              {(searchQuery || selectedCategory !== 'all') && (
+              {(searchQuery || selectedCategory !== 'all' || stockFilter !== 'all') && (
                 <button
                   onClick={handleClearFilters}
                   className="px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1"
                 >
                   <X className="w-4 h-4" />
-                  Clear
+                  Clear All
                 </button>
               )}
             </div>
           </div>
           
           {/* Filter Summary */}
-          {(searchQuery || selectedCategory !== 'all') && (
+          {(searchQuery || selectedCategory !== 'all' || stockFilter !== 'all') && (
             <div className="mt-3 text-xs text-slate-500">
-              Showing {totalProducts} filtered {totalProducts === 1 ? 'product' : 'products'}
+              Showing {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
             </div>
           )}
         </div>
@@ -364,6 +421,7 @@ const ProductsManagement = () => {
             {currentProducts.map((product) => {
               const isOutOfStock = product.stockQuantity === 0;
               const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
+              const hasColors = product.colorsVariant && product.colorsVariant.length > 0;
               
               return (
                 <div key={product.id} className="group bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
@@ -374,18 +432,21 @@ const ProductsManagement = () => {
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       loading="lazy"
                     />
+                    {/* Stock Status Badge */}
                     <div className="absolute top-3 left-3">
                       <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg backdrop-blur-md ${
-                        product.isActive ? 'bg-emerald-500/90 text-white' : 'bg-slate-500/90 text-white'
+                        isOutOfStock ? 'bg-rose-500/90 text-white' :
+                        isLowStock ? 'bg-amber-500/90 text-white' :
+                        'bg-emerald-500/90 text-white'
                       }`}>
-                        {product.isActive ? 'Active' : 'Draft'}
+                        {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
                       </span>
                     </div>
                     {isOutOfStock && (
                       <div className="absolute top-3 right-3">
                         <span className="px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg bg-rose-500/90 text-white flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" />
-                          Out of Stock
+                          Out
                         </span>
                       </div>
                     )}
@@ -393,17 +454,38 @@ const ProductsManagement = () => {
                       <div className="absolute top-3 right-3">
                         <span className="px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-lg bg-amber-500/90 text-white flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" />
-                          Low Stock
+                          Low
                         </span>
                       </div>
                     )}
                   </div>
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-1">
-                      <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">{getCategoryName(product.categoryId)}</p>
+                      <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">{getCategoryName(product.categoryId)}</p>
                       <p className="text-lg font-black text-slate-900">{formatCurrency(product.price)}</p>
                     </div>
-                    <h3 className="font-bold text-slate-800 mb-2 line-clamp-1">{product.name}</h3>
+                    <h3 className="font-bold text-slate-800 mb-1 line-clamp-1">{product.name}</h3>
+                    
+                    {/* ✅ Color Variations */}
+                    {hasColors && (
+                      <div className="flex items-center gap-1 mb-2">
+                        <Palette className="w-3 h-3 text-slate-400" />
+                        <div className="flex gap-1">
+                          {product.colorsVariant.slice(0, 4).map((color, idx) => (
+                            <div
+                              key={idx}
+                              className="w-4 h-4 rounded-full border border-slate-200 shadow-sm"
+                              style={{ backgroundColor: color.toLowerCase() }}
+                              title={getColorDisplayName(color)}
+                            />
+                          ))}
+                          {product.colorsVariant.length > 4 && (
+                            <span className="text-[10px] text-slate-400 ml-1">+{product.colorsVariant.length - 4}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-2 mb-4">
                       <div className={`h-2 w-2 rounded-full ${product.stockQuantity > 5 ? 'bg-emerald-500' : product.stockQuantity > 0 ? 'bg-amber-500' : 'bg-rose-500'}`} />
                       <p className={`text-xs font-semibold ${product.stockQuantity > 5 ? 'text-emerald-600' : product.stockQuantity > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
@@ -442,6 +524,7 @@ const ProductsManagement = () => {
               <thead className="bg-slate-50/50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Product</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Colors</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Stock Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Price</th>
                   <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Actions</th>
@@ -451,6 +534,7 @@ const ProductsManagement = () => {
                 {currentProducts.map((product) => {
                   const isOutOfStock = product.stockQuantity === 0;
                   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
+                  const hasColors = product.colorsVariant && product.colorsVariant.length > 0;
                   
                   return (
                     <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
@@ -459,9 +543,28 @@ const ProductsManagement = () => {
                           <img src={product.imageUrl} className="w-10 h-10 rounded-lg object-cover" alt="" loading="lazy" />
                           <div>
                             <p className="font-bold text-slate-900 text-sm">{product.name}</p>
-                            <p className="text-xs text-slate-400">{getCategoryName(product.categoryId)}</p>
+                            <p className="text-[10px] text-indigo-500 uppercase tracking-wide">{getCategoryName(product.categoryId)}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {hasColors ? (
+                          <div className="flex items-center gap-1">
+                            {product.colorsVariant.slice(0, 3).map((color, idx) => (
+                              <div
+                                key={idx}
+                                className="w-5 h-5 rounded-full border border-slate-200 shadow-sm"
+                                style={{ backgroundColor: color.toLowerCase() }}
+                                title={getColorDisplayName(color)}
+                              />
+                            ))}
+                            {product.colorsVariant.length > 3 && (
+                              <span className="text-xs text-slate-400 ml-1">+{product.colorsVariant.length - 3}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {isOutOfStock ? (
@@ -529,8 +632,8 @@ const ProductsManagement = () => {
           <div className="mt-8 flex items-center justify-between">
             <p className="text-sm font-medium text-slate-500">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
-              {Math.min(currentPage * itemsPerPage, totalProducts)} of{' '}
-              {totalProducts} products
+              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of{' '}
+              {filteredProducts.length} products
             </p>
             <div className="flex items-center gap-2">
               <button 
