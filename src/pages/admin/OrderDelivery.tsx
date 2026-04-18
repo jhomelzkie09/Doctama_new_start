@@ -16,8 +16,7 @@ import {
   Camera,
   User as UserIcon,
   Phone,
-  MapPin,
-  Calendar
+  MapPin
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import api from '../../api/config';
@@ -91,9 +90,27 @@ const OrderDelivery: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
-      setPendingOrders(response.data.pending);
-      setOutForDeliveryOrders(response.data.outForDelivery);
-      setDeliveredTodayOrders(response.data.deliveredToday);
+      
+      // Categorize orders based on orderStatus
+      const allOrders = response.data.pending;
+      
+      const pending = allOrders.filter(o => 
+        o.orderStatus?.toLowerCase() !== 'shipped' && 
+        o.orderStatus?.toLowerCase() !== 'outfordelivery' &&
+        o.orderStatus?.toLowerCase() !== 'delivered' &&
+        o.orderStatus?.toLowerCase() !== 'cancelled'
+      );
+      
+      const outForDelivery = allOrders.filter(o => 
+        o.orderStatus?.toLowerCase() === 'shipped' || 
+        o.orderStatus?.toLowerCase() === 'outfordelivery'
+      );
+      
+      const deliveredToday = response.data.deliveredToday || [];
+      
+      setPendingOrders(pending);
+      setOutForDeliveryOrders(outForDelivery);
+      setDeliveredTodayOrders(deliveredToday);
       setStats(response.data.stats);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load deliveries');
@@ -110,6 +127,12 @@ const OrderDelivery: React.FC = () => {
       await api.post(`/deliveries/${order.orderId}/out-for-delivery`);
       dismissToast(loadingToast);
       showSuccess(`Order #${order.orderNumber} is out for delivery!`);
+      
+      // Update local state immediately
+      setPendingOrders(prev => prev.filter(o => o.orderId !== order.orderId));
+      setOutForDeliveryOrders(prev => [...prev, { ...order, orderStatus: 'OutForDelivery' }]);
+      
+      // Refresh from server
       await loadDeliveries();
     } catch (err: any) {
       dismissToast(loadingToast);
@@ -142,6 +165,16 @@ const OrderDelivery: React.FC = () => {
       dismissToast(loadingToast);
       showSuccess(`✅ Order #${selectedOrder.orderNumber} delivered successfully!`);
       
+      // Update local state immediately
+      setOutForDeliveryOrders(prev => prev.filter(o => o.orderId !== selectedOrder.orderId));
+      setDeliveredTodayOrders(prev => [{ 
+        ...selectedOrder, 
+        deliveryStatus: 'Delivered', 
+        isDelivered: true,
+        deliveredAt: new Date().toISOString(),
+        recipientName: recipientName || selectedOrder.customerName
+      }, ...prev]);
+      
       setShowDeliverModal(false);
       setSelectedOrder(null);
       setRecipientName('');
@@ -149,6 +182,7 @@ const OrderDelivery: React.FC = () => {
       setProofImage(null);
       setProofImagePreview('');
       
+      // Refresh from server
       await loadDeliveries();
     } catch (err: any) {
       dismissToast(loadingToast);
@@ -201,7 +235,10 @@ const OrderDelivery: React.FC = () => {
     `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const getStatusBadge = (order: DeliveryOrder) => {
-    if (order.isDelivered || order.deliveryStatus === 'Delivered') {
+    // Check deliveryStatus first, then fall back to orderStatus
+    const effectiveStatus = order.deliveryStatus !== 'Pending' ? order.deliveryStatus : order.orderStatus;
+    
+    if (order.isDelivered || effectiveStatus?.toLowerCase() === 'delivered') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -209,7 +246,7 @@ const OrderDelivery: React.FC = () => {
         </span>
       );
     }
-    if (order.deliveryStatus === 'OutForDelivery') {
+    if (effectiveStatus?.toLowerCase() === 'outfordelivery' || effectiveStatus?.toLowerCase() === 'shipped') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
@@ -339,6 +376,14 @@ const OrderDelivery: React.FC = () => {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 px-4 py-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-sm text-rose-600">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
         {/* Orders List */}
         <div className="space-y-3">
           {displayOrders.length === 0 ? (
@@ -405,6 +450,9 @@ const OrderDelivery: React.FC = () => {
                         {order.deliveredAt && (
                           <p className="text-sm text-stone-700">Delivered: {formatDate(order.deliveredAt)}</p>
                         )}
+                        {order.deliveredBy && (
+                          <p className="text-sm text-stone-700">By: {order.deliveredBy}</p>
+                        )}
                       </div>
                     </div>
 
@@ -415,8 +463,19 @@ const OrderDelivery: React.FC = () => {
                       </div>
                     )}
 
+                    {order.proofImageUrl && (
+                      <div className="mb-4">
+                        <p className="text-xs text-stone-400 mb-1">Proof of Delivery</p>
+                        <img src={order.proofImageUrl} alt="Proof" className="max-h-40 rounded-lg" />
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-3">
-                      {order.deliveryStatus !== 'OutForDelivery' && order.deliveryStatus !== 'Delivered' && (
+                      {/* Show "Mark Out for Delivery" if order is pending/processing */}
+                      {order.orderStatus?.toLowerCase() !== 'shipped' && 
+                       order.orderStatus?.toLowerCase() !== 'outfordelivery' && 
+                       order.deliveryStatus?.toLowerCase() !== 'outfordelivery' && 
+                       order.deliveryStatus?.toLowerCase() !== 'delivered' && (
                         <button
                           onClick={() => handleMarkOutForDelivery(order)}
                           disabled={submitting}
@@ -426,7 +485,12 @@ const OrderDelivery: React.FC = () => {
                           Mark Out for Delivery
                         </button>
                       )}
-                      {order.deliveryStatus === 'OutForDelivery' && (
+                      
+                      {/* Show "Confirm Delivery" if order is out for delivery */}
+                      {(order.orderStatus?.toLowerCase() === 'shipped' || 
+                        order.orderStatus?.toLowerCase() === 'outfordelivery' || 
+                        order.deliveryStatus?.toLowerCase() === 'outfordelivery') && 
+                       order.deliveryStatus?.toLowerCase() !== 'delivered' && !order.isDelivered && (
                         <button
                           onClick={() => openDeliverModal(order)}
                           className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition"
@@ -435,7 +499,9 @@ const OrderDelivery: React.FC = () => {
                           Confirm Delivery
                         </button>
                       )}
-                      {order.deliveryStatus === 'Delivered' && (
+                      
+                      {/* Show delivered status */}
+                      {(order.deliveryStatus?.toLowerCase() === 'delivered' || order.isDelivered) && (
                         <div className="text-emerald-600 text-sm flex items-center gap-2">
                           <CheckCircle className="w-4 h-4" />
                           Delivered {order.deliveredBy && `by ${order.deliveredBy}`}
