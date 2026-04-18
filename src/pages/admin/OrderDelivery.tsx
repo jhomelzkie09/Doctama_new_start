@@ -6,55 +6,53 @@ import {
   Truck,
   Package,
   CheckCircle,
-  Clock,
-  MapPin,
-  User,
-  Calendar,
   Search,
   Loader,
   AlertCircle,
   ChevronDown,
   ChevronUp,
   X,
-  Eye,
-  Box
+  Box,
+  Camera,
+  User as UserIcon,
+  Phone,
+  MapPin,
+  Calendar
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import api from '../../api/config';
 
 interface DeliveryOrder {
+  id: number;
   orderId: number;
   orderNumber: string;
   orderStatus: string;
-  orderDate: string;
+  deliveryStatus: string;
   customerName: string;
   customerEmail: string;
+  customerPhone: string;
   shippingAddress: string;
   totalAmount: number;
-  shippedAt: string | null;
+  orderDate: string;
   deliveredAt: string | null;
-  trackingNumber: string | null;
-  courier: string | null;
-  deliveryNotes: string | null;
   deliveredBy: string | null;
-  isShipped: boolean;
+  proofImageUrl: string | null;
+  recipientName: string | null;
+  deliveryNotes: string | null;
   isDelivered: boolean;
-  daysSinceOrder: number | null;
-  daysInTransit: number | null;
 }
 
 interface DeliveryStats {
-  totalPending: number;
-  totalShipped: number;
+  pendingCount: number;
+  outForDeliveryCount: number;
   deliveredToday: number;
-  deliveredThisWeek: number;
   deliveredThisMonth: number;
-  totalDeliveredValue: number;
 }
 
 interface PendingDeliveriesResponse {
-  shipped: DeliveryOrder[];
-  processing: DeliveryOrder[];
+  pending: DeliveryOrder[];
+  outForDelivery: DeliveryOrder[];
+  deliveredToday: DeliveryOrder[];
   stats: DeliveryStats;
 }
 
@@ -64,21 +62,21 @@ const OrderDelivery: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [shippedOrders, setShippedOrders] = useState<DeliveryOrder[]>([]);
-  const [processingOrders, setProcessingOrders] = useState<DeliveryOrder[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<DeliveryOrder[]>([]);
+  const [outForDeliveryOrders, setOutForDeliveryOrders] = useState<DeliveryOrder[]>([]);
+  const [deliveredTodayOrders, setDeliveredTodayOrders] = useState<DeliveryOrder[]>([]);
   const [stats, setStats] = useState<DeliveryStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'shipped' | 'processing'>('shipped');
+  const [activeTab, setActiveTab] = useState<'pending' | 'outForDelivery' | 'deliveredToday'>('pending');
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
-  const [showShipModal, setShowShipModal] = useState(false);
   const [showDeliverModal, setShowDeliverModal] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
   
   // Form states
-  const [trackingNumber, setTrackingNumber] = useState('');
-  const [courier, setCourier] = useState('');
-  const [shipNotes, setShipNotes] = useState('');
+  const [recipientName, setRecipientName] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [proofImage, setProofImage] = useState<File | null>(null);
+  const [proofImagePreview, setProofImagePreview] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -93,8 +91,9 @@ const OrderDelivery: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
-      setShippedOrders(response.data.shipped);
-      setProcessingOrders(response.data.processing);
+      setPendingOrders(response.data.pending);
+      setOutForDeliveryOrders(response.data.outForDelivery);
+      setDeliveredTodayOrders(response.data.deliveredToday);
       setStats(response.data.stats);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load deliveries');
@@ -103,32 +102,18 @@ const OrderDelivery: React.FC = () => {
     }
   };
 
-  const handleMarkShipped = async () => {
-    if (!selectedOrder) return;
-    
+  const handleMarkOutForDelivery = async (order: DeliveryOrder) => {
     setSubmitting(true);
-    const loadingToast = showLoading('Marking as shipped...');
+    const loadingToast = showLoading('Marking out for delivery...');
     
     try {
-      await api.put(`/orders/delivery/${selectedOrder.orderId}/ship`, {
-        trackingNumber,
-        courier,
-        notes: shipNotes
-      });
-      
+      await api.post(`/deliveries/${order.orderId}/out-for-delivery`);
       dismissToast(loadingToast);
-      showSuccess(`Order #${selectedOrder.orderNumber} marked as shipped!`);
-      
-      setShowShipModal(false);
-      setSelectedOrder(null);
-      setTrackingNumber('');
-      setCourier('');
-      setShipNotes('');
-      
+      showSuccess(`Order #${order.orderNumber} is out for delivery!`);
       await loadDeliveries();
     } catch (err: any) {
       dismissToast(loadingToast);
-      showError(err.response?.data?.message || 'Failed to mark as shipped');
+      showError(err.response?.data?.message || 'Failed to update status');
     } finally {
       setSubmitting(false);
     }
@@ -141,9 +126,17 @@ const OrderDelivery: React.FC = () => {
     const loadingToast = showLoading('Confirming delivery...');
     
     try {
-      await api.put(`/orders/delivery/${selectedOrder.orderId}/deliver`, {
+      // Upload proof image if provided
+      let proofImageUrl = '';
+      if (proofImage) {
+        // TODO: Implement image upload to Cloudinary or your storage
+        // proofImageUrl = await uploadImage(proofImage);
+      }
+      
+      await api.post(`/deliveries/${selectedOrder.orderId}/deliver`, {
+        recipentName: recipientName || selectedOrder.customerName,
         deliveryNotes,
-        sendNotification: true
+        proofImageUrl
       });
       
       dismissToast(loadingToast);
@@ -151,7 +144,10 @@ const OrderDelivery: React.FC = () => {
       
       setShowDeliverModal(false);
       setSelectedOrder(null);
+      setRecipientName('');
       setDeliveryNotes('');
+      setProofImage(null);
+      setProofImagePreview('');
       
       await loadDeliveries();
     } catch (err: any) {
@@ -162,18 +158,25 @@ const OrderDelivery: React.FC = () => {
     }
   };
 
-  const openShipModal = (order: DeliveryOrder) => {
-    setSelectedOrder(order);
-    setTrackingNumber(order.trackingNumber || '');
-    setCourier(order.courier || '');
-    setShipNotes('');
-    setShowShipModal(true);
-  };
-
   const openDeliverModal = (order: DeliveryOrder) => {
     setSelectedOrder(order);
+    setRecipientName(order.customerName);
     setDeliveryNotes('');
+    setProofImage(null);
+    setProofImagePreview('');
     setShowDeliverModal(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProofImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProofImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const formatDate = (dateString: string | null) => {
@@ -187,11 +190,18 @@ const OrderDelivery: React.FC = () => {
     });
   };
 
+  const formatShortDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-PH', {
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   const formatCurrency = (amount: number) =>
     `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const getStatusBadge = (order: DeliveryOrder) => {
-    if (order.isDelivered) {
+    if (order.isDelivered || order.deliveryStatus === 'Delivered') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-700">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -199,34 +209,36 @@ const OrderDelivery: React.FC = () => {
         </span>
       );
     }
-    if (order.isShipped) {
+    if (order.deliveryStatus === 'OutForDelivery') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-          In Transit
+          Out for Delivery
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-50 text-amber-700">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-        Processing
+        Pending
       </span>
     );
   };
 
-  const filteredShipped = shippedOrders.filter(o =>
-    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.trackingNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getFilteredOrders = () => {
+    let orders: DeliveryOrder[] = [];
+    if (activeTab === 'pending') orders = pendingOrders;
+    else if (activeTab === 'outForDelivery') orders = outForDeliveryOrders;
+    else orders = deliveredTodayOrders;
 
-  const filteredProcessing = processingOrders.filter(o =>
-    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    return orders.filter(o =>
+      o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.shippingAddress.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
-  const displayOrders = activeTab === 'shipped' ? filteredShipped : filteredProcessing;
+  const displayOrders = getFilteredOrders();
 
   if (loading) {
     return (
@@ -245,31 +257,31 @@ const OrderDelivery: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="mb-10">
-          <p className="text-xs font-medium tracking-[0.15em] uppercase text-stone-400 mb-1">Orders</p>
+          <p className="text-xs font-medium tracking-[0.15em] uppercase text-stone-400 mb-1">Deliveries</p>
           <h1 className="text-3xl font-light text-stone-900 tracking-tight flex items-center gap-3">
             <Truck className="w-7 h-7 text-stone-600" />
-            Order Delivery Tracking
+            Delivery Management
           </h1>
-          <p className="text-sm text-stone-500 mt-1">Manage shipments and confirm deliveries</p>
+          <p className="text-sm text-stone-500 mt-1">Manage outgoing deliveries and confirm completions</p>
         </div>
 
         {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-4 gap-4 mb-8">
             <div className="bg-white border border-stone-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Pending Processing</p>
-              <p className="text-3xl font-light text-amber-600">{stats.totalPending}</p>
+              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Pending</p>
+              <p className="text-3xl font-light text-amber-600">{stats.pendingCount}</p>
             </div>
             <div className="bg-white border border-stone-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">In Transit</p>
-              <p className="text-3xl font-light text-blue-600">{stats.totalShipped}</p>
+              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Out for Delivery</p>
+              <p className="text-3xl font-light text-blue-600">{stats.outForDeliveryCount}</p>
             </div>
             <div className="bg-white border border-emerald-200 rounded-2xl p-5">
               <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Delivered Today</p>
               <p className="text-3xl font-light text-emerald-600">{stats.deliveredToday}</p>
             </div>
             <div className="bg-white border border-stone-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Delivered This Month</p>
+              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">This Month</p>
               <p className="text-3xl font-light text-stone-800">{stats.deliveredThisMonth}</p>
             </div>
           </div>
@@ -280,26 +292,37 @@ const OrderDelivery: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setActiveTab('shipped')}
+                onClick={() => setActiveTab('pending')}
                 className={`px-4 py-2 text-sm font-medium rounded-xl transition ${
-                  activeTab === 'shipped'
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                }`}
-              >
-                <Truck className="w-4 h-4 inline mr-2" />
-                In Transit ({filteredShipped.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('processing')}
-                className={`px-4 py-2 text-sm font-medium rounded-xl transition ${
-                  activeTab === 'processing'
+                  activeTab === 'pending'
                     ? 'bg-stone-900 text-white'
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                 }`}
               >
                 <Package className="w-4 h-4 inline mr-2" />
-                Processing ({filteredProcessing.length})
+                Pending ({pendingOrders.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('outForDelivery')}
+                className={`px-4 py-2 text-sm font-medium rounded-xl transition ${
+                  activeTab === 'outForDelivery'
+                    ? 'bg-stone-900 text-white'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <Truck className="w-4 h-4 inline mr-2" />
+                Out for Delivery ({outForDeliveryOrders.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('deliveredToday')}
+                className={`px-4 py-2 text-sm font-medium rounded-xl transition ${
+                  activeTab === 'deliveredToday'
+                    ? 'bg-stone-900 text-white'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <CheckCircle className="w-4 h-4 inline mr-2" />
+                Delivered Today ({deliveredTodayOrders.length})
               </button>
             </div>
             
@@ -339,7 +362,7 @@ const OrderDelivery: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs text-stone-400">Order Date</p>
-                      <p className="text-sm text-stone-600">{formatDate(order.orderDate)}</p>
+                      <p className="text-sm text-stone-600">{formatShortDate(order.orderDate)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-stone-400">Total</p>
@@ -364,53 +387,46 @@ const OrderDelivery: React.FC = () => {
                 {/* Expanded Details */}
                 {expandedOrder === order.orderId && (
                   <div className="px-6 pb-4 border-t border-stone-100 pt-4">
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-3 gap-4 mb-4">
                       <div>
                         <p className="text-xs text-stone-400 mb-1">Shipping Address</p>
                         <p className="text-sm text-stone-700 whitespace-pre-line">{order.shippingAddress}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-stone-400 mb-1">Customer Contact</p>
+                        <p className="text-xs text-stone-400 mb-1">Contact</p>
                         <p className="text-sm text-stone-700">{order.customerEmail}</p>
+                        <p className="text-sm text-stone-700">{order.customerPhone || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-400 mb-1">Delivery Info</p>
+                        {order.recipientName && (
+                          <p className="text-sm text-stone-700">Recipient: {order.recipientName}</p>
+                        )}
+                        {order.deliveredAt && (
+                          <p className="text-sm text-stone-700">Delivered: {formatDate(order.deliveredAt)}</p>
+                        )}
                       </div>
                     </div>
 
-                    {order.isShipped && (
-                      <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                        <p className="text-xs font-medium text-blue-700 mb-2">Shipping Information</p>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <span className="text-blue-600">Shipped:</span>{' '}
-                            {formatDate(order.shippedAt)}
-                          </div>
-                          <div>
-                            <span className="text-blue-600">Courier:</span>{' '}
-                            {order.courier || '—'}
-                          </div>
-                          <div>
-                            <span className="text-blue-600">Tracking:</span>{' '}
-                            <span className="font-mono">{order.trackingNumber || '—'}</span>
-                          </div>
-                        </div>
-                        {order.daysInTransit && (
-                          <p className="text-xs text-blue-500 mt-2">
-                            In transit for {order.daysInTransit} day{order.daysInTransit !== 1 ? 's' : ''}
-                          </p>
-                        )}
+                    {order.deliveryNotes && (
+                      <div className="bg-stone-50 rounded-lg p-3 mb-4">
+                        <p className="text-xs text-stone-400 mb-1">Delivery Notes</p>
+                        <p className="text-sm text-stone-700">{order.deliveryNotes}</p>
                       </div>
                     )}
 
                     <div className="flex items-center gap-3">
-                      {!order.isShipped && (
+                      {order.deliveryStatus !== 'OutForDelivery' && order.deliveryStatus !== 'Delivered' && (
                         <button
-                          onClick={() => openShipModal(order)}
-                          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+                          onClick={() => handleMarkOutForDelivery(order)}
+                          disabled={submitting}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                         >
                           <Truck className="w-4 h-4 inline mr-2" />
-                          Mark as Shipped
+                          Mark Out for Delivery
                         </button>
                       )}
-                      {order.isShipped && !order.isDelivered && (
+                      {order.deliveryStatus === 'OutForDelivery' && (
                         <button
                           onClick={() => openDeliverModal(order)}
                           className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition"
@@ -419,11 +435,10 @@ const OrderDelivery: React.FC = () => {
                           Confirm Delivery
                         </button>
                       )}
-                      {order.isDelivered && (
+                      {order.deliveryStatus === 'Delivered' && (
                         <div className="text-emerald-600 text-sm flex items-center gap-2">
                           <CheckCircle className="w-4 h-4" />
-                          Delivered on {formatDate(order.deliveredAt)}
-                          {order.deliveredBy && ` by ${order.deliveredBy}`}
+                          Delivered {order.deliveredBy && `by ${order.deliveredBy}`}
                         </div>
                       )}
                     </div>
@@ -435,79 +450,10 @@ const OrderDelivery: React.FC = () => {
         </div>
       </div>
 
-      {/* Mark as Shipped Modal */}
-      {showShipModal && selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl">
-            <div className="px-6 py-5 border-b border-stone-100 flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-stone-900">Mark as Shipped</h2>
-              <button onClick={() => setShowShipModal(false)} className="p-2 hover:bg-stone-50 rounded-xl">
-                <X className="w-4 h-4 text-stone-500" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-stone-600">
-                Order #{selectedOrder.orderNumber} - {selectedOrder.customerName}
-              </p>
-              
-              <div>
-                <label className="block text-xs text-stone-400 mb-1">Courier</label>
-                <input
-                  type="text"
-                  value={courier}
-                  onChange={e => setCourier(e.target.value)}
-                  placeholder="e.g., LBC, J&T, Ninja Van"
-                  className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs text-stone-400 mb-1">Tracking Number</label>
-                <input
-                  type="text"
-                  value={trackingNumber}
-                  onChange={e => setTrackingNumber(e.target.value)}
-                  placeholder="Enter tracking number"
-                  className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg font-mono"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs text-stone-400 mb-1">Notes (Optional)</label>
-                <textarea
-                  value={shipNotes}
-                  onChange={e => setShipNotes(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg"
-                  placeholder="Any additional notes..."
-                />
-              </div>
-            </div>
-            
-            <div className="px-6 py-4 border-t border-stone-100 flex gap-3">
-              <button
-                onClick={() => setShowShipModal(false)}
-                className="flex-1 px-4 py-2 border border-stone-200 rounded-xl text-sm text-stone-600 hover:bg-stone-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMarkShipped}
-                disabled={submitting}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {submitting ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm Shipment'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Confirm Delivery Modal */}
       {showDeliverModal && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-5 border-b border-stone-100 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-stone-900">Confirm Delivery</h2>
               <button onClick={() => setShowDeliverModal(false)} className="p-2 hover:bg-stone-50 rounded-xl">
@@ -518,10 +464,37 @@ const OrderDelivery: React.FC = () => {
             <div className="p-6 space-y-4">
               <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
                 <p className="text-sm text-emerald-700">
-                  Confirm that order #{selectedOrder.orderNumber} has been successfully delivered to:
+                  Confirm delivery for order #{selectedOrder.orderNumber}
                 </p>
-                <p className="text-sm font-medium text-stone-800 mt-2">{selectedOrder.customerName}</p>
-                <p className="text-xs text-stone-500 mt-1 whitespace-pre-line">{selectedOrder.shippingAddress}</p>
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm font-medium text-stone-800">{selectedOrder.customerName}</p>
+                  <p className="text-xs text-stone-500 flex items-start gap-1">
+                    <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    <span className="whitespace-pre-line">{selectedOrder.shippingAddress}</span>
+                  </p>
+                  {selectedOrder.customerPhone && (
+                    <p className="text-xs text-stone-500 flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5" />
+                      {selectedOrder.customerPhone}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs text-stone-400 mb-1">
+                  Recipient Name <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
+                  <input
+                    type="text"
+                    value={recipientName}
+                    onChange={e => setRecipientName(e.target.value)}
+                    placeholder="Who received the package?"
+                    className="w-full pl-10 pr-3 py-2 text-sm border border-stone-200 rounded-lg"
+                  />
+                </div>
               </div>
               
               <div>
@@ -531,8 +504,39 @@ const OrderDelivery: React.FC = () => {
                   onChange={e => setDeliveryNotes(e.target.value)}
                   rows={2}
                   className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg"
-                  placeholder="e.g., Received by guard, Left at reception..."
+                  placeholder="e.g., Left at guard house, Received by neighbor..."
                 />
+              </div>
+              
+              <div>
+                <label className="block text-xs text-stone-400 mb-1">Proof of Delivery (Optional)</label>
+                <div className="border-2 border-dashed border-stone-200 rounded-lg p-4 text-center">
+                  {proofImagePreview ? (
+                    <div className="relative">
+                      <img src={proofImagePreview} alt="Proof" className="max-h-40 mx-auto rounded-lg" />
+                      <button
+                        onClick={() => {
+                          setProofImage(null);
+                          setProofImagePreview('');
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-white rounded-full shadow"
+                      >
+                        <X className="w-4 h-4 text-stone-500" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer">
+                      <Camera className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                      <p className="text-xs text-stone-400">Click to upload photo proof</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -545,10 +549,17 @@ const OrderDelivery: React.FC = () => {
               </button>
               <button
                 onClick={handleConfirmDelivery}
-                disabled={submitting}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                disabled={submitting || !recipientName.trim()}
+                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {submitting ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm Delivery'}
+                {submitting ? (
+                  <Loader className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Confirm Delivery
+                  </>
+                )}
               </button>
             </div>
           </div>
