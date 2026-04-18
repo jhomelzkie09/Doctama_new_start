@@ -87,37 +87,42 @@ const OrderDelivery: React.FC = () => {
   }, [isAdmin, navigate]);
 
   const loadDeliveries = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
-      
-      // Categorize orders based on orderStatus
-      const allOrders = response.data.pending;
-      
-      const pending = allOrders.filter(o => 
-        o.orderStatus?.toLowerCase() !== 'shipped' && 
-        o.orderStatus?.toLowerCase() !== 'outfordelivery' &&
-        o.orderStatus?.toLowerCase() !== 'delivered' &&
-        o.orderStatus?.toLowerCase() !== 'cancelled'
-      );
-      
-      const outForDelivery = allOrders.filter(o => 
-        o.orderStatus?.toLowerCase() === 'shipped' || 
-        o.orderStatus?.toLowerCase() === 'outfordelivery'
-      );
-      
-      const deliveredToday = response.data.deliveredToday || [];
-      
-      setPendingOrders(pending);
-      setOutForDeliveryOrders(outForDelivery);
-      setDeliveredTodayOrders(deliveredToday);
+  setLoading(true);
+  try {
+    const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
+    
+    console.log('📦 Delivery data received:', response.data);
+    
+    // The backend already categorizes orders
+    const pending = response.data.pending || [];
+    const outForDelivery = response.data.outForDelivery || [];
+    const deliveredToday = response.data.deliveredToday || [];
+    
+    setPendingOrders(pending);
+    setOutForDeliveryOrders(outForDelivery);
+    setDeliveredTodayOrders(deliveredToday);
+    
+    // Use stats from backend, or calculate if not provided
+    if (response.data.stats) {
       setStats(response.data.stats);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load deliveries');
-    } finally {
-      setLoading(false);
+    } else {
+      // Calculate stats locally
+      setStats({
+        pendingCount: pending.length,
+        outForDeliveryCount: outForDelivery.length,
+        deliveredToday: deliveredToday.length,
+        deliveredThisMonth: 0 // Would need backend for accurate monthly count
+      });
     }
-  };
+    
+    setError('');
+  } catch (err: any) {
+    console.error('Failed to load deliveries:', err);
+    setError(err.response?.data?.message || 'Failed to load deliveries');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleMarkOutForDelivery = async (order: DeliveryOrder) => {
     setSubmitting(true);
