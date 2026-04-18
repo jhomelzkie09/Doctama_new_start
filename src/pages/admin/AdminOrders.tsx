@@ -1,13 +1,13 @@
+// pages/admin/AdminOrders.tsx
 import React, { useState, useEffect, JSX } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import orderService from '../../services/order.service';
 import {
-  ShoppingBag, Search, Eye, Truck, CheckCircle, Clock, XCircle, Package,
+  ShoppingBag, Search, Eye, CheckCircle, Clock, XCircle, Package,
   ChevronLeft, ChevronRight, RefreshCw, MapPin, CreditCard, Loader, X, 
-  Wallet, Smartphone, DollarSign, Receipt, Calendar, TrendingUp, 
-  DownloadCloud, Shield, PackageCheck, ZoomIn, Info, AlertTriangle,
-  Check, Ban, UserCheck, Palette, Filter, ChevronDown
+  Wallet, Smartphone, DollarSign, Calendar, 
+  AlertTriangle, Check, Ban, Filter, ChevronDown, Truck
 } from 'lucide-react';
 import { Order, PaymentMethod, OrderStatus, PaymentStatus } from '../../types';
 
@@ -21,16 +21,10 @@ interface ExtendedOrder extends Order {
   paymentProofNotes?: string;
   adminNotes?: AdminNote[];
   cancellationReason?: string;
-  trackingNumber?: string;
-  shippingCarrier?: string;
-  estimatedDelivery?: string;
   approvedBy?: string;
   approvedAt?: string;
   rejectedBy?: string;
   rejectionReason?: string;
-  deliveredBy?: string;
-  deliveredAt?: string;
-  deliveryConfirmedBy?: string;
   codPaymentConfirmedAt?: string;
 }
 
@@ -51,7 +45,6 @@ interface OrderStats {
   todayOrders: number;
   pendingApproval: number;
   approvedToday: number;
-  awaitingDeliveryConfirmation: number;
 }
 
 // Helper to get color display name and CSS color
@@ -80,9 +73,8 @@ const getColorInfo = (color: string): { name: string; cssColor: string; isLight:
 // ========== COLOR VARIANT BADGE ==========
 const ColorVariantBadge: React.FC<{ item: any }> = ({ item }) => {
   const colorRaw: string | undefined = item.color && item.color.trim() !== '' ? item.color : undefined;
-  const variantLabel: string | undefined = item.variant || item.variantName;
   const size: string | undefined = item.size && item.size.trim() !== '' ? item.size : undefined;
-  if (!colorRaw && !variantLabel && !size) return null;
+  if (!colorRaw && !size) return null;
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -104,50 +96,9 @@ const ColorVariantBadge: React.FC<{ item: any }> = ({ item }) => {
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Size</span>
         </div>
       )}
-      {variantLabel && !colorRaw && !size && (
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-          <Palette className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-          <span className="text-[11px] font-bold text-slate-600">{variantLabel}</span>
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Variant</span>
-        </div>
-      )}
     </div>
   );
 };
-
-// ========== MOBILE ORDER CARD ==========
-const OrderMobileCard: React.FC<{
-  order: ExtendedOrder;
-  formatCurrency: (amount: number) => string;
-  getStatusBadge: (status: OrderStatus) => JSX.Element;
-  getPaymentMethodIcon: (method: PaymentMethod) => JSX.Element;
-  getPaymentMethodName: (method: PaymentMethod) => string;
-  getPaymentStatusBadge: (status: PaymentStatus) => JSX.Element;
-  onViewDetails: (order: ExtendedOrder) => void;
-}> = ({ order, formatCurrency, getStatusBadge, getPaymentMethodIcon, getPaymentMethodName, getPaymentStatusBadge, onViewDetails }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 mb-4 overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
-    <div className="p-4 border-b border-slate-50 bg-slate-50/30">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center border border-indigo-100">
-            <Package className="w-5 h-5 text-indigo-600" />
-          </div>
-          <div>
-            <p className="font-bold text-slate-900 text-sm">#{order.orderNumber?.slice(-8).toUpperCase()}</p>
-            <p className="text-[11px] text-slate-500 font-medium">{new Date(order.orderDate).toLocaleDateString()}</p>
-          </div>
-        </div>
-        {getStatusBadge(order.status)}
-      </div>
-    </div>
-    <div className="p-4 flex justify-between items-center">
-      <div><p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</p>
-        <p className="text-lg font-black text-indigo-600">{formatCurrency(order.totalAmount)}</p>
-      </div>
-      <button onClick={() => onViewDetails(order)} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-transform active:scale-95">View Order</button>
-    </div>
-  </div>
-);
 
 // ========== STATUS PILL ==========
 const StatusPill: React.FC<{ status: OrderStatus }> = ({ status }) => {
@@ -194,6 +145,41 @@ const PaymentStatusPill: React.FC<{ status: PaymentStatus; method: PaymentMethod
   );
 };
 
+// ========== MOBILE ORDER CARD ==========
+const OrderMobileCard: React.FC<{
+  order: ExtendedOrder;
+  formatCurrency: (amount: number) => string;
+  getPaymentMethodIcon: (method: PaymentMethod) => JSX.Element;
+  getPaymentMethodName: (method: PaymentMethod) => string;
+  onViewDetails: (order: ExtendedOrder) => void;
+}> = ({ order, formatCurrency, getPaymentMethodIcon, getPaymentMethodName, onViewDetails }) => (
+  <div className="bg-white rounded-2xl border border-slate-100 mb-4 overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
+    <div className="p-4 border-b border-slate-50 bg-slate-50/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center border border-indigo-100">
+            <Package className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900 text-sm">#{order.orderNumber?.slice(-8).toUpperCase()}</p>
+            <p className="text-[11px] text-slate-500 font-medium">{new Date(order.orderDate).toLocaleDateString()}</p>
+          </div>
+        </div>
+        <StatusPill status={order.status} />
+      </div>
+    </div>
+    <div className="p-4 flex justify-between items-center">
+      <div>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</p>
+        <p className="text-lg font-black text-indigo-600">{formatCurrency(order.totalAmount)}</p>
+      </div>
+      <button onClick={() => onViewDetails(order)} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-transform active:scale-95">
+        View Order
+      </button>
+    </div>
+  </div>
+);
+
 const AdminOrders = () => {
   const { isAdmin, user: currentUser } = useAuth();
   const navigate = useNavigate();
@@ -212,13 +198,11 @@ const AdminOrders = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [showDeliveryConfirmModal, setShowDeliveryConfirmModal] = useState(false);
   const [approvalNote, setApprovalNote] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [orderStats, setOrderStats] = useState<OrderStats>({
     totalSales: 0, totalRevenue: 0, averageOrderValue: 0, pendingPayment: 0,
     completedOrders: 0, todayOrders: 0, pendingApproval: 0, approvedToday: 0,
-    awaitingDeliveryConfirmation: 0
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
@@ -236,7 +220,6 @@ const AdminOrders = () => {
     else fetchOrders();
   }, [isAdmin, navigate]);
 
-  // ✅ Updated useEffect - includes paymentFilter
   useEffect(() => {
     filterOrders();
     calculateStats();
@@ -252,8 +235,6 @@ const AdminOrders = () => {
         paymentProofImage: order.paymentProofImage || null,
         approvedBy: order.approvedBy || null,
         approvedAt: order.approvedAt || null,
-        deliveredBy: order.deliveredBy || null,
-        deliveredAt: order.deliveredAt || null,
         codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
       }));
       setOrders(ordersWithDetails);
@@ -270,7 +251,6 @@ const AdminOrders = () => {
     const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     
-    // Combined Pending Approval
     const pendingApprovalCount = orders.filter(o => {
       const isDigitalPending = (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
         o.paymentStatus === 'pending' && o.paymentProofImage &&
@@ -287,11 +267,9 @@ const AdminOrders = () => {
       todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
       pendingApproval: pendingApprovalCount,
       approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
-      awaitingDeliveryConfirmation: 0
     });
   };
 
-  // ✅ Updated filter function - includes payment filter
   const filterOrders = () => {
     let filtered = [...orders];
     if (searchQuery) {
@@ -319,7 +297,7 @@ const AdminOrders = () => {
         approvedBy: adminName, approvedAt: new Date().toISOString(), notes: approvalNote
       });
       await fetchOrders();
-      setSuccess('Payment approved successfully. Order can now be processed.');
+      setSuccess('Payment approved successfully.');
       setApprovalNote('');
       setShowOrderModal(false);
       setTimeout(() => setSuccess(''), 3000);
@@ -357,11 +335,10 @@ const AdminOrders = () => {
       const adminName = currentUser?.fullName || currentUser?.email || 'Admin';
       await orderService.updateOrderPayment(parseInt(orderId), 'paid', {
         deliveredBy: adminName, deliveredAt: new Date().toISOString(),
-        codPaymentConfirmedAt: new Date().toISOString(), notes: 'COD payment confirmed upon delivery'
+        codPaymentConfirmedAt: new Date().toISOString(), notes: 'COD payment confirmed'
       });
       await fetchOrders();
       setSuccess('COD payment confirmed successfully');
-      setShowDeliveryConfirmModal(false);
       setShowOrderModal(false);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -393,28 +370,6 @@ const AdminOrders = () => {
     } catch (err) {
       setError('Failed to cancel order');
       setTimeout(() => setError(''), 3000);
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
-  const handleStatusUpdate = async (orderId: string, status: string) => {
-    const order = orders.find(o => o.id === orderId);
-    const isDigitalPayment = order?.paymentMethod === 'gcash' || order?.paymentMethod === 'paymaya';
-    if ((status === 'shipped' || status === 'processing') && isDigitalPayment && order?.paymentStatus !== 'paid') {
-      setError('Payment must be approved before processing this order');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-    setUpdatingStatus(true);
-    try {
-      await orderService.updateOrderStatus(parseInt(orderId), status);
-      await fetchOrders();
-      setSuccess(`Order status updated to ${status}`);
-      setShowOrderModal(false);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Update failed');
     } finally {
       setUpdatingStatus(false);
     }
@@ -468,22 +423,28 @@ const AdminOrders = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Orders Management</h1>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Administrator Control Panel</p>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Payment Approval & Order Review</p>
           </div>
-          <button onClick={fetchOrders} className="p-3 hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all">
-            <RefreshCw className="w-5 h-5 text-slate-600" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/admin/deliveries/orders')} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl transition-all flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              <span className="text-xs font-bold">Delivery Management</span>
+            </button>
+            <button onClick={fetchOrders} className="p-3 hover:bg-slate-50 border border-slate-200 rounded-2xl transition-all">
+              <RefreshCw className="w-5 h-5 text-slate-600" />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 md:px-6 space-y-6">
-        {/* Stats Grid - 4 Cards (Removed Awaiting Delivery) */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Sales (Paid & Delivered)', value: formatCurrency(orderStats.totalSales), icon: CheckCircle, color: 'emerald' },
             { label: 'Pending Approval', value: orderStats.pendingApproval, icon: Clock, color: 'amber' },
-            { label: 'Fulfilled', value: orderStats.completedOrders, icon: PackageCheck, color: 'emerald' },
-            { label: 'Today', value: orderStats.todayOrders, icon: Calendar, color: 'rose' },
+            { label: 'Completed Orders', value: orderStats.completedOrders, icon: Package, color: 'emerald' },
+            { label: 'Today\'s Orders', value: orderStats.todayOrders, icon: Calendar, color: 'rose' },
           ].map((stat, i) => (
             <div key={i} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
               <div className={`w-10 h-10 rounded-xl bg-${stat.color}-50 flex items-center justify-center mb-3`}>
@@ -495,10 +456,9 @@ const AdminOrders = () => {
           ))}
         </div>
 
-        {/* Filters - Combined Row */}
+        {/* Filters */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100">
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input 
@@ -510,30 +470,27 @@ const AdminOrders = () => {
               />
             </div>
             
-            {/* Payment Method Dropdown */}
             <div className="relative min-w-[180px]">
               <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
                 value={paymentFilter}
                 onChange={(e) => setPaymentFilter(e.target.value)}
-                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer"
+                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="all">All Payment Methods</option>
                 <option value="gcash">GCash</option>
                 <option value="paymaya">Maya</option>
                 <option value="cod">Cash on Delivery</option>
-                <option value="card">Credit/Debit Card</option>
               </select>
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
-            {/* Status Filter Dropdown */}
             <div className="relative min-w-[160px]">
               <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer"
+                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -545,35 +502,18 @@ const AdminOrders = () => {
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
-            {/* Clear Filters Button */}
             {(statusFilter !== 'all' || paymentFilter !== 'all' || searchQuery) && (
               <button
-                onClick={() => {
-                  setStatusFilter('all');
-                  setPaymentFilter('all');
-                  setSearchQuery('');
-                }}
+                onClick={() => { setStatusFilter('all'); setPaymentFilter('all'); setSearchQuery(''); }}
                 className="px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap"
               >
-                <X className="w-3 h-3" />
-                Clear
+                <X className="w-3 h-3" /> Clear
               </button>
             )}
           </div>
           
-          {/* Filter Summary */}
           <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
             <span>Showing {filteredOrders.length} of {orders.length} orders</span>
-            {(statusFilter !== 'all' || paymentFilter !== 'all') && (
-              <span className="flex items-center gap-2">
-                {paymentFilter !== 'all' && (
-                  <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full">Payment: {paymentFilter}</span>
-                )}
-                {statusFilter !== 'all' && (
-                  <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded-full">Status: {statusFilter}</span>
-                )}
-              </span>
-            )}
           </div>
         </div>
 
@@ -583,10 +523,8 @@ const AdminOrders = () => {
             {paginatedOrders.map(o => (
               <OrderMobileCard 
                 key={o.id} order={o} formatCurrency={formatCurrency}
-                getStatusBadge={(status) => <StatusPill status={status} />} 
                 getPaymentMethodIcon={getPaymentMethodIcon} 
                 getPaymentMethodName={getPaymentMethodName} 
-                getPaymentStatusBadge={(status) => <PaymentStatusPill status={status} method={o.paymentMethod} />} 
                 onViewDetails={(order) => { setSelectedOrder(order); setShowOrderModal(true); }} 
               />
             ))}
@@ -672,27 +610,29 @@ const AdminOrders = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentStatus === 'pending' && (
+              {/* Payment Approval Alert */}
+              {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && (
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-black text-amber-800">Payment Verification Required</p>
-                    <p className="text-xs text-amber-700 mt-1">This order requires payment approval before it can be processed for shipping.</p>
+                    <p className="text-xs text-amber-700 mt-1">This order requires payment approval.</p>
                   </div>
                 </div>
               )}
 
+              {/* COD Payment Alert */}
               {selectedOrder.paymentMethod === 'cod' && selectedOrder.status === 'delivered' && selectedOrder.paymentStatus === 'pending' && (
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-start gap-3">
                   <Truck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-black text-blue-800">COD Payment Pending Confirmation</p>
-                    <p className="text-xs text-blue-700 mt-1">Confirm that the customer has received the product and payment has been collected.</p>
+                    <p className="text-xs text-blue-700 mt-1">Confirm that payment has been collected.</p>
                   </div>
                 </div>
               )}
 
-              {/* Payment Information Section - FIXED (no duplication) */}
+              {/* Payment Information */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <CreditCard className="w-4 h-4" /> Payment Information
@@ -708,29 +648,13 @@ const AdminOrders = () => {
                     <PaymentStatusPill status={selectedOrder.paymentStatus} method={selectedOrder.paymentMethod} />
                   </div>
 
-                  {/* Rejection Reason */}
                   {selectedOrder.paymentStatus === 'failed' && selectedOrder.rejectionReason && (
                     <div className="pt-3 border-t border-slate-200">
                       <p className="text-[10px] font-black text-rose-600 uppercase flex items-center gap-1">
                         <XCircle className="w-3 h-3" /> Rejection Reason
                       </p>
-                      <p className="text-xs text-rose-700 mt-1 bg-rose-50 p-2 rounded-lg">
-                        {selectedOrder.rejectionReason}
-                      </p>
-                      {selectedOrder.rejectedBy && (
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Rejected by {selectedOrder.rejectedBy}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Rejected Info - Show who rejected (fallback) */}
-                  {selectedOrder.paymentStatus === 'failed' && selectedOrder.rejectedBy && !selectedOrder.rejectionReason && (
-                    <div className="pt-3 border-t border-slate-200">
-                      <p className="text-[10px] font-black text-rose-600 uppercase flex items-center gap-1">
-                        <Ban className="w-3 h-3" /> Rejected by {selectedOrder.rejectedBy}
-                      </p>
+                      <p className="text-xs text-rose-700 mt-1 bg-rose-50 p-2 rounded-lg">{selectedOrder.rejectionReason}</p>
+                      {selectedOrder.rejectedBy && <p className="text-[10px] text-slate-400 mt-1">Rejected by {selectedOrder.rejectedBy}</p>}
                     </div>
                   )}
 
@@ -758,61 +682,36 @@ const AdminOrders = () => {
                       <div className="relative group overflow-hidden rounded-2xl border-2 border-indigo-100 cursor-zoom-in" onClick={() => setShowReceiptModal(true)}>
                         <img src={selectedOrder.paymentProofImage} alt="Receipt" className="w-full h-40 object-cover group-hover:scale-105 transition-transform" />
                         <div className="absolute inset-0 bg-indigo-600/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <ZoomIn className="text-white w-8 h-8" />
+                          <span className="text-white text-xs font-bold">Click to enlarge</span>
                         </div>
                       </div>
-                      {selectedOrder.paymentProofReference && (
-                        <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">Reference Number</p>
-                          <p className="text-sm font-black text-slate-700">{selectedOrder.paymentProofReference}</p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
               </section>
               
-              {/* Order Items Section */}
+              {/* Order Items */}
               <section className="space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <Package className="w-4 h-4" /> Order Items
                 </h3>
                 <div className="space-y-3">
-                  {selectedOrder.items?.map((item: any, i: number) => {
-                    const hasColor = item.color && item.color.trim() !== '';
-                    const hasSize = item.size && item.size.trim() !== '';
-                    const hasVariant = item.variant || item.variantName;
-                    const hasAnyVariant = hasColor || hasSize || hasVariant;
-
-                    return (
-                      <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
-                            {hasAnyVariant ? (
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                {hasColor && <ColorVariantBadge item={item} />}
-                                {hasSize && !hasColor && (
-                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-                                    <span className="text-[11px] font-bold text-slate-600">{item.size}</span>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Size</span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="text-[10px] text-slate-400 italic mt-1">No variant selected</p>
-                            )}
-                            <p className="text-xs font-bold text-indigo-500 mt-2">
-                              Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
-                            </p>
-                          </div>
-                          <p className="font-black text-slate-900 text-sm whitespace-nowrap">
-                            {formatCurrency((item.unitPrice || item.price) * item.quantity)}
+                  {selectedOrder.items?.map((item: any, i: number) => (
+                    <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-black text-slate-800 leading-tight">{item.productName}</p>
+                          <ColorVariantBadge item={item} />
+                          <p className="text-xs font-bold text-indigo-500 mt-2">
+                            Qty: {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
                           </p>
                         </div>
+                        <p className="font-black text-slate-900 text-sm whitespace-nowrap">
+                          {formatCurrency((item.unitPrice || item.price) * item.quantity)}
+                        </p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
                 <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
                   <div className="flex justify-between">
@@ -822,6 +721,7 @@ const AdminOrders = () => {
                 </div>
               </section>
 
+              {/* Delivery Address */}
               {selectedOrder.shippingAddress && (
                 <section className="space-y-4">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -834,20 +734,22 @@ const AdminOrders = () => {
               )}
             </div>
 
+            {/* Action Buttons */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
+              {/* Digital Payment Approval */}
               {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && 
               (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] uppercase tracking-tighter">
-                    <AlertTriangle className="w-3 h-3" /> Payment Verification Required
+                    <AlertTriangle className="w-3 h-3" /> Payment Verification
                   </div>
                   <textarea value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} rows={2}
                     className="w-full p-3 bg-slate-50 border-none rounded-2xl text-xs" 
-                    placeholder="Enter verification notes (optional for approval, required for rejection)..." />
+                    placeholder="Enter verification notes (required for rejection)..." />
                   <div className="flex gap-2">
                     <button onClick={() => handleApprovePayment(selectedOrder.id)} disabled={updatingStatus}
                       className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
-                      <Check className="w-4 h-4" /> Approve Payment
+                      <Check className="w-4 h-4" /> Approve
                     </button>
                     <button onClick={() => handleRejectPayment(selectedOrder.id)} disabled={updatingStatus}
                       className="flex-1 py-3 bg-rose-100 text-rose-600 rounded-2xl text-xs font-black uppercase hover:bg-rose-200 transition-all flex items-center justify-center gap-2">
@@ -857,67 +759,22 @@ const AdminOrders = () => {
                 </div>
               )}
 
+              {/* COD Payment Confirmation */}
               {selectedOrder.paymentMethod === 'cod' && selectedOrder.status === 'delivered' && 
               selectedOrder.paymentStatus === 'pending' && (
-                <button onClick={() => setShowDeliveryConfirmModal(true)}
+                <button onClick={() => handleConfirmCODPayment(selectedOrder.id)}
                   className="w-full py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
-                  <Truck className="w-4 h-4" /> Confirm Delivery & Payment Received
+                  <Truck className="w-4 h-4" /> Confirm COD Payment Received
                 </button>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                {['processing', 'shipped', 'delivered'].map(s => {
-                  const isDigitalPayment = selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya';
-                  const isDisabled = selectedOrder.status === 'cancelled' ||
-                    ((s === 'processing' || s === 'shipped') && isDigitalPayment && selectedOrder.paymentStatus !== 'paid');
-                  return (
-                    <button key={s} onClick={() => handleStatusUpdate(selectedOrder.id, s)}
-                      className={`py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${
-                        selectedOrder.status === s ? 'bg-indigo-600 text-white' : 
-                        isDisabled ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 
-                        'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                      disabled={isDisabled} title={isDisabled ? 'Payment must be approved first' : ''}>
-                      Mark as {s}
-                    </button>
-                  );
-                })}
+              {/* Cancel Order Button */}
+              {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'delivered' && (
                 <button onClick={() => setShowCancelModal(true)}
-                  className="py-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase border border-rose-100"
-                  disabled={selectedOrder.status === 'cancelled' || selectedOrder.status === 'delivered'}>
+                  className="w-full py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-black uppercase border border-rose-100 hover:bg-rose-100 transition-all">
                   Cancel Order
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delivery Confirmation Modal for COD */}
-      {showDeliveryConfirmModal && selectedOrder && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowDeliveryConfirmModal(false)} />
-          <div className="relative bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl space-y-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Truck className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900">Confirm COD Payment</h3>
-              <p className="text-slate-500 text-sm mt-2 font-medium">
-                Has the customer received the product and payment has been collected?
-              </p>
-              <div className="mt-4 p-4 bg-slate-50 rounded-2xl">
-                <p className="text-xs font-bold text-slate-400 uppercase">Order</p>
-                <p className="font-black text-slate-900">#{selectedOrder.orderNumber?.slice(-8)}</p>
-                <p className="text-sm text-slate-600 mt-1">{formatCurrency(selectedOrder.totalAmount)}</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowDeliveryConfirmModal(false)}
-                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs">Cancel</button>
-              <button onClick={() => handleConfirmCODPayment(selectedOrder.id)} disabled={updatingStatus}
-                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-emerald-200 flex items-center justify-center gap-2">
-                <Check className="w-4 h-4" /> Confirm Payment
-              </button>
+              )}
             </div>
           </div>
         </div>
@@ -935,9 +792,6 @@ const AdminOrders = () => {
               <h3 className="text-xl font-black text-slate-900">Cancel Order?</h3>
               <p className="text-slate-500 text-sm mt-2 font-medium">
                 Please provide a reason for cancelling Order #{selectedOrder.orderNumber?.slice(-8)}
-                {selectedOrder.paymentMethod === 'cod' && (
-                  <span className="block text-xs text-amber-600 mt-1">This will also mark the payment as failed.</span>
-                )}
               </p>
             </div>
             <textarea value={cancellationReason} onChange={(e) => setCancellationReason(e.target.value)} rows={3}
