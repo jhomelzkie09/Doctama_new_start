@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowRight, Star, Truck, Shield, Clock, TrendingUp, Eye, 
-  ChevronRight, Sparkles, Sofa, Armchair, Lamp, Table, Bed, 
-  Package, ShoppingBag, CreditCard, Users, MoveRight, PlayCircle,
-  Folder, Home as HomeIcon, Coffee, Utensils, Monitor, Lightbulb, 
-  Box, BookOpen, Ruler, Watch, Flower2, Library,
-  Shirt, WashingMachine, Car, TreePalm, Music, Tv,
-  ChevronLeft, ChevronRight as ChevronRightIcon,
-  PenLine, Palette, Maximize2, MessageCircle, CheckCircle2
+  ArrowRight, Star, Truck, Shield, Clock, TrendingUp,  
+  ChevronRight, Sparkles, ShoppingBag, CreditCard, MoveRight, PlayCircle,
+  ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOutletContext } from 'react-router-dom';
@@ -28,6 +23,58 @@ interface ProductWithDetails extends Product {
   reviewCount: number;
 }
 
+// Category images from the internet
+const categoryImages: Record<string, string> = {
+  'Living Room': 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Bedroom': 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Dining Room': 'https://images.pexels.com/photos/1080696/pexels-photo-1080696.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Office': 'https://images.pexels.com/photos/159839/office-home-house-desk-159839.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Kitchen': 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Outdoor': 'https://images.pexels.com/photos/280221/pexels-photo-280221.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Kids Room': 'https://images.pexels.com/photos/3932930/pexels-photo-3932930.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Bathroom': 'https://images.pexels.com/photos/1910472/pexels-photo-1910472.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Entryway': 'https://images.pexels.com/photos/2635038/pexels-photo-2635038.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Home Decor': 'https://images.pexels.com/photos/1248583/pexels-photo-1248583.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Furniture': 'https://images.pexels.com/photos/276551/pexels-photo-276551.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Lighting': 'https://images.pexels.com/photos/1112598/pexels-photo-1112598.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Storage': 'https://images.pexels.com/photos/4226783/pexels-photo-4226783.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Rugs': 'https://images.pexels.com/photos/1454806/pexels-photo-1454806.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Mirrors': 'https://images.pexels.com/photos/2050729/pexels-photo-2050729.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Wall Art': 'https://images.pexels.com/photos/1166657/pexels-photo-1166657.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Plants': 'https://images.pexels.com/photos/3094799/pexels-photo-3094799.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Accessories': 'https://images.pexels.com/photos/1441122/pexels-photo-1441122.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'default': 'https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=400'
+};
+
+const getCategoryImage = (categoryName: string): string => {
+  const name = categoryName.toLowerCase();
+  
+  for (const [key, value] of Object.entries(categoryImages)) {
+    if (name.includes(key.toLowerCase()) || key.toLowerCase().includes(name)) {
+      return value;
+    }
+  }
+  
+  if (name.includes('living') || name.includes('sofa')) return categoryImages['Living Room'];
+  if (name.includes('bed')) return categoryImages['Bedroom'];
+  if (name.includes('dining') || name.includes('table')) return categoryImages['Dining Room'];
+  if (name.includes('office') || name.includes('desk')) return categoryImages['Office'];
+  if (name.includes('kitchen')) return categoryImages['Kitchen'];
+  if (name.includes('outdoor') || name.includes('garden')) return categoryImages['Outdoor'];
+  if (name.includes('kid') || name.includes('child')) return categoryImages['Kids Room'];
+  if (name.includes('bath')) return categoryImages['Bathroom'];
+  if (name.includes('entry') || name.includes('hall')) return categoryImages['Entryway'];
+  if (name.includes('decor')) return categoryImages['Home Decor'];
+  if (name.includes('light')) return categoryImages['Lighting'];
+  if (name.includes('storage') || name.includes('cabinet')) return categoryImages['Storage'];
+  if (name.includes('rug') || name.includes('carpet')) return categoryImages['Rugs'];
+  if (name.includes('mirror')) return categoryImages['Mirrors'];
+  if (name.includes('art') || name.includes('wall')) return categoryImages['Wall Art'];
+  if (name.includes('plant')) return categoryImages['Plants'];
+  
+  return categoryImages['default'];
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -42,14 +89,12 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
   
-  // Carousel state
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(6);
   const [isAnimating, setIsAnimating] = useState(false);
   const carouselIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
 
-  // Function to calculate product sales
   const calculateProductSales = async (productId: number): Promise<number> => {
     try {
       const allOrders = await orderService.getAllOrders();
@@ -71,7 +116,6 @@ const Home = () => {
     }
   };
 
-  // Function to fetch product reviews
   const fetchProductReviews = async (productId: number): Promise<{ averageRating: number; reviewCount: number }> => {
     try {
       const reviews = await reviewService.getProductReviews(productId);
@@ -126,12 +170,10 @@ const Home = () => {
         categoryService.getCategories()
       ]);
       
-      // Filter out inactive products (deactivated or out of stock)
       const activeProducts = productsData.filter(product => 
         product.isActive === true && product.stockQuantity > 0
       );
       
-      // Calculate sales counts and reviews for each active product
       const productsWithDetails = await Promise.all(activeProducts.map(async (product) => {
         const salesCount = await calculateProductSales(product.id);
         const { averageRating, reviewCount } = await fetchProductReviews(product.id);
@@ -143,15 +185,13 @@ const Home = () => {
         };
       }));
       
-      // Sort by sales count to get best sellers (highest sold first)
       const sortedBySales = [...productsWithDetails].sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
       
       setProducts(productsWithDetails);
-      setFeaturedProducts(sortedBySales.slice(0, 4)); // Featured = top 4 best sellers
-      setNewArrivals(productsWithDetails.slice(-4).reverse()); // New arrivals = latest 4 active products
-      setBestSellers(sortedBySales.slice(0, 8)); // Best sellers = top 8 best sellers
+      setFeaturedProducts(sortedBySales.slice(0, 4));
+      setNewArrivals(productsWithDetails.slice(-4).reverse());
+      setBestSellers(sortedBySales.slice(0, 8));
       
-      // Update category counts to only include active products
       const categoriesWithCounts = categoriesData.map(category => {
         const productCount = productsWithDetails.filter(product => product.categoryId === category.id).length;
         return { ...category, productCount };
@@ -173,45 +213,6 @@ const Home = () => {
       return;
     }
     navigate('/shop', { state: { selectedProduct: product, openModal: true } });
-  };
-
-  const getCategoryIcon = (categoryName: string) => {
-    const name = categoryName.toLowerCase();
-    if (name.includes('living') || name.includes('sofa') || name.includes('couch')) return Sofa;
-    if (name.includes('armchair') || name.includes('lounge')) return Armchair;
-    if (name.includes('bed') || name.includes('bedroom')) return Bed;
-    if (name.includes('dresser') || name.includes('wardrobe')) return HomeIcon;
-    if (name.includes('dining') || name.includes('table')) return Table;
-    if (name.includes('kitchen') || name.includes('utensil')) return Utensils;
-    if (name.includes('office') || name.includes('desk') || name.includes('work')) return Monitor;
-    if (name.includes('light') || name.includes('lamp')) return Lightbulb;
-    if (name.includes('storage') || name.includes('cabinet')) return Package;
-    if (name.includes('shelf') || name.includes('bookcase')) return Library;
-    if (name.includes('decor') || name.includes('art')) return Sparkles;
-    if (name.includes('rug') || name.includes('carpet')) return Ruler;
-    if (name.includes('mirror')) return Watch;
-    if (name.includes('vase')) return Flower2;
-    if (name.includes('plant')) return TreePalm;
-    if (name.includes('outdoor') || name.includes('garden')) return TreePalm;
-    if (name.includes('tv') || name.includes('media')) return Tv;
-    if (name.includes('audio') || name.includes('speaker')) return Music;
-    if (name.includes('furniture')) return Sofa;
-    if (name.includes('home')) return HomeIcon;
-    return Folder;
-  };
-
-  const getCategoryColor = (categoryName: string, index: number) => {
-    const colors = [
-      'bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white',
-      'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
-      'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
-      'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
-      'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
-      'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
-      'bg-pink-50 text-pink-600 group-hover:bg-pink-600 group-hover:text-white',
-      'bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white',
-    ];
-    return colors[index % colors.length];
   };
 
   const restartCarousel = () => {
@@ -254,13 +255,6 @@ const Home = () => {
     { icon: Shield, title: '2-Year Warranty', desc: 'Full coverage' },
     { icon: Clock, title: 'Fast Delivery', desc: '3-day window' },
     { icon: CreditCard, title: 'Flexi-Payment', desc: 'Installments' },
-  ];
-
-  const customSteps = [
-    { icon: MessageCircle, step: '01', title: 'Tell Us Your Vision', desc: 'Share your ideas — dimensions, style, materials, and any inspiration you have in mind.' },
-    { icon: Palette, step: '02', title: 'Choose Your Finish', desc: 'Pick from our range of premium wood stains, fabrics, and hardware finishes.' },
-    { icon: PenLine, step: '03', title: 'We Craft It for You', desc: 'Our Filipino artisans handcraft your piece with meticulous attention to every detail.' },
-    { icon: CheckCircle2, step: '04', title: 'Delivered to Your Door', desc: 'Your bespoke furniture arrives white-glove delivered and ready to love.' },
   ];
 
   const renderStars = (rating: number) => (
@@ -310,7 +304,7 @@ const Home = () => {
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
 
-      {/* ─── Hero Section - Mobile Optimized ─── */}
+      {/* Hero Section */}
       <section className="relative min-h-[80vh] md:min-h-[90vh] flex items-center bg-[#F9F8F6] overflow-hidden">
         <div className="absolute inset-0">
           {heroImages.map((image, index) => (
@@ -400,7 +394,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Trust Bar - Mobile Optimized ─── */}
+      {/* Trust Bar */}
       <div className="py-8 md:py-12 bg-white border-b border-stone-100">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
@@ -419,7 +413,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* ─── Categories Carousel - Mobile Optimized ─── */}
+      {/* Categories Carousel with Images */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4 md:gap-6">
@@ -467,24 +461,29 @@ const Home = () => {
             >
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-5">
                 {visibleCategories.map((category, index) => {
-                  const IconComponent = getCategoryIcon(category.name);
-                  const colorClass = getCategoryColor(category.name, currentCategoryIndex + index);
+                  const imageUrl = getCategoryImage(category.name);
                   return (
                     <Link 
                       key={category.id} 
                       to={`/shop?category=${category.id}`} 
                       className="group transform transition-all duration-300 hover:-translate-y-2"
                     >
-                      <div className="aspect-square bg-white rounded-xl md:rounded-2xl flex flex-col items-center justify-center p-3 md:p-5 border border-stone-100 shadow-sm group-hover:shadow-xl group-hover:border-transparent transition-all duration-300">
-                        <div className={`w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center mb-2 md:mb-4 transition-all duration-300 ${colorClass}`}>
-                          <IconComponent className="w-5 h-5 md:w-8 md:h-8 transition-transform group-hover:scale-110" />
+                      <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-xl group-hover:border-transparent transition-all duration-300">
+                        <div className="aspect-square overflow-hidden">
+                          <img 
+                            src={imageUrl} 
+                            alt={category.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          />
                         </div>
-                        <h3 className="font-semibold text-slate-800 text-xs md:text-sm text-center group-hover:text-rose-800 transition-colors line-clamp-1">
-                          {category.name}
-                        </h3>
-                        <span className="text-[10px] md:text-xs text-slate-400 mt-0.5 md:mt-1">
-                          {category.productCount || 0} {category.productCount === 1 ? 'item' : 'items'}
-                        </span>
+                        <div className="p-3 md:p-4 text-center">
+                          <h3 className="font-semibold text-slate-800 text-xs md:text-sm group-hover:text-rose-800 transition-colors">
+                            {category.name}
+                          </h3>
+                          <span className="text-[10px] md:text-xs text-slate-400 mt-0.5 md:mt-1">
+                            {category.productCount || 0} {category.productCount === 1 ? 'item' : 'items'}
+                          </span>
+                        </div>
                       </div>
                     </Link>
                   );
@@ -519,7 +518,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Trending Now - Mobile Optimized with Reviews and Sales Count ─── */}
+      {/* Trending Now */}
       <section className="py-16 md:py-24 bg-[#FBFBFA]">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-8 md:mb-16">
@@ -583,7 +582,6 @@ const Home = () => {
                       <span className="font-serif text-rose-900 font-bold text-xs md:text-base">₱{product.price.toLocaleString()}</span>
                     </div>
                     
-                    {/* Rating and Reviews */}
                     <div className="flex items-center gap-1 mb-1 md:mb-2">
                       {renderStars(product.averageRating)}
                       <span className="text-[9px] md:text-xs text-slate-400">
@@ -591,7 +589,6 @@ const Home = () => {
                       </span>
                     </div>
                     
-                    {/* Sales Count */}
                     {product.salesCount > 0 && (
                       <div className="flex items-center gap-1 text-[9px] md:text-xs text-emerald-600 mb-1 md:mb-2">
                         <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
@@ -608,120 +605,6 @@ const Home = () => {
             <Link to="/shop" className="inline-flex items-center gap-2 px-5 md:px-8 py-2.5 md:py-4 border-2 border-rose-200 rounded-full font-bold text-rose-800 text-sm md:text-base hover:bg-rose-50 transition-all hover:border-rose-300">
               Discover All Products <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Customize Product Section - Mobile Optimized ─── */}
-      <section className="py-16 md:py-24 bg-white overflow-hidden">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="text-center mb-8 md:mb-16">
-            <span className="text-rose-800 font-bold tracking-widest text-[10px] md:text-xs uppercase">Bespoke Service</span>
-            <h2 className="text-2xl md:text-5xl font-serif text-slate-900 mt-2 md:mt-3 mb-3 md:mb-4">
-              Want a <span className="italic text-rose-700">Customized</span> Product?
-            </h2>
-            <p className="text-sm md:text-base text-slate-500 max-w-xl mx-auto leading-relaxed px-4">
-              Every home is unique — and so should your furniture. Tell us exactly what you want.
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-5 gap-4 md:gap-6">
-            <div className="lg:col-span-3 relative bg-rose-950 rounded-2xl md:rounded-[2.5rem] overflow-hidden min-h-[400px] md:min-h-[520px] flex flex-col justify-between p-6 md:p-10 group">
-              <div className="absolute inset-0">
-                <img
-                  src="https://images.pexels.com/photos/3932930/pexels-photo-3932930.jpeg?auto=compress&cs=tinysrgb&w=900"
-                  alt="Custom Furniture Workshop"
-                  className="w-full h-full object-cover opacity-30 group-hover:opacity-40 group-hover:scale-105 transition-all duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-rose-950 via-rose-950/80 to-rose-950/30" />
-              </div>
-              <div className="relative z-10">
-                <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 text-rose-200 text-[10px] md:text-xs font-bold tracking-widest uppercase px-3 md:px-4 py-1.5 md:py-2 rounded-full">
-                  <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
-                  Made to Order
-                </span>
-              </div>
-              <div className="relative z-10 space-y-4 md:space-y-6">
-                <div>
-                  <h3 className="text-2xl md:text-4xl lg:text-5xl font-serif text-white leading-tight mb-2 md:mb-3">
-                    Your Vision, <br />
-                    <span className="italic text-rose-200">Our Craft.</span>
-                  </h3>
-                  <p className="text-rose-100/70 text-xs md:text-sm leading-relaxed max-w-sm">
-                    From custom dimensions to bespoke finishes — we bring your dream piece to life.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 md:gap-3">
-                  <Link
-                    to="/contact"
-                    className="inline-flex items-center gap-2 px-4 md:px-7 py-2 md:py-3.5 bg-white text-rose-950 rounded-full font-bold text-xs md:text-sm hover:bg-rose-50 transition-all"
-                  >
-                    Start Your Request <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
-                  </Link>
-                  <Link
-                    to="/shop"
-                    className="inline-flex items-center gap-2 px-4 md:px-7 py-2 md:py-3.5 border border-white/30 text-white rounded-full font-bold text-xs md:text-sm hover:bg-white/10 transition-all"
-                  >
-                    Browse Catalog
-                  </Link>
-                </div>
-                <div className="flex items-center gap-4 md:gap-6 pt-2 md:pt-4 border-t border-white/10">
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl font-bold text-white">500+</div>
-                    <div className="text-rose-300/70 text-[8px] md:text-xs uppercase tracking-widest">Custom Pieces</div>
-                  </div>
-                  <div className="w-px h-6 md:h-8 bg-white/10" />
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl font-bold text-white">4–6 wks</div>
-                    <div className="text-rose-300/70 text-[8px] md:text-xs uppercase tracking-widest">Lead Time</div>
-                  </div>
-                  <div className="w-px h-6 md:h-8 bg-white/10" />
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl font-bold text-white">100%</div>
-                    <div className="text-rose-300/70 text-[8px] md:text-xs uppercase tracking-widest">Satisfaction</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-2 flex flex-col gap-3 md:gap-5">
-              {customSteps.map((step, i) => (
-                <div
-                  key={i}
-                  className="group flex items-start gap-3 md:gap-5 bg-stone-50 hover:bg-rose-950 rounded-xl md:rounded-2xl p-4 md:p-6 border border-stone-100 hover:border-transparent transition-all duration-300 cursor-default"
-                >
-                  <div className="flex-shrink-0 w-8 h-8 md:w-11 md:h-11 rounded-lg md:rounded-xl bg-white group-hover:bg-white/10 border border-stone-200 group-hover:border-white/20 flex items-center justify-center transition-all duration-300">
-                    <step.icon className="w-4 h-4 md:w-5 md:h-5 text-rose-700 group-hover:text-rose-300 transition-colors duration-300" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] md:text-xs font-bold tracking-widest text-stone-400 group-hover:text-rose-400 uppercase mb-0.5 md:mb-1 transition-colors duration-300">
-                      Step {step.step}
-                    </div>
-                    <h4 className="font-bold text-slate-900 group-hover:text-white text-xs md:text-sm mb-0.5 md:mb-1 transition-colors duration-300">
-                      {step.title}
-                    </h4>
-                    <p className="text-[10px] md:text-xs text-slate-500 group-hover:text-rose-100/60 leading-relaxed transition-colors duration-300 line-clamp-2 md:line-clamp-none">
-                      {step.desc}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 md:mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-            {[
-              { label: 'Solid Teak Wood', sub: 'Sustainably sourced', color: 'bg-amber-50 border-amber-100', text: 'text-amber-800', sub_text: 'text-amber-600/70' },
-              { label: 'Premium Fabrics', sub: 'Linen, velvet & more', color: 'bg-rose-50 border-rose-100', text: 'text-rose-800', sub_text: 'text-rose-600/70' },
-              { label: 'Custom Dimensions', sub: 'Any size, any shape', color: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-800', sub_text: 'text-emerald-600/70' },
-              { label: 'Hardware Finishes', sub: 'Brass, matte black & more', color: 'bg-slate-50 border-slate-100', text: 'text-slate-800', sub_text: 'text-slate-500' },
-            ].map((item, i) => (
-              <div key={i} className={`${item.color} border rounded-xl md:rounded-2xl px-3 md:px-6 py-3 md:py-5 flex flex-col gap-0.5 md:gap-1`}>
-                <Maximize2 className={`w-3 h-3 md:w-4 md:h-4 mb-1 md:mb-2 ${item.text}`} />
-                <span className={`font-bold text-[10px] md:text-sm ${item.text} line-clamp-1`}>{item.label}</span>
-                <span className={`text-[8px] md:text-xs ${item.sub_text} line-clamp-1`}>{item.sub}</span>
-              </div>
-            ))}
           </div>
         </div>
       </section>
