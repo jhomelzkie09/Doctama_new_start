@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import orderService from '../../../services/order.service';
 import reviewService from '../../../services/review.service';
+import uploadService from '../../../services/upload.service';
 import {
   Package,
   ChevronLeft,
@@ -31,9 +32,15 @@ import {
   Star,
   Edit,
   Check,
-  X
+  X,
+  Upload,
+  Camera,
+  QrCode
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../../utils/toast';
+import paymaya_logo from '../../../assets/paymaya_logo.png';
+import gcash_logo from '../../../assets/gcash_logo.png';
+import qrCode from '../../../qr/qr_gcash.png';
 
 interface OrderItemDisplay {
   id: number;
@@ -76,9 +83,27 @@ interface RatedProduct {
   reviewId?: number;
 }
 
+// Shop payment details for display
+const SHOP_PAYMENT_DETAILS = {
+  gcash: {
+    name: 'GCash',
+    accountName: 'Doctama Marketing',
+    accountNumber: '09123456789',
+    qrCode: qrCode,
+  },
+  paymaya: {
+    name: 'PayMaya',
+    accountName: 'Doctama Marketing',
+    accountNumber: '09123456789',
+    qrCode: qrCode,
+  }
+};
+
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [order, setOrder] = useState<OrderDisplay | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -92,6 +117,16 @@ const OrderDetail = () => {
   const [submittingRating, setSubmittingRating] = useState(false);
   const [existingReviews, setExistingReviews] = useState<Map<number, any>>(new Map());
   const [loadingReviews, setLoadingReviews] = useState(false);
+
+  // Complete Payment states
+  const [showCompletePaymentModal, setShowCompletePaymentModal] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string>('');
+  const [referenceNumber, setReferenceNumber] = useState('');
+  const [senderName, setSenderName] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -174,7 +209,6 @@ const OrderDetail = () => {
     try {
       for (const item of order.items) {
         const stats = await reviewService.getReviewStats(item.productId);
-        // Check if user has already reviewed this product
         const reviews = await reviewService.getProductReviews(item.productId);
         const userReview = reviews.find(r => r.userName === order.customerName);
         
@@ -196,10 +230,95 @@ const OrderDetail = () => {
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showError('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      showError('Please upload an image file.');
+      return;
+    }
+
+    setReceiptFile(file);
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setReceiptPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeReceipt = () => {
+    setReceiptFile(null);
+    setReceiptPreview('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCompletePayment = async () => {
+    if (!order) return;
+    
+    if (!receiptFile) {
+      showError('Please upload your payment receipt');
+      return;
+    }
+    
+    if (!referenceNumber.trim()) {
+      showError('Please enter the reference number');
+      return;
+    }
+    
+    if (!senderName.trim()) {
+      showError('Please enter the sender name');
+      return;
+    }
+    
+    setSubmittingPayment(true);
+    const loadingToast = showLoading('Submitting payment proof...');
+    
+    try {
+      // Upload receipt image
+      const uploadedUrls = await uploadService.uploadImages([receiptFile]);
+      const receiptImageUrl = uploadedUrls[0];
+      
+      // Update order with payment proof
+      await orderService.updateOrderPayment(order.id, 'pending', {
+        paymentProofImage: receiptImageUrl,
+        paymentProofReference: referenceNumber,
+        paymentProofSender: senderName,
+        paymentProofDate: paymentDate,
+        paymentProofNotes: ''
+      });
+      
+      dismissToast(loadingToast);
+      showSuccess('Payment proof submitted! Your payment is now under review.');
+      
+      setShowCompletePaymentModal(false);
+      setReceiptFile(null);
+      setReceiptPreview('');
+      setReferenceNumber('');
+      setSenderName('');
+      setPaymentDate(new Date().toISOString().split('T')[0]);
+      
+      // Reload order
+      await loadOrder();
+    } catch (error: any) {
+      dismissToast(loadingToast);
+      showError(error.message || 'Failed to submit payment proof');
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
   const handleRateProduct = (product: OrderItemDisplay) => {
     const existing = existingReviews.get(product.productId);
     if (existing) {
-      // Already reviewed, show message
       showError(`You already reviewed ${product.productName}`);
       return;
     }
@@ -239,7 +358,6 @@ const OrderDetail = () => {
       dismissToast(loadingToast);
       showSuccess(`Thank you for reviewing ${selectedProduct.productName}!`);
       
-      // Update local state
       ratedProducts.set(selectedProduct.productId, {
         productId: selectedProduct.productId,
         rating: selectedRating
@@ -252,7 +370,6 @@ const OrderDetail = () => {
       setRatingComment('');
       setRatingTitle('');
       
-      // Refresh to show the review
       checkExistingReviews();
     } catch (error: any) {
       dismissToast(loadingToast);
@@ -321,18 +438,6 @@ const OrderDetail = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch(status) {
-      case 'delivered': return <CheckCircle className="w-6 h-6 text-green-500" />;
-      case 'shipped': return <Truck className="w-6 h-6 text-blue-500" />;
-      case 'processing': return <Clock className="w-6 h-6 text-yellow-500" />;
-      case 'pending': return <Clock className="w-6 h-6 text-gray-500" />;
-      case 'awaiting_payment': return <Clock className="w-6 h-6 text-orange-500" />;
-      case 'cancelled': return <XCircle className="w-6 h-6 text-red-500" />;
-      default: return <Package className="w-6 h-6 text-gray-500" />;
-    }
-  };
-
   const getPaymentStatusDisplay = (paymentStatus: string, rejectedBy?: string) => {
     if (rejectedBy && paymentStatus === 'failed') {
       return { text: 'FAILED', color: 'bg-red-100 text-red-800' };
@@ -391,27 +496,27 @@ const OrderDetail = () => {
   const getNotification = () => {
     if (!order) return null;
     
-      if (order.approvedBy && order.paymentStatus === 'paid') {
-        return {
-          type: 'approved',
-          icon: <ThumbsUp className="w-6 h-6 text-green-600" />,
-          title: 'Payment Approved!',
-          message: `Your payment has been approved. Your order is now being processed.`,
-          color: 'bg-green-50 border-green-200 text-green-800'
-        };
-      }
-      
-      if (order.rejectedBy && order.paymentStatus === 'failed') {
-        return {
-          type: 'rejected',
-          icon: <ThumbsDown className="w-6 h-6 text-red-600" />,
-          title: 'Payment Rejected',
-          message: order.rejectionReason 
-            ? `Reason: ${order.rejectionReason}` 
-            : 'Your payment was rejected due to invalid or insufficient payment proof.',
-          color: 'bg-red-50 border-red-200 text-red-800'
-        };
-      }
+    if (order.approvedBy && order.paymentStatus === 'paid') {
+      return {
+        type: 'approved',
+        icon: <ThumbsUp className="w-6 h-6 text-green-600" />,
+        title: 'Payment Approved!',
+        message: `Your payment has been approved. Your order is now being processed.`,
+        color: 'bg-green-50 border-green-200 text-green-800'
+      };
+    }
+    
+    if (order.rejectedBy && order.paymentStatus === 'failed') {
+      return {
+        type: 'rejected',
+        icon: <ThumbsDown className="w-6 h-6 text-red-600" />,
+        title: 'Payment Rejected',
+        message: order.rejectionReason 
+          ? `Reason: ${order.rejectionReason}` 
+          : 'Your payment was rejected due to invalid or insufficient payment proof.',
+        color: 'bg-red-50 border-red-200 text-red-800'
+      };
+    }
     
     if (order.status === 'cancelled') {
       return {
@@ -423,13 +528,24 @@ const OrderDetail = () => {
       };
     }
     
-    if (order.status === 'awaiting_payment') {
+    if (order.status === 'awaiting_payment' || (order.paymentStatus === 'pending' && !order.paymentProofImage)) {
       return {
-        type: 'pending',
+        type: 'awaiting_payment',
         icon: <Clock className="w-6 h-6 text-orange-600" />,
-        title: 'Awaiting Payment Verification',
+        title: 'Complete Your Payment',
+        message: 'Please complete your payment and upload the receipt to process your order.',
+        color: 'bg-orange-50 border-orange-200 text-orange-800',
+        action: true
+      };
+    }
+    
+    if (order.paymentStatus === 'pending' && order.paymentProofImage) {
+      return {
+        type: 'verifying',
+        icon: <Clock className="w-6 h-6 text-blue-600" />,
+        title: 'Payment Under Review',
         message: 'Your payment proof has been submitted and is awaiting verification. This usually takes 5-10 minutes.',
-        color: 'bg-orange-50 border-orange-200 text-orange-800'
+        color: 'bg-blue-50 border-blue-200 text-blue-800'
       };
     }
     
@@ -472,6 +588,10 @@ const OrderDetail = () => {
   const paymentStatusDisplay = getPaymentStatusDisplay(order?.paymentStatus || '', order?.rejectedBy);
   const displayStatus = getDisplayStatus();
   const displayStatusColor = getDisplayStatusColor();
+  const needsPayment = order && order.paymentMethod !== 'cod' && 
+                       order.paymentStatus === 'pending' && 
+                       !order.paymentProofImage;
+  const paymentDetails = order ? SHOP_PAYMENT_DETAILS[order.paymentMethod as 'gcash' | 'paymaya'] : null;
 
   if (loading) {
     return (
@@ -530,6 +650,15 @@ const OrderDetail = () => {
               <div className="flex-1">
                 <h3 className="font-bold text-lg mb-1">{notification.title}</h3>
                 <p className="text-sm leading-relaxed">{notification.message}</p>
+                {notification.action && needsPayment && (
+                  <button
+                    onClick={() => setShowCompletePaymentModal(true)}
+                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Complete Payment Now
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -626,7 +755,6 @@ const OrderDetail = () => {
                           <span>₱{(item.unitPrice || item.price || 0).toLocaleString()} each</span>
                         </div>
                         
-                        {/* Rating Stars for Delivered Orders */}
                         {isDelivered && (
                           <div className="mt-3">
                             {hasRated ? (
@@ -680,154 +808,171 @@ const OrderDetail = () => {
 
           {/* Right Column - Order Details */}
           <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                  <CreditCard className="w-5 h-5 mr-2 text-red-600" />
-                  Payment Information
-                </h3>
-                
-                {/* Payment Method */}
-                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl mb-3">
-                  {getPaymentMethodIcon(order.paymentMethod)}
+            {/* Complete Payment Card - Show when payment is pending and no proof */}
+            {needsPayment && paymentDetails && (
+              <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-orange-600" />
+                  </div>
                   <div>
-                    <p className="text-sm text-gray-500">Payment Method</p>
-                    <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
+                    <h3 className="font-bold text-gray-900">Complete Your Payment</h3>
+                    <p className="text-xs text-gray-500">Pay via {paymentDetails.name}</p>
                   </div>
                 </div>
-
-                {/* Payment Status Badge */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
-                  <span className="text-sm text-gray-500">Payment Status</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${paymentStatusDisplay.color}`}>
-                    {paymentStatusDisplay.text}
-                  </span>
-                </div>
-
-                {/* Show rejection reason directly under payment status for failed payments */}
-                {order.paymentStatus === 'failed' && order.rejectionReason && (
-                  <div className="mb-3 p-3 bg-red-50 rounded-lg border border-red-100">
-                    <p className="text-sm text-red-700">
-                      <span className="font-semibold">Reason:</span> {order.rejectionReason}
-                    </p>
-                  </div>
-                )}
                 
-                {/* Approval Information */}
-                {order.approvedBy && order.paymentStatus === 'paid' && (
-                  <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-200">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-green-800">Payment Approved</p>
-                        <p className="text-xs text-green-700 mt-1">
-                          Approved by: <span className="font-medium">{order.approvedBy}</span>
+                <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Amount to Pay:</span>
+                    <span className="text-xl font-bold text-gray-900">{formatCurrency(order.totalAmount)}</span>
+                  </div>
+                  <button
+                    onClick={() => setShowPaymentDetails(!showPaymentDetails)}
+                    className="w-full flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    {showPaymentDetails ? 'Hide' : 'View'} Payment Details
+                    <ChevronRight className={`w-4 h-4 transition ${showPaymentDetails ? 'rotate-90' : ''}`} />
+                  </button>
+                  
+                  {showPaymentDetails && (
+                    <div className="mt-4 space-y-3">
+                      <div className="text-center">
+                        <img src={paymentDetails.qrCode} alt="QR Code" className="w-40 h-40 mx-auto rounded-xl" />
+                      </div>
+                      <div className="bg-white rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Account Name</p>
+                        <p className="font-medium">{paymentDetails.accountName}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Account Number</p>
+                        <p className="font-mono font-medium">{paymentDetails.accountNumber}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setShowCompletePaymentModal(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload Payment Receipt
+                </button>
+              </div>
+            )}
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                <CreditCard className="w-5 h-5 mr-2 text-red-600" />
+                Payment Information
+              </h3>
+              
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl mb-3">
+                {getPaymentMethodIcon(order.paymentMethod)}
+                <div>
+                  <p className="text-sm text-gray-500">Payment Method</p>
+                  <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
+                <span className="text-sm text-gray-500">Payment Status</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${paymentStatusDisplay.color}`}>
+                  {paymentStatusDisplay.text}
+                </span>
+              </div>
+
+              {order.paymentStatus === 'failed' && order.rejectionReason && (
+                <div className="mb-3 p-3 bg-red-50 rounded-lg border border-red-100">
+                  <p className="text-sm text-red-700">
+                    <span className="font-semibold">Reason:</span> {order.rejectionReason}
+                  </p>
+                </div>
+              )}
+              
+              {order.approvedBy && order.paymentStatus === 'paid' && (
+                <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-800">Payment Approved</p>
+                      <p className="text-xs text-green-700 mt-1">
+                        Approved by: <span className="font-medium">{order.approvedBy}</span>
+                      </p>
+                      {order.approvedAt && (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          Date: {new Date(order.approvedAt).toLocaleString()}
                         </p>
-                        {order.approvedAt && (
-                          <p className="text-xs text-green-600 mt-0.5">
-                            Date: {new Date(order.approvedAt).toLocaleString()}
-                          </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {order.rejectedBy && order.paymentStatus === 'failed' && (
+                <div className="mt-3 p-4 bg-red-50 rounded-xl border border-red-200">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <XCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-base font-bold text-red-800 mb-2">Payment Rejected</p>
+                      
+                      <div className="space-y-2 text-sm">
+                        {order.rejectionReason && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-red-600 font-medium min-w-[80px]">Reason:</span>
+                            <span className="text-gray-800 bg-white px-3 py-2 rounded-lg border border-red-100 flex-1">
+                              {order.rejectionReason}
+                            </span>
+                          </div>
                         )}
                       </div>
+                      
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <button
+                          onClick={() => setShowCompletePaymentModal(true)}
+                          className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Resubmit Payment Proof
+                        </button>
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Rejection Information - SINGLE BLOCK (removed duplicate) */}
-                {order.rejectedBy && order.paymentStatus === 'failed' && (
-                  <div className="mt-3 p-4 bg-red-50 rounded-xl border border-red-200">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <XCircle className="w-6 h-6 text-red-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-base font-bold text-red-800 mb-2">Payment Rejected</p>
-                        
-                        <div className="space-y-2 text-sm">
-                          {order.rejectionReason && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-red-600 font-medium min-w-[80px]">Reason:</span>
-                              <span className="text-gray-800 bg-white px-3 py-2 rounded-lg border border-red-100 flex-1">
-                                {order.rejectionReason}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="mt-3 pt-3 border-t border-red-200">
-                          <p className="text-xs text-red-600">
-                            Please contact support or resubmit your payment with valid proof.
-                          </p>
-                        </div>
-                      </div>
+              {order.paymentProofImage && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-sm text-gray-500 mb-2">Payment Proof</p>
+                  <div 
+                    className="relative group cursor-pointer overflow-hidden rounded-xl"
+                    onClick={() => setShowReceiptModal(true)}
+                  >
+                    <img
+                      src={order.paymentProofImage}
+                      alt="Payment receipt"
+                      className="w-full h-32 object-cover rounded-xl border border-gray-200 group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                      <Receipt className="w-8 h-8 text-white" />
                     </div>
                   </div>
-                )}
-
-                {/* Pending Payment Message for non-COD */}
-                {order.paymentStatus === 'pending' && order.paymentMethod !== 'cod' && !order.paymentProofImage && (
-                  <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
-                    <div className="flex items-start gap-2">
-                      <Clock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-yellow-800">Awaiting Payment Proof</p>
-                        <p className="text-xs text-yellow-700 mt-1">
-                          Please upload your payment proof to complete the transaction.
-                        </p>
-                      </div>
+                  {order.paymentProofReference && (
+                    <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+                      <span className="font-medium">Reference:</span> {order.paymentProofReference}
                     </div>
-                  </div>
-                )}
-
-                {/* Payment Proof Image */}
-                {order.paymentProofImage && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-sm text-gray-500 mb-2">Payment Proof</p>
-                    <div 
-                      className="relative group cursor-pointer overflow-hidden rounded-xl"
-                      onClick={() => setShowReceiptModal(true)}
-                    >
-                      <img
-                        src={order.paymentProofImage}
-                        alt="Payment receipt"
-                        className="w-full h-32 object-cover rounded-xl border border-gray-200 group-hover:scale-105 transition duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                        <Receipt className="w-8 h-8 text-white" />
-                      </div>
+                  )}
+                  {order.paymentProofSender && (
+                    <div className="mt-1 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+                      <span className="font-medium">Sender:</span> {order.paymentProofSender}
                     </div>
-                    {order.paymentProofReference && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-                        <span className="font-medium">Reference:</span> {order.paymentProofReference}
-                      </div>
-                    )}
-                    {order.paymentProofSender && (
-                      <div className="mt-1 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-                        <span className="font-medium">Sender:</span> {order.paymentProofSender}
-                      </div>
-                    )}
-                    {order.paymentProofDate && (
-                      <div className="mt-1 p-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-                        <span className="font-medium">Payment Date:</span> {order.paymentProofDate}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Payment Under Review */}
-                {order.paymentStatus === 'pending' && order.paymentProofImage && (
-                  <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                    <div className="flex items-start gap-2">
-                      <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-blue-800">Payment Under Review</p>
-                        <p className="text-xs text-blue-700 mt-1">
-                          Your payment proof has been submitted and is awaiting admin verification.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
@@ -875,21 +1020,6 @@ const OrderDetail = () => {
                     Download Invoice
                   </button>
                 )}
-                {order.paymentStatus === 'pending' && order.paymentMethod !== 'cod' && (
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-yellow-600 text-white rounded-xl hover:bg-yellow-700 transition">
-                    <Clock className="w-4 h-4" />
-                    Payment Pending
-                  </button>
-                )}
-                {order.paymentStatus === 'failed' && (
-                  <Link
-                    to="/contact"
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Resubmit Payment
-                  </Link>
-                )}
                 <Link
                   to="/contact"
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition"
@@ -902,6 +1032,138 @@ const OrderDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Complete Payment Modal */}
+      {showCompletePaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-900">Complete Payment</h3>
+              <button
+                onClick={() => setShowCompletePaymentModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                <p className="text-sm text-orange-800">
+                  <span className="font-bold">Amount to Pay:</span> {formatCurrency(order.totalAmount)}
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  Please send the exact amount and upload your receipt below.
+                </p>
+              </div>
+              
+              {/* Receipt Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Receipt <span className="text-red-600">*</span>
+                </label>
+                {!receiptPreview ? (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition"
+                  >
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Camera className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-600">Click to upload receipt</p>
+                    <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img 
+                      src={receiptPreview} 
+                      alt="Receipt preview" 
+                      className="w-full max-h-48 object-contain bg-gray-50 rounded-xl border-2 border-green-500 p-2"
+                    />
+                    <button
+                      onClick={removeReceipt}
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reference Number <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                  placeholder="e.g., 1234 5678 9012"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sender Name <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={senderName}
+                  onChange={(e) => setSenderName(e.target.value)}
+                  placeholder="Name on the transaction"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Date <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                />
+              </div>
+              
+              <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                <p className="text-xs text-blue-700">
+                  Your payment will be reviewed by our team. This usually takes 5-10 minutes.
+                </p>
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleCompletePayment}
+                  disabled={submittingPayment}
+                  className="flex-1 bg-orange-600 text-white py-2.5 rounded-xl font-medium hover:bg-orange-700 transition disabled:opacity-50"
+                >
+                  {submittingPayment ? (
+                    <Loader className="w-5 h-5 animate-spin mx-auto" />
+                  ) : (
+                    'Submit Payment Proof'
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowCompletePaymentModal(false)}
+                  className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rating Modal */}
       {showRatingModal && selectedProduct && (
