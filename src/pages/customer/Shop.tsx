@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams, useOutletContext } from 'react-router-dom';
 import { 
   Search, Grid, List, Package, SlidersHorizontal, X, 
-  Star, Heart, ShoppingBag, ChevronLeft, ChevronRight, 
+  Star, ShoppingBag, ChevronLeft, ChevronRight, 
   Truck, Shield, Clock, Check, Minus, Plus, TrendingUp,
-  Sparkles, ArrowRight, Filter
+  Sparkles, Filter, Palette
 } from 'lucide-react';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
@@ -17,6 +17,29 @@ import { Product, Category } from '../../types';
 interface OutletContextType {
   onAuthRequired?: (mode: 'login' | 'register') => void;
 }
+
+// Helper to get color display info
+const getColorInfo = (color: string): { name: string; cssColor: string; isLight: boolean } => {
+  const colorMap: Record<string, string> = {
+    'white': '#FFFFFF', 'natural': '#DEB887', 'natural wood': '#DEB887',
+    'walnut': '#5C4033', 'dark walnut': '#3E2723', 'oak': '#D2B48C',
+    'mahogany': '#4A0404', 'black': '#1A1A1A', 'espresso': '#2C1A14',
+    'cherry': '#8B0000', 'maple': '#F5DEB3', 'gray': '#808080',
+    'grey': '#808080', 'beige': '#F5F5DC', 'cream': '#FFFDD0',
+    'brown': '#8B4513', 'light brown': '#A0522D', 'dark brown': '#3E2723',
+    'teak': '#8B6914', 'acacia': '#D2A679', 'wenge': '#3A2A1A',
+    'ash': '#C4BAA2', 'beech': '#D4B895', 'pine': '#E8C07A',
+    'rosewood': '#65000B', 'ebony': '#2C2C2C', 'red': '#DC2626',
+    'blue': '#2563EB', 'green': '#16A34A', 'yellow': '#CA8A04',
+    'orange': '#EA580C', 'purple': '#9333EA', 'pink': '#EC4899',
+    'navy': '#1E3A5F', 'silver': '#C0C0C0', 'gold': '#D4AF37', 'ivory': '#FFFFF0',
+  };
+  const lowerColor = color.toLowerCase().trim();
+  const cssColor = colorMap[lowerColor] || '#CCCCCC';
+  const lightColors = ['white', 'natural', 'natural wood', 'maple', 'beige', 'cream', 'ash', 'beech', 'pine', 'ivory', 'silver', 'yellow', 'gold'];
+  const isLight = lightColors.includes(lowerColor);
+  return { name: color, cssColor, isLight };
+};
 
 // ─── Quick View Modal ──────────────────────────────────────────────────────────
 const ProductQuickViewModal = ({ 
@@ -52,7 +75,7 @@ const ProductQuickViewModal = ({
   const renderStars = (rating: number = 4) => (
     <div className="flex gap-0.5">
       {[...Array(5)].map((_, i) => (
-        <Star key={i} className={`w-4 h-4 ${i < rating ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
+        <Star key={i} className={`w-4 h-4 ${i < Math.floor(rating) ? 'text-amber-500 fill-amber-500' : 'text-gray-200'}`} />
       ))}
     </div>
   );
@@ -103,7 +126,7 @@ const ProductQuickViewModal = ({
             <div className="md:w-1/2 space-y-5">
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  {renderStars(product.rating || 4)}
+                  {renderStars(product.rating || 0)}
                   <span className="text-xs text-slate-400">({product.reviewCount || 0} reviews)</span>
                 </div>
                 <div className="flex items-baseline gap-3">
@@ -122,12 +145,18 @@ const ProductQuickViewModal = ({
                     Color — <span className="text-rose-700">{selectedColor}</span>
                   </label>
                   <div className="flex gap-2 flex-wrap">
-                    {product.colorsVariant.map((color: string) => (
-                      <button key={color} onClick={() => setSelectedColor(color)}
-                        className={`w-9 h-9 rounded-full border-2 transition-all ${selectedColor === color ? 'border-rose-500 ring-2 ring-rose-100 scale-110' : 'border-stone-200 hover:border-stone-300'}`}
-                        style={{ backgroundColor: color.toLowerCase() }} title={color}
-                      />
-                    ))}
+                    {product.colorsVariant.map((color: string) => {
+                      const { cssColor, isLight } = getColorInfo(color);
+                      return (
+                        <button 
+                          key={color} 
+                          onClick={() => setSelectedColor(color)}
+                          className={`w-9 h-9 rounded-full border-2 transition-all ${selectedColor === color ? 'border-rose-500 ring-2 ring-rose-100 scale-110' : 'border-stone-200 hover:border-stone-300'}`}
+                          style={{ backgroundColor: cssColor, borderColor: isLight ? '#CBD5E1' : undefined }}
+                          title={color} 
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -189,12 +218,11 @@ const Shop: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [wishlist, setWishlist] = useState<number[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
   
-  // Price range using min and max
+  // Price range
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(150000);
   
@@ -207,14 +235,17 @@ const Shop: React.FC = () => {
 
   const itemsPerPage = 12;
 
-  // Add this after your state declarations:
   const highestPrice = useMemo(() => {
     if (products.length === 0) return 150000;
     return Math.max(...products.map(p => p.price), 150000);
   }, [products]);
 
-  // Track if price filter has been manually changed
   const [priceFilterChanged, setPriceFilterChanged] = useState(false);
+
+  // Paginated fetch for products
+  const [productPage, setProductPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   // Function to calculate sales count for a product
   const calculateProductSales = async (productId: number): Promise<number> => {
@@ -222,10 +253,10 @@ const Shop: React.FC = () => {
       const allOrders = await orderService.getAllOrders();
       let totalSold = 0;
       
-      const deliveredOrders = allOrders.filter(order => order.status === 'delivered');
+      const deliveredOrders = allOrders.filter((order: any) => order.status === 'delivered');
       
-      deliveredOrders.forEach(order => {
-        order.items?.forEach(item => {
+      deliveredOrders.forEach((order: any) => {
+        order.items?.forEach((item: any) => {
           const itemProductId = typeof item.productId === 'string' ? parseInt(item.productId) : item.productId;
           if (itemProductId === productId) {
             totalSold += item.quantity;
@@ -255,25 +286,13 @@ const Shop: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (selectedCategory) params.set('category', selectedCategory.toString());
-    if (searchQuery) params.set('q', searchQuery);
-    setSearchParams(params);
-    setCurrentPage(1);
-  }, [selectedCategory, searchQuery, setSearchParams]);
-
-  const loadData = async () => {
+  // ✅ NEW: Fetch products with pagination (same as admin)
+  const fetchProductsPaginated = async (page: number) => {
     try {
-      const [productsData, categoriesData] = await Promise.all([
-        productService.getProducts(),
-        categoryService.getCategories()
-      ]);
+      const productsData = await productService.getProductsPaginated(page, itemsPerPage);
       
       // Calculate sales counts and reviews for each product
-      const productsWithDetails = await Promise.all(productsData.map(async (product) => {
+      const productsWithDetails = await Promise.all(productsData.map(async (product: Product) => {
         const salesCount = await calculateProductSales(product.id);
         const { averageRating, reviewCount } = await fetchProductReviews(product.id);
         return { 
@@ -284,12 +303,33 @@ const Shop: React.FC = () => {
         };
       }));
       
-      setProducts(productsWithDetails);
+      return productsWithDetails;
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    try {
+      const categoriesData = await categoryService.getCategories();
       setCategories(categoriesData);
       
-      // Set max price based on actual products
-      if (productsData.length > 0) {
-        const maxProdPrice = Math.max(...productsData.map(p => p.price));
+      // Load first page of products
+      const firstPageProducts = await fetchProductsPaginated(1);
+      setProducts(firstPageProducts);
+      setAllProducts(firstPageProducts);
+      setHasMore(firstPageProducts.length === itemsPerPage);
+      setProductPage(1);
+      
+      // Set max price
+      if (firstPageProducts.length > 0) {
+        const maxProdPrice = Math.max(...firstPageProducts.map((p: { price: any; }) => p.price));
         setMaxPrice(maxProdPrice);
       }
     } catch (error) {
@@ -298,6 +338,43 @@ const Shop: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const loadMoreProducts = async () => {
+    if (!hasMore || loading) return;
+    
+    setLoading(true);
+    try {
+      const nextPage = productPage + 1;
+      const newProducts = await fetchProductsPaginated(nextPage);
+      
+      if (newProducts.length > 0) {
+        setProducts(prev => [...prev, ...newProducts]);
+        setAllProducts(prev => [...prev, ...newProducts]);
+        setProductPage(nextPage);
+        setHasMore(newProducts.length === itemsPerPage);
+        
+        // Update max price if needed
+        const newMaxPrice = Math.max(...newProducts.map((p: { price: any; }) => p.price));
+        if (newMaxPrice > maxPrice) {
+          setMaxPrice(newMaxPrice);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Failed to load more products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (selectedCategory) params.set('category', selectedCategory.toString());
+    if (searchQuery) params.set('q', searchQuery);
+    setSearchParams(params);
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery, setSearchParams]);
 
   const handleAddToCartWithOptions = (product: Product, quantity: number, color: string) => {
     for (let i = 0; i < quantity; i++) addItem(product, color);
@@ -311,16 +388,9 @@ const Shop: React.FC = () => {
     setShowModal(true);
   };
 
-  const toggleWishlist = (e: React.MouseEvent, productId: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) { if (onAuthRequired) onAuthRequired('login'); return; }
-    setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
-  };
-
-  // Filter logic with min and max price - includes filter for inactive products
+  // Filter logic - only active products
   const filteredProducts = useMemo(() => {
-    return products
+    return allProducts
       .filter(p => {
         // Filter out inactive/deactivated products
         if (!p.isActive) return false;
@@ -353,7 +423,7 @@ const Shop: React.FC = () => {
           default: return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
         }
       });
-  }, [products, selectedCategory, searchQuery, minPrice, maxPrice, selectedRating, inStockOnly, sortBy]);
+  }, [allProducts, selectedCategory, searchQuery, minPrice, maxPrice, selectedRating, inStockOnly, sortBy]);
 
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -366,7 +436,6 @@ const Shop: React.FC = () => {
     </div>
   );
 
-  // Fix: Only count price filter as active if it has been changed by the user
   const activeFilterCount = [
     selectedCategory !== null,
     priceFilterChanged && (minPrice > 0 || maxPrice < highestPrice),
@@ -389,7 +458,7 @@ const Shop: React.FC = () => {
           >
             All Products
             <span className={`ml-2 text-xs ${!selectedCategory ? 'text-rose-200' : 'text-slate-400'}`}>
-              ({products.filter(p => p.isActive).length})
+              ({allProducts.filter(p => p.isActive).length})
             </span>
           </button>
           {categories.map(cat => (
@@ -402,18 +471,17 @@ const Shop: React.FC = () => {
             >
               {cat.name}
               <span className={`ml-2 text-xs ${selectedCategory === cat.id ? 'text-rose-200' : 'text-slate-400'}`}>
-                ({products.filter(p => p.categoryId === cat.id && p.isActive).length})
+                ({allProducts.filter(p => p.categoryId === cat.id && p.isActive).length})
               </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Price Range - Dual Range Slider */}
+      {/* Price Range */}
       <div>
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Price Range</h3>
         
-        {/* Min/Max Inputs */}
         <div className="flex gap-3 mb-4">
           <div className="flex-1">
             <label className="text-xs text-slate-400 block mb-1">Min (₱)</label>
@@ -447,7 +515,6 @@ const Shop: React.FC = () => {
           </div>
         </div>
 
-        {/* Range Slider */}
         <div className="relative pt-2">
           <input
             type="range"
@@ -504,15 +571,6 @@ const Shop: React.FC = () => {
         <span className="text-sm font-medium text-slate-700">In Stock Only</span>
       </label>
 
-      {/* Price Range Display */}
-      {(minPrice > 0 || maxPrice < highestPrice) && (
-        <div className="bg-rose-50 rounded-xl p-3">
-          <p className="text-xs text-rose-800 font-medium">
-            Price: ₱{minPrice.toLocaleString()} - ₱{maxPrice.toLocaleString()}
-          </p>
-        </div>
-      )}
-
       {/* Trust Signals */}
       <div className="pt-6 border-t border-stone-100 space-y-3">
         {[
@@ -548,7 +606,7 @@ const Shop: React.FC = () => {
     </div>
   );
 
-  if (loading) return (
+  if (loading && products.length === 0) return (
     <div className="flex items-center justify-center min-h-screen bg-[#F9F8F6]">
       <div className="text-center">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-rose-900 mx-auto mb-4" />
@@ -586,7 +644,6 @@ const Shop: React.FC = () => {
                 </p>
               </div>
 
-              {/* Search bar in hero - Updated */}
               <div className="md:w-80">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60 w-4 h-4" />
@@ -617,9 +674,6 @@ const Shop: React.FC = () => {
             <p className="text-xs text-slate-400 font-medium">
               Showing <span className="text-slate-800 font-bold">{filteredProducts.length}</span> products
               {searchQuery && <> for "<span className="text-rose-700">{searchQuery}</span>"</>}
-              {(minPrice > 0 || maxPrice < highestPrice) && (
-                <> in <span className="text-rose-700">₱{minPrice.toLocaleString()} - ₱{maxPrice.toLocaleString()}</span></>
-              )}
             </p>
 
             <div className="flex items-center gap-3">
@@ -719,13 +773,34 @@ const Shop: React.FC = () => {
                         key={product.id}
                         product={product}
                         viewMode={viewMode}
-                        isWishlisted={wishlist.includes(product.id)}
-                        onToggleWishlist={toggleWishlist}
                         onOpenModal={handleOpenModal}
                         renderStars={renderStars}
                       />
                     ))}
                   </div>
+
+                  {/* Load More Button */}
+                  {hasMore && filteredProducts.length === allProducts.length && (
+                    <div className="flex justify-center mt-8">
+                      <button
+                        onClick={loadMoreProducts}
+                        disabled={loading}
+                        className="px-8 py-3 bg-white border border-stone-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-stone-50 transition flex items-center gap-2"
+                      >
+                        {loading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            Load More Products
+                            <ChevronRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Pagination */}
                   {totalPages > 1 && (
@@ -821,7 +896,7 @@ const Shop: React.FC = () => {
 };
 
 // ─── Product Card ──────────────────────────────────────────────────────────────
-const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpenModal, renderStars }: any) => {
+const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
   const isGrid = viewMode === 'grid';
 
   const reviewCount = product.reviewCount || 0;
@@ -830,12 +905,11 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
   const isBestSeller = salesCount > 100;
   const isTopRated = averageRating >= 4.5 && reviewCount > 10 && !isBestSeller;
 
-  // For list view, make it more compact on mobile
+  // List view
   if (!isGrid) {
     return (
       <div className="group bg-white rounded-xl border border-stone-100 overflow-hidden hover:shadow-md transition-all duration-300">
         <div className="flex flex-row gap-3 p-3">
-          {/* Image - Smaller on mobile */}
           <Link to={`/products/${product.id}`} className="block w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
             <img
               src={product.imageUrl || 'https://via.placeholder.com/400'}
@@ -844,7 +918,6 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
             />
           </Link>
 
-          {/* Info - Compact layout */}
           <div className="flex-1 flex flex-col">
             <Link to={`/products/${product.id}`}>
               <h3 className="font-bold text-slate-900 text-sm line-clamp-2 hover:text-rose-800 transition-colors">
@@ -852,7 +925,6 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
               </h3>
             </Link>
 
-            {/* Rating and sales row */}
             <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
               <div className="flex items-center gap-0.5">
                 {renderStars(averageRating)}
@@ -868,13 +940,32 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
               )}
             </div>
 
-            {/* Price */}
-            <div className="flex items-center justify-between mt-2">
-              <div>
-                <span className="text-sm font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
+            {/* Color variations */}
+            {product.colorsVariant?.length > 0 && (
+              <div className="flex items-center gap-1 mt-1">
+                <Palette className="w-3 h-3 text-slate-400" />
+                <div className="flex gap-0.5">
+                  {product.colorsVariant.slice(0, 4).map((color: string) => {
+                    const { cssColor, isLight } = getColorInfo(color);
+                    return (
+                      <span
+                        key={color}
+                        className="w-3.5 h-3.5 rounded-full border border-stone-200"
+                        style={{ backgroundColor: cssColor }}
+                        title={color}
+                      />
+                    );
+                  })}
+                  {product.colorsVariant.length > 4 && (
+                    <span className="text-[9px] text-slate-400 ml-0.5">+{product.colorsVariant.length - 4}</span>
+                  )}
+                </div>
               </div>
+            )}
+
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-sm font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
               
-              {/* Add to cart button - Always visible in list view */}
               <button
                 disabled={product.stockQuantity === 0}
                 onClick={(e) => onOpenModal(e, product)}
@@ -890,9 +981,9 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
     );
   }
 
-  // Grid view remains the same
+  // Grid view
   return (
-    <div className={`group bg-white rounded-xl md:rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300`}>
+    <div className="group bg-white rounded-xl md:rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300">
       
       {/* Image */}
       <div className="relative overflow-hidden bg-stone-50 aspect-square">
@@ -906,33 +997,25 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
 
         {/* Badges */}
         {isBestSeller && (
-          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-amber-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Best Seller
           </div>
         )}
         {isTopRated && (
-          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-emerald-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Top Rated
           </div>
         )}
         {product.stockQuantity === 0 && (
-          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-slate-800 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-slate-800 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Sold Out
           </div>
         )}
         {product.stockQuantity > 0 && product.stockQuantity < 5 && (
-          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-orange-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-orange-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
             Only {product.stockQuantity} left
           </div>
         )}
-
-        {/* Wishlist button */}
-        <button
-          onClick={(e) => onToggleWishlist(e, product.id)}
-          className="absolute top-2 right-2 md:top-3 md:right-3 p-1.5 md:p-2 bg-white/90 backdrop-blur rounded-full shadow-sm hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
-        >
-          <Heart className={`w-3 h-3 md:w-4 md:h-4 ${isWishlisted ? 'fill-rose-600 text-rose-600' : 'text-slate-400'}`} />
-        </button>
 
         {/* Add to cart overlay on hover */}
         <div className="absolute bottom-0 inset-x-0 p-2 md:p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
@@ -955,7 +1038,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </h3>
         </Link>
 
-        {/* Rating Row - Always visible */}
+        {/* Rating Row */}
         <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
           {renderStars(averageRating)}
           <span className="text-[10px] md:text-xs text-slate-400">
@@ -963,7 +1046,7 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </span>
         </div>
 
-        {/* Sales Count - Below reviews */}
+        {/* Sales Count */}
         {salesCount > 0 && (
           <div className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs text-emerald-600 mb-2">
             <TrendingUp className="w-2.5 h-2.5 md:w-3 md:h-3" />
@@ -971,20 +1054,39 @@ const ProductCard = ({ product, viewMode, isWishlisted, onToggleWishlist, onOpen
           </div>
         )}
 
+        {/* Color variations - ✅ NEW */}
+        {product.colorsVariant?.length > 0 && (
+          <div className="flex items-center gap-1 mb-2">
+            <Palette className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <div className="flex gap-1 flex-wrap">
+              {product.colorsVariant.slice(0, 5).map((color: string) => {
+                const { cssColor, isLight } = getColorInfo(color);
+                return (
+                  <span
+                    key={color}
+                    className="w-4 h-4 rounded-full border shadow-sm"
+                    style={{ backgroundColor: cssColor, borderColor: isLight ? '#CBD5E1' : 'transparent' }}
+                    title={color}
+                  />
+                );
+              })}
+              {product.colorsVariant.length > 5 && (
+                <span className="text-[9px] text-slate-400 ml-0.5">+{product.colorsVariant.length - 5}</span>
+              )}
+            </div>
+          </div>
+        )}
+
         <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
 
         <div className="flex items-center justify-between mt-auto pt-2 md:pt-4 border-t border-stone-50">
-          <div>
-            <div className="flex items-baseline gap-1 md:gap-2">
-              <span className="text-sm md:text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
-            </div>
-          </div>
+          <span className="text-sm md:text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
 
-          {/* Mobile-visible cart button */}
+          {/* Mobile-visible cart button - ✅ MOVED BESIDE PRICE */}
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
-            className={`p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 lg:hidden`}
+            className="p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 lg:hidden"
           >
             <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
           </button>

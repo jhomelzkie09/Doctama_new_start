@@ -23,6 +23,30 @@ class ProductService {
     }
   }
 
+  // ✅ NEW: Get products with pagination
+  async getProductsPaginated(page: number = 1, pageSize: number = 12): Promise<Product[]> {
+    try {
+      const response = await api.get('/products/simple', {
+        params: { page, pageSize }
+      });
+      
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      } else if (response.data.products && Array.isArray(response.data.products)) {
+        return response.data.products;
+      } else if (response.data.items && Array.isArray(response.data.items)) {
+        return response.data.items;
+      }
+      
+      return [];
+    } catch (error: any) {
+      console.error('❌ Error fetching paginated products:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
   // Get single product
   async getProductById(id: number): Promise<Product | null> {
     try {
