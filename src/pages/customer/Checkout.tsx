@@ -39,7 +39,8 @@ import {
   CheckCheck,
   Sparkles,
   Home,
-  History
+  History,
+  Clock as ClockIcon
 } from 'lucide-react';
 import orderService from '../../services/order.service';
 import uploadService from '../../services/upload.service';
@@ -254,7 +255,7 @@ const PaymentDetailsModal = ({
               <div>
                 <p className="text-sm font-medium text-amber-800">Important</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  Please upload a clear screenshot of your payment confirmation. Orders without valid proof will be cancelled within 24 hours.
+                  You can complete the payment and upload the receipt later from your account. Orders without payment verification will remain pending.
                 </p>
               </div>
             </div>
@@ -264,7 +265,7 @@ const PaymentDetailsModal = ({
             onClick={onClose}
             className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition shadow-lg shadow-blue-200"
           >
-            I Understand, Proceed
+            I Understand, Continue
           </button>
         </div>
       </div>
@@ -280,8 +281,6 @@ const Checkout = () => {
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -306,9 +305,9 @@ const Checkout = () => {
   // Payment Method
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [agreedToPay, setAgreedToPay] = useState(false);
+  const [agreedToInstructions, setAgreedToInstructions] = useState(false);
   
-  // Receipt Upload
+  // Receipt Upload - NOW OPTIONAL for digital payments
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
   const [referenceNumber, setReferenceNumber] = useState('');
@@ -494,21 +493,12 @@ const Checkout = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validatePaymentDetails = (): boolean => {
+  const validatePaymentStep = (): boolean => {
     if (paymentMethod === 'cod') {
       return true;
     }
-
-    const newErrors: Record<string, string> = {};
-    
-    if (!receiptFile) newErrors.receipt = 'Please upload your payment receipt';
-    if (!referenceNumber.trim()) newErrors.reference = 'Reference number is required';
-    if (!senderName.trim()) newErrors.sender = 'Sender name is required';
-    if (!paymentDate) newErrors.paymentDate = 'Payment date is required';
-    if (!agreedToPay) newErrors.agreement = 'Please confirm that you understand the payment instructions';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // For digital payments, only require agreement to instructions
+    return agreedToInstructions;
   };
 
   const isShippingValid = (): boolean => {
@@ -528,13 +518,8 @@ const Checkout = () => {
     if (paymentMethod === 'cod') {
       return true;
     }
-    return !!(
-      receiptFile &&
-      referenceNumber.trim() &&
-      senderName.trim() &&
-      paymentDate &&
-      agreedToPay
-    );
+    // Digital payments are valid if user agreed to instructions
+    return agreedToInstructions;
   };
 
   const handleUseSavedAddress = (address: SavedAddress) => {
@@ -594,48 +579,27 @@ const Checkout = () => {
       return;
     }
 
-    setUploadStatus('uploading');
     setReceiptFile(file);
     
     const reader = new FileReader();
     reader.onloadend = () => {
       setReceiptPreview(reader.result as string);
-      setUploadStatus('success');
       if (errors.receipt) {
         setErrors({ ...errors, receipt: '' });
       }
     };
     reader.readAsDataURL(file);
-    
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-      }
-    }, 200);
   };
 
   const removeReceipt = () => {
     setReceiptFile(null);
     setReceiptPreview('');
-    setUploadProgress(0);
-    setUploadStatus('idle');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const handlePlaceOrder = async () => {
-    if (!validatePaymentDetails()) {
-      const paymentSection = document.querySelector('.border-t.border-gray-200');
-      if (paymentSection) {
-        paymentSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return;
-    }
-
     console.log('=== CHECKOUT: Placing order ===');
     console.log('Cart items:', state.items.map(item => ({
       name: item.name,
@@ -644,25 +608,22 @@ const Checkout = () => {
     })));
     
     setLoading(true);
-    setUploadProgress(0);
-    setUploadStatus('uploading');
 
     const loadingToast = showLoading('Placing your order...');
 
     try {
       let receiptImageUrl = '';
+      // Upload receipt if provided (optional)
       if (receiptFile && paymentMethod !== 'cod') {
         const uploadedUrls = await uploadService.uploadImages([receiptFile]);
         receiptImageUrl = uploadedUrls[0];
-        setUploadProgress(100);
-        setUploadStatus('success');
       }
 
       const orderData: any = {
         totalAmount: getTotalWithShipping(),
         shippingAddress: `${shippingInfo.address}, ${shippingInfo.barangay}, ${shippingInfo.city}, ${shippingInfo.province} ${shippingInfo.zipCode}`,
         paymentMethod: paymentMethod,
-        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
+        paymentStatus: 'pending', // All digital payments start as pending
         customerName: shippingInfo.fullName,
         customerEmail: shippingInfo.email,
         customerPhone: shippingInfo.phone,
@@ -688,6 +649,7 @@ const Checkout = () => {
         orderData.notes = shippingInfo.deliveryInstructions;
       }
 
+      // Include payment proof if provided
       if (paymentMethod !== 'cod' && receiptImageUrl) {
         orderData.paymentProofImage = receiptImageUrl;
         orderData.paymentProofReference = referenceNumber;
@@ -698,14 +660,19 @@ const Checkout = () => {
       
       const order = await orderService.createOrder(orderData);
       
-      // ✅ Clear backend cart after successful order
+      // Clear backend cart after successful order
       await cartService.clearCart().catch(err => console.error('Failed to clear backend cart:', err));
       
       // Save address for future use
       saveAddressToStorage();
       
       dismissToast(loadingToast);
-      showSuccess('Order placed successfully!');
+      
+      if (paymentMethod !== 'cod' && !receiptImageUrl) {
+        showSuccess('Order placed! Please upload your payment receipt from your account page.');
+      } else {
+        showSuccess('Order placed successfully!');
+      }
       
       localStorage.removeItem(`checkout_shipping_${user?.id}`);
       
@@ -726,7 +693,6 @@ const Checkout = () => {
       }
       
       showError(errorMessage);
-      setUploadStatus('error');
     } finally {
       setLoading(false);
     }
@@ -1112,7 +1078,7 @@ const Checkout = () => {
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-lg">GCash</span>
                             </div>
-                            <p className="text-sm text-gray-500">Pay via GCash and upload receipt</p>
+                            <p className="text-sm text-gray-500">Pay via GCash (receipt can be uploaded later)</p>
                             <div className="flex items-center mt-2 text-sm text-blue-600">
                               <Shield className="w-4 h-4 mr-1" />
                               Secure payment
@@ -1164,7 +1130,7 @@ const Checkout = () => {
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-lg">PayMaya</span>
                             </div>
-                            <p className="text-sm text-gray-500">Pay via PayMaya and upload receipt</p>
+                            <p className="text-sm text-gray-500">Pay via PayMaya (receipt can be uploaded later)</p>
                             <div className="flex items-center mt-2 text-sm text-purple-600">
                               <Shield className="w-4 h-4 mr-1" />
                               Secure payment
@@ -1186,156 +1152,101 @@ const Checkout = () => {
                       )}
                     </div>
 
-                    {/* Receipt Upload Section */}
+                    {/* Payment Instructions Agreement */}
                     {paymentMethod !== 'cod' && (
                       <div className="mt-6 pt-6 border-t border-gray-200">
-                        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                          <Receipt className="w-5 h-5 text-rose-600" />
-                          Upload Payment Proof
-                        </h3>
-                        
-                        <div className="space-y-5">
-                          {/* Agreement Checkbox */}
-                          <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
-                            <input
-                              type="checkbox"
-                              id="agreeToPay"
-                              checked={agreedToPay}
-                              onChange={(e) => setAgreedToPay(e.target.checked)}
-                              className="mt-1 w-5 h-5 text-rose-600 rounded border-gray-300 focus:ring-rose-500"
-                            />
-                            <label htmlFor="agreeToPay" className="text-sm text-gray-700">
-                              I confirm that I have read and understood the payment instructions and will upload a valid payment proof.
-                            </label>
-                          </div>
-                          {errors.agreement && <p className="text-sm text-rose-600">{errors.agreement}</p>}
-                          
-                          {/* Receipt Upload */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Screenshot of Payment Receipt <span className="text-rose-600">*</span>
-                            </label>
-                            {!receiptPreview ? (
-                              <div 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-rose-500 hover:bg-rose-50 transition group"
-                              >
-                                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-rose-100 transition">
-                                  <Camera className="w-10 h-10 text-gray-400 group-hover:text-rose-600" />
-                                </div>
-                                <p className="text-gray-700 font-medium mb-1">Click to upload receipt</p>
-                                <p className="text-sm text-gray-500">PNG, JPG up to 5MB</p>
-                                <input
-                                  ref={fileInputRef}
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleFileSelect}
-                                  className="hidden"
-                                />
-                              </div>
-                            ) : (
-                              <div className="relative">
-                                <img 
-                                  src={receiptPreview} 
-                                  alt="Receipt preview" 
-                                  className="w-full max-h-64 object-contain bg-gray-50 rounded-xl border-2 border-green-500 p-2"
-                                />
-                                <div className="absolute top-2 right-2 flex gap-2">
-                                  {uploadStatus === 'success' && (
-                                    <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm flex items-center">
-                                      <Check className="w-4 h-4 mr-1" />
-                                      Uploaded
-                                    </div>
-                                  )}
-                                  <button
-                                    onClick={removeReceipt}
-                                    className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                </div>
-                                {uploadProgress < 100 && uploadStatus === 'uploading' && (
-                                  <div className="absolute bottom-2 left-2 right-2">
-                                    <div className="bg-white rounded-full h-2 overflow-hidden shadow">
-                                      <div 
-                                        className="bg-rose-600 h-full transition-all duration-300"
-                                        style={{ width: `${uploadProgress}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {errors.receipt && <p className="mt-1 text-sm text-rose-600">{errors.receipt}</p>}
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 mb-4">
+                          <div className="flex gap-3">
+                            <ClockIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Reference Number <span className="text-rose-600">*</span>
-                              </label>
+                              <p className="text-sm font-medium text-blue-800">Pay Later Option</p>
+                              <p className="text-xs text-blue-700 mt-1">
+                                You can complete the payment after placing your order. The order will be on hold until payment is verified.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
+                          <input
+                            type="checkbox"
+                            id="agreeToInstructions"
+                            checked={agreedToInstructions}
+                            onChange={(e) => setAgreedToInstructions(e.target.checked)}
+                            className="mt-1 w-5 h-5 text-rose-600 rounded border-gray-300 focus:ring-rose-500"
+                          />
+                          <label htmlFor="agreeToInstructions" className="text-sm text-gray-700">
+                            I understand that I need to pay the exact amount and upload the receipt from my account page. The order will be processed after payment verification.
+                          </label>
+                        </div>
+                        
+                        {/* Optional Receipt Upload */}
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              Upload Receipt (Optional)
+                            </label>
+                            <span className="text-xs text-gray-400">You can also upload later</span>
+                          </div>
+                          
+                          {!receiptPreview ? (
+                            <div 
+                              onClick={() => fileInputRef.current?.click()}
+                              className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-rose-500 hover:bg-rose-50 transition group"
+                            >
+                              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-rose-100 transition">
+                                <Camera className="w-6 h-6 text-gray-400 group-hover:text-rose-600" />
+                              </div>
+                              <p className="text-sm text-gray-600">Click to upload receipt</p>
+                              <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileSelect}
+                                className="hidden"
+                              />
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <img 
+                                src={receiptPreview} 
+                                alt="Receipt preview" 
+                                className="w-full max-h-48 object-contain bg-gray-50 rounded-xl border-2 border-green-500 p-2"
+                              />
+                              <button
+                                onClick={removeReceipt}
+                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Optional Reference Fields - only show if receipt is uploaded */}
+                        {receiptPreview && (
+                          <div className="mt-4 space-y-3">
+                            <div>
                               <input
                                 type="text"
                                 value={referenceNumber}
                                 onChange={(e) => setReferenceNumber(e.target.value)}
-                                placeholder="e.g., 1234 5678 9012"
-                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition ${
-                                  errors.reference ? 'border-rose-500 bg-rose-50' : 'border-gray-200'
-                                }`}
+                                placeholder="Reference Number (Optional)"
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500"
                               />
-                              {errors.reference && <p className="mt-1 text-sm text-rose-600">{errors.reference}</p>}
                             </div>
-
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Sender Name <span className="text-rose-600">*</span>
-                              </label>
                               <input
                                 type="text"
                                 value={senderName}
                                 onChange={(e) => setSenderName(e.target.value)}
-                                placeholder="Name on the transaction"
-                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition ${
-                                  errors.sender ? 'border-rose-500 bg-rose-50' : 'border-gray-200'
-                                }`}
-                              />
-                              {errors.sender && <p className="mt-1 text-sm text-rose-600">{errors.sender}</p>}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Payment Date <span className="text-rose-600">*</span>
-                              </label>
-                              <div className="relative">
-                                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                <input
-                                  type="date"
-                                  value={paymentDate}
-                                  onChange={(e) => setPaymentDate(e.target.value)}
-                                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition ${
-                                    errors.paymentDate ? 'border-rose-500 bg-rose-50' : 'border-gray-200'
-                                  }`}
-                                />
-                              </div>
-                              {errors.paymentDate && <p className="mt-1 text-sm text-rose-600">{errors.paymentDate}</p>}
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Additional Notes (Optional)
-                              </label>
-                              <textarea
-                                value={paymentNotes}
-                                onChange={(e) => setPaymentNotes(e.target.value)}
-                                rows={1}
-                                placeholder="Any additional information"
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent transition"
+                                placeholder="Sender Name (Optional)"
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500"
                               />
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1367,7 +1278,7 @@ const Checkout = () => {
                     <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
                       <p className="text-xs text-amber-700 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
-                        Please complete all required payment details before proceeding
+                        Please confirm that you understand the payment instructions
                       </p>
                     </div>
                   )}
@@ -1446,16 +1357,6 @@ const Checkout = () => {
                             src={gcash_logo} 
                             alt="GCash" 
                             className="w-8 h-8 object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              const parent = (e.target as HTMLImageElement).parentElement;
-                              if (parent) {
-                                const fallback = document.createElement('div');
-                                fallback.className = 'w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center';
-                                fallback.innerHTML = '<span class="text-white text-xs font-bold">G</span>';
-                                parent.appendChild(fallback);
-                              }
-                            }}
                           />
                         )}
                         {paymentMethod === 'paymaya' && (
@@ -1463,16 +1364,6 @@ const Checkout = () => {
                             src={paymaya_logo} 
                             alt="PayMaya" 
                             className="w-8 h-8 object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              const parent = (e.target as HTMLImageElement).parentElement;
-                              if (parent) {
-                                const fallback = document.createElement('div');
-                                fallback.className = 'w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center';
-                                fallback.innerHTML = '<span class="text-white text-xs font-bold">P</span>';
-                                parent.appendChild(fallback);
-                              }
-                            }}
                           />
                         )}
                       </div>
@@ -1480,6 +1371,11 @@ const Checkout = () => {
                         {paymentMethod === 'cod' ? 'Cash on Delivery' : 
                         paymentMethod === 'gcash' ? 'GCash' : 'PayMaya'}
                       </span>
+                      {paymentMethod !== 'cod' && !receiptPreview && (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                          Receipt to be uploaded later
+                        </span>
+                      )}
                     </div>
 
                     {/* Payment Proof Summary */}
@@ -1493,10 +1389,8 @@ const Checkout = () => {
                             className="w-20 h-20 object-cover rounded-xl border-2 border-green-500 shadow-sm"
                           />
                           <div className="text-sm space-y-1">
-                            <p><span className="text-gray-500">Reference:</span> <span className="font-mono">{referenceNumber}</span></p>
-                            <p><span className="text-gray-500">Sender:</span> {senderName}</p>
-                            <p><span className="text-gray-500">Date:</span> {new Date(paymentDate).toLocaleDateString()}</p>
-                            {paymentNotes && <p className="text-gray-500 mt-1">{paymentNotes}</p>}
+                            {referenceNumber && <p><span className="text-gray-500">Reference:</span> <span className="font-mono">{referenceNumber}</span></p>}
+                            {senderName && <p><span className="text-gray-500">Sender:</span> {senderName}</p>}
                           </div>
                         </div>
                       </div>
@@ -1525,22 +1419,17 @@ const Checkout = () => {
                     </div>
                   </div>
 
-                  {/* Shipping Fee Note */}
-                  {shippingFee > 0 && (
-                    <div className="mt-3 text-xs text-gray-500 text-center">
-                      <p>Shipping fee applied based on your location</p>
-                    </div>
-                  )}
-
                   {/* Status Note */}
                   {paymentMethod !== 'cod' && (
                     <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
                       <div className="flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-medium text-amber-800">Pending Verification</p>
+                          <p className="text-sm font-medium text-amber-800">Pending Payment Verification</p>
                           <p className="text-xs text-amber-700 mt-1">
-                            Your order will be processed after admin verifies your payment proof. This usually takes 5-10 minutes.
+                            {receiptPreview 
+                              ? 'Your order will be processed after admin verifies your payment proof. This usually takes 5-10 minutes.'
+                              : 'Please upload your payment receipt from your account page. Your order will be processed after verification.'}
                           </p>
                         </div>
                       </div>
