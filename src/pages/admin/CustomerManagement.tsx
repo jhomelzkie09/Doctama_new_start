@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import userService from '../../services/user.service';
 import orderService from '../../services/order.service';
 import {
-  Users, Search, RefreshCw, Eye, Edit, Trash2,
-  Phone, DollarSign, AlertCircle, CheckCircle, XCircle,
-  ChevronLeft, ChevronRight, UserPlus, X, MapPin, Package
+  Users, Search, RefreshCw, Eye, Trash2,
+  Phone, AlertCircle, CheckCircle, XCircle,
+  ChevronLeft, ChevronRight, X, MapPin, Package, Loader
 } from 'lucide-react';
 import { User, Order } from '../../types';
 
@@ -52,12 +52,13 @@ const Avatar = ({ customer }: { customer: CustomerWithStats }) => {
       width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
       background: `${colors[idx]}22`, border: `1.5px solid ${colors[idx]}44`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 14, fontWeight: 600, color: colors[idx], fontFamily: "'DM Mono', monospace"
+      fontSize: 14, fontWeight: 600, color: colors[idx], fontFamily: "'DM Mono', monospace",
+      position: 'relative'
     }}>
       {initial}
       {customer.isActive && (
         <span style={{
-          position: 'absolute', bottom: 0, right: 0,
+          position: 'absolute', bottom: -1, right: -1,
           width: 8, height: 8, background: '#22c55e',
           borderRadius: '50%', border: '2px solid white'
         }} />
@@ -66,6 +67,17 @@ const Avatar = ({ customer }: { customer: CustomerWithStats }) => {
   );
 };
 
+// ─── Page Loader Overlay ──────────────────────────────────────────────────────
+const PageLoader = () => (
+  <div style={{
+    position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.8)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 12, zIndex: 10
+  }}>
+    <Loader size={32} style={{ animation: 'spin 0.8s linear infinite', color: '#0f172a' }} />
+  </div>
+);
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const CustomerManagement = () => {
   const { user, isAdmin } = useAuth();
@@ -73,8 +85,19 @@ const CustomerManagement = () => {
 
   useEffect(() => { if (!isAdmin) navigate('/'); }, [isAdmin, navigate]);
 
-  const [customers, setCustomers] = useState<CustomerWithStats[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Data states
+  const [allCustomers, setAllCustomers] = useState<CustomerWithStats[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<CustomerWithStats[]>([]);
+  const [paginatedCustomers, setPaginatedCustomers] = useState<CustomerWithStats[]>([]);
+  
+  // Loading states
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  
+  // Cache for orders
+  const ordersCache = useRef<Order[] | null>(null);
+  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -89,14 +112,27 @@ const CustomerManagement = () => {
   });
   const [totalStats, setTotalStats] = useState({ totalCustomers: 0, activeCustomers: 0, totalRevenue: 0 });
 
-  const fetchCustomers = useCallback(async () => {
-    setLoading(true); setError('');
+  // Fetch all data once and cache it
+  const fetchAllData = useCallback(async (forceRefresh = false) => {
+    setInitialLoading(true);
+    setError('');
+    
     try {
-      // Fetch all users
-      const users = await userService.getAllUsers() as User[];
+      // Fetch users and orders in parallel
+      const [users, orders] = await Promise.all([
+        userService.getAllUsers() as Promise<User[]>,
+        ordersCache.current && !forceRefresh 
+          ? Promise.resolve(ordersCache.current)
+          : orderService.getAllOrders()
+      ]);
+      
+      // Cache orders
+      if (!ordersCache.current || forceRefresh) {
+        ordersCache.current = orders;
+      }
       
       // Filter to customers only (exclude admins)
-      let customersOnly = users.filter(u => {
+      const customersOnly = users.filter(u => {
         if (Array.isArray(u.roles)) {
           return !u.roles.some(r => ['admin','administrator'].includes(r.toLowerCase()));
         }
@@ -106,18 +142,17 @@ const CustomerManagement = () => {
         return true;
       });
 
-      // Fetch all orders for stats
-      let allOrders: Order[] = [];
-      try { allOrders = await orderService.getAllOrders(); } catch {}
-
       // Calculate stats for each customer
       const withStats = customersOnly.map(c => {
-        const orders = allOrders.filter(o => o.userId === c.id || o.customerEmail === c.email);
-        const totalOrders = orders.length;
-        const totalSpent = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
-        const recentOrders = [...orders].sort((a, b) => 
-          new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
-        ).slice(0, 5);
+        const customerOrders = orders.filter(o => 
+          o.userId === c.id || 
+          o.customerEmail?.toLowerCase() === c.email?.toLowerCase()
+        );
+        const totalOrders = customerOrders.length;
+        const totalSpent = customerOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+        const recentOrders = [...customerOrders]
+          .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+          .slice(0, 5);
         const addrParts = [c.address, c.city, c.state].filter(Boolean);
         
         return {
@@ -132,87 +167,133 @@ const CustomerManagement = () => {
         };
       });
 
-      // Apply filters
-      let filtered = [...withStats];
-      
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        filtered = filtered.filter(c =>
-          c.fullName?.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q) ||
-          c.phoneNumber?.includes(filters.search)
-        );
-      }
-      
-      if (filters.status !== 'all') {
-        filtered = filtered.filter(c => filters.status === 'active' ? c.isActive : !c.isActive);
-      }
-
-      // Calculate totals
-      const total = filtered.length;
-      const active = filtered.filter(c => c.isActive).length;
-      const revenue = filtered.reduce((s, c) => s + c.stats.totalSpent, 0);
-      
-      setTotalStats({
-        totalCustomers: total,
-        activeCustomers: active,
-        totalRevenue: revenue
-      });
-
-      // Pagination
-      const start = (filters.page - 1) * filters.limit;
-      const end = start + filters.limit;
-      
-      setPagination({
-        currentPage: filters.page,
-        totalPages: Math.ceil(total / filters.limit),
-        totalItems: total,
-        itemsPerPage: filters.limit,
-        hasNext: end < total,
-        hasPrevious: start > 0
-      });
-      
-      setCustomers(filtered.slice(start, end));
+      setAllCustomers(withStats);
+      return withStats;
     } catch (e: any) {
       setError(e.message || 'Failed to load customers');
+      return [];
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
+  }, []);
+
+  // Apply filters and pagination
+  const applyFiltersAndPagination = useCallback((customers: CustomerWithStats[]) => {
+    let filtered = [...customers];
+    
+    // Search filter
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      filtered = filtered.filter(c =>
+        c.fullName?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.phoneNumber?.includes(filters.search)
+      );
+    }
+    
+    // Status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(c => 
+        filters.status === 'active' ? c.isActive : !c.isActive
+      );
+    }
+
+    setFilteredCustomers(filtered);
+
+    // Calculate totals
+    const total = filtered.length;
+    const active = filtered.filter(c => c.isActive).length;
+    const revenue = filtered.reduce((s, c) => s + c.stats.totalSpent, 0);
+    
+    setTotalStats({
+      totalCustomers: total,
+      activeCustomers: active,
+      totalRevenue: revenue
+    });
+
+    // Pagination
+    const start = (filters.page - 1) * filters.limit;
+    const end = start + filters.limit;
+    
+    setPagination({
+      currentPage: filters.page,
+      totalPages: Math.ceil(total / filters.limit),
+      totalItems: total,
+      itemsPerPage: filters.limit,
+      hasNext: end < total,
+      hasPrevious: start > 0
+    });
+    
+    setPaginatedCustomers(filtered.slice(start, end));
   }, [filters]);
 
-  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+  // Initial load
+  useEffect(() => {
+    fetchAllData().then(customers => {
+      applyFiltersAndPagination(customers);
+    });
+  }, []);
 
-  const handleFilterChange = (key: keyof CustomerFilters, value: any) =>
+  // Handle filter changes
+  useEffect(() => {
+    if (allCustomers.length > 0) {
+      applyFiltersAndPagination(allCustomers);
+    }
+  }, [filters, allCustomers, applyFiltersAndPagination]);
+
+  const handleFilterChange = (key: keyof CustomerFilters, value: any) => {
     setFilters(p => ({ ...p, [key]: value, page: 1 }));
+  };
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = async (newPage: number) => {
+    setPageLoading(true);
     setFilters(prev => ({ ...prev, page: newPage }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Simulate smooth transition
+    await new Promise(resolve => setTimeout(resolve, 100));
+    setPageLoading(false);
+  };
+
+  const handleRefresh = async () => {
+    setActionLoading(true);
+    const customers = await fetchAllData(true);
+    applyFiltersAndPagination(customers);
+    setActionLoading(false);
+    setSuccess('Data refreshed');
+    setTimeout(() => setSuccess(''), 2000);
   };
 
   const handleDeleteCustomer = async () => {
     if (!selectedCustomer) return;
-    setLoading(true);
+    setActionLoading(true);
     try {
       await userService.deleteUser(selectedCustomer.id);
       setSuccess('Customer deleted successfully');
       setShowDeleteModal(false);
       setSelectedCustomer(null);
-      fetchCustomers();
+      // Clear orders cache since customer is deleted
+      ordersCache.current = null;
+      const customers = await fetchAllData(true);
+      applyFiltersAndPagination(customers);
     } catch (e: any) {
       setError(e.message || 'Failed to delete customer');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const handleToggleStatus = async (customer: CustomerWithStats) => {
+    setActionLoading(true);
     try {
       await userService.toggleUserStatus(customer.id, !customer.isActive);
       setSuccess(`Customer ${customer.isActive ? 'deactivated' : 'activated'} successfully`);
-      fetchCustomers();
+      const customers = await fetchAllData(true);
+      applyFiltersAndPagination(customers);
     } catch (e: any) {
       setError(e.message || 'Failed to update status');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -230,6 +311,7 @@ const CustomerManagement = () => {
     .cm-root { background: var(--bg); min-height: 100vh; padding: 32px 32px; }
     .cm-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
     .cm-btn:hover { background: var(--bg); }
+    .cm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .cm-btn-primary { background: var(--accent); border: none; color: #fff; }
     .cm-btn-primary:hover { background: #1e293b; }
     .cm-input { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; font-size: 13px; color: var(--text); outline: none; width: 100%; }
@@ -243,18 +325,22 @@ const CustomerManagement = () => {
     .cm-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
     .cm-action-btn { background: transparent; border: none; padding: 7px; border-radius: 6px; cursor: pointer; color: var(--muted); display: flex; }
     .cm-action-btn:hover { background: var(--bg); color: var(--text); }
+    .cm-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .fade-in { animation: fadeIn 0.2s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     .spin { animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   `;
 
-  if (loading && !customers.length) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
-      <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #e2e8f0', borderTopColor: '#0f172a', animation: 'spin 0.8s linear infinite' }} />
-      <p style={{ marginTop: 16, fontSize: 13, color: '#64748b' }}>Loading customers…</p>
-    </div>
-  );
+  // Initial loading state
+  if (initialLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
+        <Loader size={40} style={{ animation: 'spin 0.8s linear infinite', color: '#0f172a' }} />
+        <p style={{ marginTop: 16, fontSize: 13, color: '#64748b' }}>Loading customers…</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -270,8 +356,8 @@ const CustomerManagement = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="cm-btn" onClick={fetchCustomers} disabled={loading}>
-              <RefreshCw size={14} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
+            <button className="cm-btn" onClick={handleRefresh} disabled={actionLoading}>
+              <RefreshCw size={14} style={{ animation: actionLoading ? 'spin 0.8s linear infinite' : 'none' }} />
               Refresh
             </button>
           </div>
@@ -285,15 +371,17 @@ const CustomerManagement = () => {
               <input className="cm-input" style={{ paddingLeft: 34 }}
                 placeholder="Search name, email, phone…"
                 value={filters.search}
-                onChange={e => handleFilterChange('search', e.target.value)} />
+                onChange={e => handleFilterChange('search', e.target.value)}
+                disabled={actionLoading}
+              />
             </div>
-            <select className="cm-select" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)}>
+            <select className="cm-select" value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} disabled={actionLoading}>
               <option value="all">All status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
             {(filters.search || filters.status !== 'all') && (
-              <button className="cm-btn" onClick={() => setFilters({ search: '', status: 'all', page: 1, limit: 10 })}>
+              <button className="cm-btn" onClick={() => setFilters({ search: '', status: 'all', page: 1, limit: 10 })} disabled={actionLoading}>
                 <X size={13} /> Clear
               </button>
             )}
@@ -317,7 +405,9 @@ const CustomerManagement = () => {
         )}
 
         {/* Table */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+          {pageLoading && <PageLoader />}
+          
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -332,7 +422,7 @@ const CustomerManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {customers.map(customer => (
+                {paginatedCustomers.map(customer => (
                   <tr key={customer.id} className="cm-row" style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -379,14 +469,14 @@ const CustomerManagement = () => {
                     </td>
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                        <button className="cm-action-btn" title="View Details" onClick={() => { setSelectedCustomer(customer); setShowCustomerDetails(true); }}>
+                        <button className="cm-action-btn" title="View Details" onClick={() => { setSelectedCustomer(customer); setShowCustomerDetails(true); }} disabled={actionLoading}>
                           <Eye size={14} />
                         </button>
-                        <button className="cm-action-btn" title={customer.isActive ? 'Deactivate' : 'Activate'} onClick={() => handleToggleStatus(customer)}>
+                        <button className="cm-action-btn" title={customer.isActive ? 'Deactivate' : 'Activate'} onClick={() => handleToggleStatus(customer)} disabled={actionLoading}>
                           {customer.isActive ? <XCircle size={14} /> : <CheckCircle size={14} />}
                         </button>
                         <button className="cm-action-btn" title="Delete" style={{ color: '#ef4444' }}
-                          onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}>
+                          onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }} disabled={actionLoading}>
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -398,7 +488,7 @@ const CustomerManagement = () => {
           </div>
 
           {/* Empty State */}
-          {!customers.length && !loading && (
+          {!paginatedCustomers.length && !initialLoading && (
             <div style={{ textAlign: 'center', padding: '60px 24px' }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <Users size={20} color="var(--muted)" />
@@ -415,7 +505,7 @@ const CustomerManagement = () => {
                 {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}–{Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems}
               </span>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button className="cm-page-btn" disabled={!pagination.hasPrevious} onClick={() => handlePageChange(filters.page - 1)}>
+                <button className="cm-page-btn" disabled={!pagination.hasPrevious || pageLoading} onClick={() => handlePageChange(filters.page - 1)}>
                   <ChevronLeft size={14} />
                 </button>
                 {(() => {
@@ -426,12 +516,12 @@ const CustomerManagement = () => {
                   else if (c >= t - 2) for (let i = t - 4; i <= t; i++) pages.push(i);
                   else for (let i = c - 2; i <= c + 2; i++) pages.push(i);
                   return pages.map(p => (
-                    <button key={p} className={`cm-page-btn${pagination.currentPage === p ? ' active' : ''}`} onClick={() => handlePageChange(p)}>
+                    <button key={p} className={`cm-page-btn${pagination.currentPage === p ? ' active' : ''}`} onClick={() => handlePageChange(p)} disabled={pageLoading}>
                       {p}
                     </button>
                   ));
                 })()}
-                <button className="cm-page-btn" disabled={!pagination.hasNext} onClick={() => handlePageChange(filters.page + 1)}>
+                <button className="cm-page-btn" disabled={!pagination.hasNext || pageLoading} onClick={() => handlePageChange(filters.page + 1)}>
                   <ChevronRight size={14} />
                 </button>
               </div>
@@ -466,7 +556,7 @@ const CustomerManagement = () => {
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', background: 'var(--bg)', padding: '12px 14px', borderRadius: 8 }}>
                   {selectedCustomer.address || 'No address provided'}<br />
-                  {selectedCustomer.city && `${selectedCustomer.city}, `}{selectedCustomer.state} {selectedCustomer.zipCode}
+                  {[selectedCustomer.city, selectedCustomer.state, (selectedCustomer as any).zipCode].filter(Boolean).join(', ')}
                 </p>
               </div>
 
@@ -518,16 +608,15 @@ const CustomerManagement = () => {
                 <strong>{selectedCustomer.fullName || selectedCustomer.email}</strong> will be permanently removed.
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button className="cm-btn" onClick={() => setShowDeleteModal(false)}>Cancel</button>
-                <button onClick={handleDeleteCustomer} disabled={loading}
+                <button className="cm-btn" onClick={() => setShowDeleteModal(false)} disabled={actionLoading}>Cancel</button>
+                <button onClick={handleDeleteCustomer} disabled={actionLoading}
                   style={{ background: '#ef4444', border: 'none', color: '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
-                  {loading ? 'Deleting…' : 'Delete'}
+                  {actionLoading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Delete'}
                 </button>
               </div>
             </div>
           </div>
         )}
-
       </div>
     </>
   );
