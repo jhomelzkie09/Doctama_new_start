@@ -16,9 +16,6 @@ import {
   Info,
   Phone,
   Search,
-  Facebook,
-  Instagram,
-  Twitter,
   Mail,
   Phone as PhoneIcon,
   MapPin,
@@ -28,18 +25,13 @@ import {
   Sparkles,
   ArrowRight,
   UserCircle,
-  Settings,
   Package,
-  Heart as HeartIcon,
-  Globe,
   Award,
-  Headphones,
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
   Twitter as TwitterIcon,
   Youtube,
-  PenTool,
-  Wrench
+  PenTool
 } from 'lucide-react';
 import AuthSidebar from './AuthSidebar';
 import ConfirmationModal from './ConfirmationModal';
@@ -156,7 +148,7 @@ const Layout = () => {
         loading={loggingOut}
       />
 
-      {/* 1. Simplified Announcement Bar for Mobile */}
+      {/* Announcement Bar */}
       <div className="bg-slate-900 text-slate-300 py-2 border-b border-white/5">
         <div className="container mx-auto px-3 sm:px-4 md:px-6">
           <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.1em]">
@@ -191,7 +183,7 @@ const Layout = () => {
         </div>
       </div>
 
-      {/* 2. Mobile-Optimized Navbar with Bigger Logo */}
+      {/* Navbar */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${
         scrolled 
           ? 'bg-white/90 backdrop-blur-lg border-b border-slate-200/50 py-2 shadow-sm' 
@@ -200,7 +192,7 @@ const Layout = () => {
         <div className="container mx-auto px-3 sm:px-4 md:px-6">
           <div className="flex justify-between items-center gap-2">
             
-            {/* Logo - BIGGER */}
+            {/* Logo */}
             <Link to="/" className="group flex items-center gap-2 md:gap-3 flex-shrink-0">
               <div className="w-9 h-9 sm:w-11 sm:h-11 md:w-16 md:h-16 rounded-lg flex items-center justify-center">
                 <img 
@@ -215,7 +207,7 @@ const Layout = () => {
               </div>
             </Link>
 
-            {/* Centered Minimal Nav - Desktop Only */}
+            {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center gap-1">
               {navLinks.map(({ path, label, icon: Icon }) => (
                 <Link
@@ -233,9 +225,8 @@ const Layout = () => {
               ))}
             </div>
 
-            {/* Utility Icons - Optimized for mobile */}
+            {/* Utility Icons */}
             <div className="flex items-center gap-1 sm:gap-2">
-              {/* Search Icon - Mobile */}
               <button 
                 onClick={() => setSearchOpen(!searchOpen)} 
                 className="p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 transition-colors"
@@ -243,7 +234,6 @@ const Layout = () => {
                 <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              {/* Search Bar - Desktop */}
               <form onSubmit={handleSearch} className="relative hidden md:flex items-center">
                 <input
                   type="text"
@@ -255,7 +245,6 @@ const Layout = () => {
                 <Search className="absolute left-3.5 w-4 h-4 text-slate-400" />
               </form>
 
-              {/* Cart */}
               <Link to="/cart" onClick={handleAddToCartClick} className="relative p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 transition-colors">
                 <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
                 {state.items.length > 0 && (
@@ -265,7 +254,7 @@ const Layout = () => {
                 )}
               </Link>
 
-              {/* User Menu - With Profile Picture */}
+              {/* User Menu */}
               {user ? (
                 <div className="relative">
                   <button 
@@ -288,7 +277,6 @@ const Layout = () => {
                     <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
-                  {/* Dropdown Menu */}
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 animate-in fade-in zoom-in-95 duration-200 z-50">
                       <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-3">
@@ -314,7 +302,7 @@ const Layout = () => {
                           <p className="text-xs text-slate-400 truncate">{user.email}</p>
                         </div>
                       </div>
-                      <Link to="/account" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
+                      <Link to="/account/profile" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
                         <UserCircle className="w-4 h-4" /> My Profile
                       </Link>
                       <Link to="/account/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
@@ -331,7 +319,6 @@ const Layout = () => {
                   )}
                 </div>
               ) : (
-                // Sign In Button
                 <button
                   onClick={() => handleAuthRequired('login')}
                   className="ml-0 sm:ml-2 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-6 py-1 sm:py-1.5 md:py-2.5 bg-slate-900 text-white text-[11px] sm:text-xs md:text-sm font-bold rounded-full hover:bg-rose-600 transition-all shadow-md shadow-slate-200 active:scale-95"
@@ -342,7 +329,6 @@ const Layout = () => {
                 </button>
               )}
 
-              {/* Mobile menu button */}
               <button 
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
                 className="lg:hidden p-1.5 sm:p-2 ml-0 sm:ml-1 text-slate-900"
@@ -352,7 +338,7 @@ const Layout = () => {
             </div>
           </div>
 
-          {/* Mobile Search Bar - Compact */}
+          {/* Mobile Search Bar */}
           {searchOpen && (
             <div className="md:hidden py-2 border-t mt-2">
               <form onSubmit={handleSearch} className="relative">
@@ -371,7 +357,7 @@ const Layout = () => {
         </div>
       </nav>
 
-      {/* 3. Mobile Navigation Menu - Improved */}
+      {/* Mobile Menu */}
       <div className={`fixed inset-0 z-[60] bg-white transition-transform duration-500 lg:hidden ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-4 h-full flex flex-col">
           <div className="flex justify-between items-center mb-6">
@@ -407,7 +393,7 @@ const Layout = () => {
             ))}
           </div>
 
-          {/* User Section in Mobile Menu */}
+          {/* Mobile User Section */}
           {user && (
             <div className="mt-6 pt-4 border-t border-slate-100">
               <div className="flex items-center gap-3 mb-3">
@@ -432,9 +418,9 @@ const Layout = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
+                <Link to="/account/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
                   <UserCircle className="w-5 h-5" />
-                  <span className="text-sm">My Account</span>
+                  <span className="text-sm">My Profile</span>
                 </Link>
                 <Link to="/account/orders" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 transition">
                   <Package className="w-5 h-5" />
@@ -448,7 +434,7 @@ const Layout = () => {
             </div>
           )}
 
-          {/* Contact Info in Mobile Menu */}
+          {/* Mobile Contact Info */}
           <div className="mt-auto pt-4 border-t border-slate-100">
             <p className="text-[11px] text-slate-400 mb-2">Need help?</p>
             <a href="tel:+639985868888" className="flex items-center gap-3 p-2 text-slate-700 hover:bg-slate-50 rounded-xl transition text-sm">
@@ -492,7 +478,6 @@ const Layout = () => {
         <div className="container mx-auto px-4">
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            {/* Brand Column - Bigger Logo */}
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-white-600 rounded-lg flex items-center justify-center">
@@ -521,7 +506,6 @@ const Layout = () => {
               </div>
             </div>
             
-            {/* Shop Links */}
             <div>
               <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Shop</h4>
               <ul className="space-y-2 text-slate-400 text-sm">
@@ -534,19 +518,15 @@ const Layout = () => {
               </ul>
             </div>
 
-            {/* Company Links */}
             <div>
               <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Company</h4>
               <ul className="space-y-2 text-slate-400 text-sm">
                 <li><Link to="/about" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Our Story</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Customize</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Contact</Link></li>
-                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Showrooms</Link></li>
-                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Blog</Link></li>
               </ul>
             </div>
 
-            {/* Contact Info */}
             <div>
               <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Visit Us</h4>
               <div className="space-y-3 text-slate-400 text-sm">
@@ -571,7 +551,6 @@ const Layout = () => {
             </div>
           </div>
 
-          {/* Footer Bottom */}
           <div className="pt-6 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-slate-500 text-xs">© 2026 Doctama's Marketing. All rights reserved.</p>
             <div className="flex gap-6">
