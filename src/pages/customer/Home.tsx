@@ -23,54 +23,69 @@ interface ProductWithDetails extends Product {
   reviewCount: number;
 }
 
-// Category images from the internet
+// Real category images from Unsplash/Pexels (high quality, free to use)
 const categoryImages: Record<string, string> = {
   'Living Room': 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Sofa': 'https://images.pexels.com/photos/1866149/pexels-photo-1866149.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Couch': 'https://images.pexels.com/photos/276551/pexels-photo-276551.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Bedroom': 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Bed': 'https://images.pexels.com/photos/2029722/pexels-photo-2029722.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Mattress': 'https://images.pexels.com/photos/775219/pexels-photo-775219.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Dining Room': 'https://images.pexels.com/photos/1080696/pexels-photo-1080696.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Dining Table': 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Office': 'https://images.pexels.com/photos/159839/office-home-house-desk-159839.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Desk': 'https://images.pexels.com/photos/509922/pexels-photo-509922.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Chair': 'https://images.pexels.com/photos/116910/pexels-photo-116910.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Kitchen': 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Cabinet': 'https://images.pexels.com/photos/2062426/pexels-photo-2062426.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Outdoor': 'https://images.pexels.com/photos/280221/pexels-photo-280221.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Garden': 'https://images.pexels.com/photos/158028/bellingrath-gardens-alabama-landscape-scenic-158028.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Kids Room': 'https://images.pexels.com/photos/3932930/pexels-photo-3932930.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Bathroom': 'https://images.pexels.com/photos/1910472/pexels-photo-1910472.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Entryway': 'https://images.pexels.com/photos/2635038/pexels-photo-2635038.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Home Decor': 'https://images.pexels.com/photos/1248583/pexels-photo-1248583.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Furniture': 'https://images.pexels.com/photos/276551/pexels-photo-276551.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Lighting': 'https://images.pexels.com/photos/1112598/pexels-photo-1112598.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Lamp': 'https://images.pexels.com/photos/112811/pexels-photo-112811.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Storage': 'https://images.pexels.com/photos/4226783/pexels-photo-4226783.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Shelf': 'https://images.pexels.com/photos/1468390/pexels-photo-1468390.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Rugs': 'https://images.pexels.com/photos/1454806/pexels-photo-1454806.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Carpet': 'https://images.pexels.com/photos/1454806/pexels-photo-1454806.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Mirrors': 'https://images.pexels.com/photos/2050729/pexels-photo-2050729.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Wall Art': 'https://images.pexels.com/photos/1166657/pexels-photo-1166657.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Plants': 'https://images.pexels.com/photos/3094799/pexels-photo-3094799.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Plant': 'https://images.pexels.com/photos/3076899/pexels-photo-3076899.jpeg?auto=compress&cs=tinysrgb&w=400',
   'Accessories': 'https://images.pexels.com/photos/1441122/pexels-photo-1441122.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Table': 'https://images.pexels.com/photos/1080696/pexels-photo-1080696.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Wardrobe': 'https://images.pexels.com/photos/271639/pexels-photo-271639.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Dresser': 'https://images.pexels.com/photos/271639/pexels-photo-271639.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Bookshelf': 'https://images.pexels.com/photos/290595/pexels-photo-290595.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'TV Stand': 'https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Coffee Table': 'https://images.pexels.com/photos/1080696/pexels-photo-1080696.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Side Table': 'https://images.pexels.com/photos/1080696/pexels-photo-1080696.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Console Table': 'https://images.pexels.com/photos/2635038/pexels-photo-2635038.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Bench': 'https://images.pexels.com/photos/280221/pexels-photo-280221.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Stool': 'https://images.pexels.com/photos/116910/pexels-photo-116910.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'Ottoman': 'https://images.pexels.com/photos/276551/pexels-photo-276551.jpeg?auto=compress&cs=tinysrgb&w=400',
   'default': 'https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=400'
 };
 
 const getCategoryImage = (categoryName: string): string => {
   const name = categoryName.toLowerCase();
   
+  // Try exact match first
+  for (const [key, value] of Object.entries(categoryImages)) {
+    if (name === key.toLowerCase()) {
+      return value;
+    }
+  }
+  
+  // Try partial match
   for (const [key, value] of Object.entries(categoryImages)) {
     if (name.includes(key.toLowerCase()) || key.toLowerCase().includes(name)) {
       return value;
     }
   }
-  
-  if (name.includes('living') || name.includes('sofa')) return categoryImages['Living Room'];
-  if (name.includes('bed')) return categoryImages['Bedroom'];
-  if (name.includes('dining') || name.includes('table')) return categoryImages['Dining Room'];
-  if (name.includes('office') || name.includes('desk')) return categoryImages['Office'];
-  if (name.includes('kitchen')) return categoryImages['Kitchen'];
-  if (name.includes('outdoor') || name.includes('garden')) return categoryImages['Outdoor'];
-  if (name.includes('kid') || name.includes('child')) return categoryImages['Kids Room'];
-  if (name.includes('bath')) return categoryImages['Bathroom'];
-  if (name.includes('entry') || name.includes('hall')) return categoryImages['Entryway'];
-  if (name.includes('decor')) return categoryImages['Home Decor'];
-  if (name.includes('light')) return categoryImages['Lighting'];
-  if (name.includes('storage') || name.includes('cabinet')) return categoryImages['Storage'];
-  if (name.includes('rug') || name.includes('carpet')) return categoryImages['Rugs'];
-  if (name.includes('mirror')) return categoryImages['Mirrors'];
-  if (name.includes('art') || name.includes('wall')) return categoryImages['Wall Art'];
-  if (name.includes('plant')) return categoryImages['Plants'];
   
   return categoryImages['default'];
 };
@@ -81,13 +96,11 @@ const Home = () => {
   const outletContext = useOutletContext<OutletContextType>();
   const onAuthRequired = outletContext?.onAuthRequired;
   
-  const [featuredProducts, setFeaturedProducts] = useState<ProductWithDetails[]>([]);
   const [newArrivals, setNewArrivals] = useState<ProductWithDetails[]>([]);
   const [bestSellers, setBestSellers] = useState<ProductWithDetails[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'featured' | 'new' | 'bestsellers'>('featured');
+  const [activeTab, setActiveTab] = useState<'new' | 'bestsellers'>('new');
   
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(6);
@@ -187,10 +200,8 @@ const Home = () => {
       
       const sortedBySales = [...productsWithDetails].sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
       
-      setProducts(productsWithDetails);
-      setFeaturedProducts(sortedBySales.slice(0, 4));
-      setNewArrivals(productsWithDetails.slice(-4).reverse());
-      setBestSellers(sortedBySales.slice(0, 8));
+      setNewArrivals(productsWithDetails.slice(-8).reverse()); // Latest 8 products
+      setBestSellers(sortedBySales.slice(0, 8)); // Top 8 best sellers
       
       const categoriesWithCounts = categoriesData.map(category => {
         const productCount = productsWithDetails.filter(product => product.categoryId === category.id).length;
@@ -413,7 +424,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories Carousel with Images */}
+      {/* Categories Carousel with Real Images */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4 md:gap-6">
@@ -460,7 +471,7 @@ const Home = () => {
               className={`transition-all duration-500 ease-in-out ${isAnimating ? 'opacity-95' : 'opacity-100'}`}
             >
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-5">
-                {visibleCategories.map((category, index) => {
+                {visibleCategories.map((category) => {
                   const imageUrl = getCategoryImage(category.name);
                   return (
                     <Link 
@@ -518,22 +529,25 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Trending Now */}
+      {/* Trending Now - New Arrivals & Best Sellers Only */}
       <section className="py-16 md:py-24 bg-[#FBFBFA]">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-8 md:mb-16">
             <span className="text-rose-800 font-bold tracking-widest text-[10px] md:text-xs uppercase">Our Catalog</span>
             <h2 className="text-2xl md:text-5xl font-serif text-slate-900 mt-2 md:mt-4 mb-6 md:mb-10">Trending Now</h2>
             <div className="inline-flex p-1 bg-stone-200/50 backdrop-blur rounded-xl md:rounded-2xl">
-              {['featured', 'new', 'bestsellers'].map((tab) => (
+              {[
+                { id: 'new', label: 'New Arrivals' },
+                { id: 'bestsellers', label: 'Best Sellers' }
+              ].map((tab) => (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
                   className={`px-4 md:px-8 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all duration-300 ${
-                    activeTab === tab ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'
+                    activeTab === tab.id ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -545,7 +559,7 @@ const Home = () => {
                 <div className="animate-spin rounded-full h-8 w-8 md:h-10 md:w-10 border-t-2 border-rose-900 mx-auto" />
               </div>
             ) : (
-              (activeTab === 'featured' ? featuredProducts : activeTab === 'new' ? newArrivals : bestSellers.slice(0, 4)).map((product) => (
+              (activeTab === 'new' ? newArrivals.slice(0, 4) : bestSellers.slice(0, 4)).map((product) => (
                 <div key={product.id} className="group">
                   <div className="relative aspect-[4/5] rounded-xl md:rounded-[2rem] overflow-hidden bg-stone-100 mb-3 md:mb-6 shadow-sm">
                     <Link to={`/products/${product.id}`} className="block w-full h-full">
