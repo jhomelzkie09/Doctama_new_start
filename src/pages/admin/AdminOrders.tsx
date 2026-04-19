@@ -426,7 +426,7 @@ const AdminOrders = () => {
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Payment Approval & Order Review</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/admin/deliveries/orders')} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl transition-all flex items-center gap-2">
+            <button onClick={() => navigate('/admin/OrderDelivery')} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl transition-all flex items-center gap-2">
               <Truck className="w-5 h-5" />
               <span className="text-xs font-bold">Delivery Management</span>
             </button>
