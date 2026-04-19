@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, Star, Truck, Shield, Clock, TrendingUp,  
-  ChevronRight, Sparkles, ShoppingBag, CreditCard, MoveRight, PlayCircle
+  ChevronRight, Sparkles, ShoppingBag, CreditCard, MoveRight, PlayCircle,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOutletContext } from 'react-router-dom';
@@ -22,31 +23,8 @@ interface ProductWithDetails extends Product {
   reviewCount: number;
 }
 
-// Category images
-const categoryImages: Record<string, string> = {
-  'Living Room': 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Sofa': 'https://images.pexels.com/photos/1866149/pexels-photo-1866149.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Bedroom': 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Dining Room': 'https://images.pexels.com/photos/1080696/pexels-photo-1080696.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Office': 'https://images.pexels.com/photos/159839/office-home-house-desk-159839.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Kitchen': 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Outdoor': 'https://images.pexels.com/photos/6434654/pexels-photo-6434654.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Garden': 'https://images.pexels.com/photos/6434654/pexels-photo-6434654.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Lighting': 'https://images.pexels.com/photos/1112598/pexels-photo-1112598.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Storage': 'https://images.pexels.com/photos/4226783/pexels-photo-4226783.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'Rugs': 'https://images.pexels.com/photos/1454806/pexels-photo-1454806.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'default': 'https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=400'
-};
-
-const getCategoryImage = (categoryName: string): string => {
-  const name = categoryName.toLowerCase();
-  for (const [key, value] of Object.entries(categoryImages)) {
-    if (name.includes(key.toLowerCase()) || key.toLowerCase().includes(name)) {
-      return value;
-    }
-  }
-  return categoryImages['default'];
-};
+// Default placeholder for categories without products
+const DEFAULT_CATEGORY_IMAGE = 'https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=400';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -57,8 +35,15 @@ const Home = () => {
   const [newArrivals, setNewArrivals] = useState<ProductWithDetails[]>([]);
   const [bestSellers, setBestSellers] = useState<ProductWithDetails[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allProducts, setAllProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'new' | 'bestsellers'>('new');
+
+  // Get the first product image for a category
+  const getCategoryImage = (categoryId: number): string => {
+    const productInCategory = allProducts.find(p => p.categoryId === categoryId && p.imageUrl);
+    return productInCategory?.imageUrl || DEFAULT_CATEGORY_IMAGE;
+  };
 
   const calculateProductSales = async (productId: number): Promise<number> => {
     try {
@@ -104,6 +89,7 @@ const Home = () => {
       
       const sortedBySales = [...productsWithDetails].sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
       
+      setAllProducts(productsWithDetails);
       setNewArrivals(productsWithDetails.slice(-8).reverse());
       setBestSellers(sortedBySales.slice(0, 8));
       
@@ -112,7 +98,9 @@ const Home = () => {
         productCount: productsWithDetails.filter(p => p.categoryId === category.id).length
       }));
       
-      setCategories(categoriesWithCounts);
+      // Only show categories that have products
+      const categoriesWithProducts = categoriesWithCounts.filter(c => c.productCount > 0);
+      setCategories(categoriesWithProducts);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -142,13 +130,12 @@ const Home = () => {
     </div>
   );
 
-  // Single static hero background
   const heroBackground = "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1600";
 
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
 
-      {/* Hero Section - Static Background */}
+      {/* Hero Section */}
       <section className="relative min-h-[80vh] md:min-h-[90vh] flex items-center overflow-hidden">
         <div className="absolute inset-0">
           <img src={heroBackground} alt="Modern Living Room" className="w-full h-full object-cover" />
@@ -197,7 +184,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Trust Bar - Bigger Benefits */}
+      {/* Trust Bar */}
       <div className="py-12 md:py-16 bg-white border-b border-stone-100">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
@@ -216,7 +203,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories Grid - No Carousel */}
+      {/* Categories Grid - Using Product Images */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-8 md:mb-12">
@@ -224,46 +211,59 @@ const Home = () => {
             <p className="text-sm md:text-base text-slate-500">Discover our curated collections flowing through timeless design</p>
           </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-            {categories.slice(0, 12).map((category) => {
-              const imageUrl = getCategoryImage(category.name);
-              return (
-                <Link 
-                  key={category.id} 
-                  to={`/shop?category=${category.id}`} 
-                  className="group transform transition-all duration-300 hover:-translate-y-1"
-                >
-                  <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-lg group-hover:border-transparent transition-all duration-300">
-                    <div className="aspect-square overflow-hidden">
-                      <img 
-                        src={imageUrl} 
-                        alt={category.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
+          {categories.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+              <p className="text-slate-500">No categories available</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+              {categories.slice(0, 12).map((category) => {
+                const imageUrl = getCategoryImage(category.id);
+                return (
+                  <Link 
+                    key={category.id} 
+                    to={`/shop?category=${category.id}`} 
+                    className="group transform transition-all duration-300 hover:-translate-y-1"
+                  >
+                    <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-lg group-hover:border-transparent transition-all duration-300">
+                      <div className="aspect-square overflow-hidden bg-stone-100">
+                        <img 
+                          src={imageUrl} 
+                          alt={category.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          onError={(e) => {
+                            // Fallback if image fails to load
+                            (e.target as HTMLImageElement).src = DEFAULT_CATEGORY_IMAGE;
+                          }}
+                        />
+                      </div>
+                      <div className="p-3 md:p-4 text-center">
+                        <h3 className="font-semibold text-slate-800 text-xs md:text-sm group-hover:text-rose-800 transition-colors line-clamp-1">
+                          {category.name}
+                        </h3>
+                        <span className="text-[10px] md:text-xs text-slate-400 mt-0.5">
+                          {category.productCount || 0} items
+                        </span>
+                      </div>
                     </div>
-                    <div className="p-3 md:p-4 text-center">
-                      <h3 className="font-semibold text-slate-800 text-xs md:text-sm group-hover:text-rose-800 transition-colors line-clamp-1">
-                        {category.name}
-                      </h3>
-                      <span className="text-[10px] md:text-xs text-slate-400 mt-0.5">
-                        {category.productCount || 0} items
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
           
-          <div className="text-center mt-8 md:mt-10">
-            <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 inline-flex items-center group text-sm md:text-base">
-              Browse All Categories <ChevronRight className="w-3 h-3 md:w-4 md:h-4 ml-1 group-hover:translate-x-1 transition" />
-            </Link>
-          </div>
+          {categories.length > 0 && (
+            <div className="text-center mt-8 md:mt-10">
+              <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 inline-flex items-center group text-sm md:text-base">
+                Browse All Categories <ChevronRight className="w-3 h-3 md:w-4 md:h-4 ml-1 group-hover:translate-x-1 transition" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Trending Now - New Arrivals & Best Sellers */}
+      {/* Trending Now */}
       <section className="py-16 md:py-24 bg-[#FBFBFA]">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-8 md:mb-12">
