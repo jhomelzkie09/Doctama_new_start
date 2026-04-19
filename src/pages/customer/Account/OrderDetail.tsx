@@ -25,12 +25,10 @@ import {
   Smartphone,
   Wallet,
   DollarSign,
-  Info,
   MessageCircle,
   ThumbsUp,
   ThumbsDown,
   Star,
-  Edit,
   Check,
   X,
   Upload,
@@ -170,7 +168,7 @@ const OrderDetail = () => {
           customerName: data.customerName,
           customerEmail: data.customerEmail,
           customerPhone: data.customerPhone,
-          items: data.items?.map(item => ({
+          items: data.items?.map((item: any) => ({
             id: typeof item.id === 'string' ? parseInt(item.id) : (item.id || 0),
             productId: typeof item.productId === 'string' ? parseInt(item.productId) : (item.productId || 0),
             productName: item.productName || '',
@@ -208,9 +206,8 @@ const OrderDetail = () => {
     
     try {
       for (const item of order.items) {
-        const stats = await reviewService.getReviewStats(item.productId);
         const reviews = await reviewService.getProductReviews(item.productId);
-        const userReview = reviews.find(r => r.userName === order.customerName);
+        const userReview = reviews.find((r: any) => r.userName === order.customerName);
         
         if (userReview) {
           reviewsMap.set(item.productId, userReview);
@@ -283,11 +280,9 @@ const OrderDetail = () => {
     const loadingToast = showLoading('Submitting payment proof...');
     
     try {
-      // Upload receipt image
       const uploadedUrls = await uploadService.uploadImages([receiptFile]);
       const receiptImageUrl = uploadedUrls[0];
       
-      // Update order with payment proof
       await orderService.updateOrderPayment(order.id, 'pending', {
         paymentProofImage: receiptImageUrl,
         paymentProofReference: referenceNumber,
@@ -306,7 +301,6 @@ const OrderDetail = () => {
       setSenderName('');
       setPaymentDate(new Date().toISOString().split('T')[0]);
       
-      // Reload order
       await loadOrder();
     } catch (error: any) {
       dismissToast(loadingToast);
@@ -487,10 +481,25 @@ const OrderDetail = () => {
     }).format(amount);
   };
 
-  const getStatusStep = (status: string) => {
-    const steps = ['pending', 'awaiting_payment', 'processing', 'shipped', 'delivered'];
-    const currentIndex = steps.indexOf(status);
+  const getStatusStep = (order: OrderDisplay): number => {
+    const steps = order.paymentMethod === 'cod' 
+      ? ['pending', 'processing', 'shipped', 'delivered']
+      : ['pending', 'awaiting_payment', 'processing', 'shipped', 'delivered'];
+    
+    const currentIndex = steps.indexOf(order.status);
+    
+    if (order.approvedBy && order.paymentStatus === 'paid' && currentIndex <= 1) {
+      return 3;
+    }
+    
     return currentIndex >= 0 ? currentIndex + 1 : 0;
+  };
+
+  const getProgressSteps = (order: OrderDisplay) => {
+    if (order.paymentMethod === 'cod') {
+      return ['Pending', 'Processing', 'Shipped', 'Delivered'];
+    }
+    return ['Pending', 'Payment', 'Processing', 'Shipped', 'Delivered'];
   };
 
   const getNotification = () => {
@@ -625,13 +634,14 @@ const OrderDetail = () => {
     );
   }
 
-  const statusStep = getStatusStep(order.status);
+  const currentStep = getStatusStep(order);
+  const progressSteps = getProgressSteps(order);
+  const isPaymentFailed = order.rejectedBy && order.paymentStatus === 'failed';
   const isDelivered = order.status === 'delivered';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 md:py-12">
       <div className="container mx-auto px-4 max-w-5xl">
-        {/* Back Button */}
         <button
           onClick={() => navigate('/account/orders')}
           className="flex items-center text-gray-500 hover:text-gray-700 mb-6 group"
@@ -640,7 +650,6 @@ const OrderDetail = () => {
           Back to Orders
         </button>
 
-        {/* Notification Banner */}
         {notification && (
           <div className={`mb-6 p-5 rounded-2xl border ${notification.color} shadow-sm animate-in slide-in-from-top duration-300`}>
             <div className="flex items-start gap-4">
@@ -664,7 +673,6 @@ const OrderDetail = () => {
           </div>
         )}
 
-        {/* Order Header Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex flex-wrap justify-between items-start gap-4">
             <div>
@@ -687,36 +695,67 @@ const OrderDetail = () => {
           {/* Order Progress Tracker */}
           <div className="mt-8">
             <div className="flex items-center justify-between">
-              {['Pending', 'Payment', 'Processing', 'Shipped', 'Delivered'].map((step, index) => {
-                const isPaymentFailed = order.rejectedBy && order.paymentStatus === 'failed';
-                const stepStatus = isPaymentFailed && step === 'Payment' 
-                  ? false 
-                  : index + 1 <= statusStep;
-                const isCurrent = index + 1 === statusStep;
+              {progressSteps.map((step, index) => {
+                let stepCompleted = false;
+                
+                if (order.paymentMethod === 'cod') {
+                  const adjustedCurrentStep = currentStep >= 2 ? currentStep - 1 : currentStep;
+                  stepCompleted = index < adjustedCurrentStep;
+                } else {
+                  if (index === 1) {
+                    if (isPaymentFailed) {
+                      stepCompleted = false;
+                    } else if (order.approvedBy && order.paymentStatus === 'paid') {
+                      stepCompleted = true;
+                    } else if (order.paymentProofImage && order.paymentStatus === 'pending') {
+                      stepCompleted = true;
+                    } else {
+                      stepCompleted = currentStep > 2;
+                    }
+                  } else {
+                    stepCompleted = index < currentStep - 1;
+                  }
+                }
+                
+                const isCurrent = (() => {
+                  if (order.paymentMethod === 'cod') {
+                    const adjustedCurrentStep = currentStep >= 2 ? currentStep - 1 : currentStep;
+                    return index === adjustedCurrentStep;
+                  }
+                  return index === currentStep - 1;
+                })();
+                
+                const isPaymentStepCurrent = order.paymentMethod !== 'cod' && 
+                  index === 1 && 
+                  order.paymentProofImage && 
+                  order.paymentStatus === 'pending' &&
+                  !order.approvedBy;
+                
+                const effectiveIsCurrent = isCurrent || isPaymentStepCurrent;
                 
                 return (
                   <React.Fragment key={step}>
                     <div className="flex flex-col items-center relative">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                        stepStatus || (isPaymentFailed && step === 'Payment')
-                          ? isPaymentFailed && step === 'Payment'
+                        stepCompleted || (isPaymentFailed && index === 1)
+                          ? isPaymentFailed && index === 1
                             ? 'bg-red-600 text-white shadow-lg shadow-red-200'
                             : 'bg-red-600 text-white shadow-lg shadow-red-200'
                           : 'bg-gray-200 text-gray-400'
-                      } ${isCurrent ? 'ring-4 ring-red-100' : ''}`}>
-                        {stepStatus || (isPaymentFailed && step === 'Payment') ? 
-                          isPaymentFailed && step === 'Payment' ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" /> 
+                      } ${effectiveIsCurrent ? 'ring-4 ring-red-100' : ''}`}>
+                        {stepCompleted || (isPaymentFailed && index === 1) ? 
+                          isPaymentFailed && index === 1 ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" /> 
                           : index + 1}
                       </div>
                       <span className={`text-xs mt-2 font-medium ${
-                        stepStatus || (isPaymentFailed && step === 'Payment') ? 'text-red-600' : 'text-gray-400'
+                        stepCompleted || (isPaymentFailed && index === 1) ? 'text-red-600' : 'text-gray-400'
                       }`}>
                         {step}
                       </span>
                     </div>
-                    {index < 4 && (
+                    {index < progressSteps.length - 1 && (
                       <div className={`flex-1 h-1 mx-2 rounded-full ${
-                        index + 1 < statusStep && !(isPaymentFailed && index === 0) ? 'bg-red-600' : 'bg-gray-200'
+                        stepCompleted && !(isPaymentFailed && index === 0) ? 'bg-red-600' : 'bg-gray-200'
                       }`} />
                     )}
                   </React.Fragment>
@@ -727,7 +766,6 @@ const OrderDetail = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Order Items */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -806,9 +844,7 @@ const OrderDetail = () => {
             </div>
           </div>
 
-          {/* Right Column - Order Details */}
           <div className="space-y-6">
-            {/* Complete Payment Card - Show when payment is pending and no proof */}
             {needsPayment && paymentDetails && (
               <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -1057,7 +1093,6 @@ const OrderDetail = () => {
                 </p>
               </div>
               
-              {/* Receipt Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Payment Receipt <span className="text-red-600">*</span>
