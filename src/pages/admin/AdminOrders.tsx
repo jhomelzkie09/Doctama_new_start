@@ -233,8 +233,14 @@ const AdminOrders = () => {
         ...order, 
         itemsCount: order.items?.length || 0,
         paymentProofImage: order.paymentProofImage || null,
+        paymentProofReference: order.paymentProofReference || null,
+        paymentProofSender: order.paymentProofSender || null,
+        paymentProofDate: order.paymentProofDate || null,
+        paymentProofNotes: order.paymentProofNotes || null,
         approvedBy: order.approvedBy || null,
         approvedAt: order.approvedAt || null,
+        rejectedBy: order.rejectedBy || null,
+        rejectionReason: order.rejectionReason || null,
         codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
       }));
       setOrders(ordersWithDetails);
@@ -400,6 +406,13 @@ const AdminOrders = () => {
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-PH', {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  };
+
+  const formatShortDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-PH', {
       year: 'numeric', month: 'short', day: 'numeric'
     });
   };
@@ -426,7 +439,7 @@ const AdminOrders = () => {
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Payment Approval & Order Review</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/admin/OrderDelivery')} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl transition-all flex items-center gap-2">
+            <button onClick={() => navigate('/admin/deliveries/orders')} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl transition-all flex items-center gap-2">
               <Truck className="w-5 h-5" />
               <span className="text-xs font-bold">Delivery Management</span>
             </button>
@@ -548,7 +561,7 @@ const AdminOrders = () => {
                   <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-5 font-black text-slate-900">#{order.orderNumber?.slice(-8).toUpperCase()}</td>
                     <td className="px-6 py-5">
-                      <p className="text-sm font-bold text-slate-700">{formatDate(order.orderDate)}</p>
+                      <p className="text-sm font-bold text-slate-700">{formatShortDate(order.orderDate)}</p>
                       <p className="text-[10px] text-slate-400">{new Date(order.orderDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </td>
                     <td className="px-6 py-5 font-bold text-slate-700">{order.customerName}</td>
@@ -601,7 +614,7 @@ const AdminOrders = () => {
               <div>
                 <h2 className="text-xl font-black text-slate-900">Order Details</h2>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  #{selectedOrder.orderNumber} • {formatDate(selectedOrder.orderDate)}
+                  #{selectedOrder.orderNumber} • {formatShortDate(selectedOrder.orderDate)}
                 </p>
               </div>
               <button onClick={() => setShowOrderModal(false)} className="p-3 bg-slate-100 rounded-2xl text-slate-400 hover:text-rose-500 transition-colors">
@@ -663,7 +676,7 @@ const AdminOrders = () => {
                       <p className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Approved by {selectedOrder.approvedBy}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-1">{formatDate(selectedOrder.approvedAt || '')}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{formatShortDate(selectedOrder.approvedAt || '')}</p>
                     </div>
                   )}
 
@@ -672,7 +685,7 @@ const AdminOrders = () => {
                       <p className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> COD Payment Confirmed
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-1">{formatDate(selectedOrder.codPaymentConfirmedAt)}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{formatShortDate(selectedOrder.codPaymentConfirmedAt)}</p>
                     </div>
                   )}
 
@@ -684,6 +697,33 @@ const AdminOrders = () => {
                         <div className="absolute inset-0 bg-indigo-600/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                           <span className="text-white text-xs font-bold">Click to enlarge</span>
                         </div>
+                      </div>
+                      {/* Payment Details */}
+                      <div className="mt-3 space-y-1.5">
+                        {selectedOrder.paymentProofReference && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 w-20">Reference:</span>
+                            <span className="text-xs font-mono text-slate-700">{selectedOrder.paymentProofReference}</span>
+                          </div>
+                        )}
+                        {selectedOrder.paymentProofSender && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 w-20">Sender:</span>
+                            <span className="text-xs text-slate-700">{selectedOrder.paymentProofSender}</span>
+                          </div>
+                        )}
+                        {selectedOrder.paymentProofDate && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 w-20">Date:</span>
+                            <span className="text-xs text-slate-700">{formatShortDate(selectedOrder.paymentProofDate)}</span>
+                          </div>
+                        )}
+                        {selectedOrder.paymentProofNotes && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 w-20">Notes:</span>
+                            <span className="text-xs text-slate-600">{selectedOrder.paymentProofNotes}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -813,8 +853,18 @@ const AdminOrders = () => {
           <button className="absolute top-8 right-8 p-4 bg-white/10 rounded-full text-white hover:bg-white/20 transition-all">
             <X className="w-8 h-8" />
           </button>
-          <img src={selectedOrder.paymentProofImage} alt="Full Receipt" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10" />
-          <p className="mt-6 text-white/60 font-black uppercase tracking-[0.2em] text-[10px]">Reference: {selectedOrder.paymentProofReference || 'N/A'}</p>
+          <img src={selectedOrder.paymentProofImage} alt="Full Receipt" className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl border border-white/10" />
+          <div className="mt-6 space-y-1 text-center">
+            {selectedOrder.paymentProofReference && (
+              <p className="text-white/80 text-sm font-mono">Reference: {selectedOrder.paymentProofReference}</p>
+            )}
+            {selectedOrder.paymentProofSender && (
+              <p className="text-white/60 text-xs">Sender: {selectedOrder.paymentProofSender}</p>
+            )}
+            {selectedOrder.paymentProofDate && (
+              <p className="text-white/60 text-xs">Date: {formatShortDate(selectedOrder.paymentProofDate)}</p>
+            )}
+          </div>
         </div>
       )}
     </div>
