@@ -11,13 +11,13 @@ import {
   Facebook,
   Instagram,
   MessageSquare,
-  Headphones,
-  Package,
-  Calendar,
   ChevronRight,
   Sparkles,
   ArrowRight,
-  MoveRight
+  PenLine,
+  Palette,
+  Maximize2,
+  Truck
 } from 'lucide-react';
 
 const Contact = () => {
@@ -75,10 +75,17 @@ const Contact = () => {
     }
   ];
 
+  const customSteps = [
+    { icon: MessageSquare, step: '01', title: 'Tell Us Your Vision', desc: 'Share your ideas — dimensions, style, materials, and any inspiration you have in mind.' },
+    { icon: Palette, step: '02', title: 'Choose Your Finish', desc: 'Pick from our range of premium wood stains, fabrics, and hardware finishes.' },
+    { icon: PenLine, step: '03', title: 'We Craft It for You', desc: 'Our Filipino artisans handcraft your piece with meticulous attention to every detail.' },
+    { icon: Truck, step: '04', title: 'Delivered to Your Door', desc: 'Your bespoke furniture arrives white-glove delivered and ready to love.' },
+  ];
+
   const faqs = [
     {
       question: 'How long does delivery take?',
-      answer: 'Delivery within Sorsogon City takes 1 business days. Municipality deliveries may take 1–2 business days depending on your location.'
+      answer: 'Delivery within Sorsogon City takes 1 business day. Municipality deliveries may take 1–2 business days depending on your location.'
     },
     {
       question: 'What is your return policy?',
@@ -86,7 +93,7 @@ const Contact = () => {
     },
     {
       question: 'Do you offer installation services?',
-      answer: 'Yes, we offer professional white-glove installation for selected furniture items Using home credit. Additional fees may apply based on location. Just go to our store located in Gabao, Bacon, Sorsogon City to inquire about installation services and fees.'
+      answer: 'Yes, we offer professional white-glove installation for selected furniture items using home credit. Additional fees may apply based on location. Just go to our store located in Gabao, Bacon, Sorsogon City to inquire about installation services and fees.'
     },
     {
       question: 'Can I track my order?',
@@ -98,13 +105,11 @@ const Contact = () => {
     }
   ];
 
-
   return (
     <div className="bg-white selection:bg-rose-100 selection:text-rose-900">
 
       {/* ─── Hero ─── */}
       <section className="relative bg-rose-950 py-28 overflow-hidden">
-        {/* Subtle background texture */}
         <div className="absolute inset-0">
           <img
             src="https://images.pexels.com/photos/1866149/pexels-photo-1866149.jpeg?auto=compress&cs=tinysrgb&w=1200"
@@ -152,8 +157,128 @@ const Contact = () => {
         </div>
       </section>
 
+      {/* ─── Want a Customized Product Section ─── */}
+      <section className="py-16 bg-[#FBFBFA] border-y border-stone-100">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-12">
+            <span className="text-rose-800 font-bold tracking-widest text-xs uppercase">Bespoke Service</span>
+            <h2 className="text-3xl md:text-4xl font-serif text-slate-900 mt-3 mb-4">
+              Want a <span className="italic text-rose-700">Customized</span> Product?
+            </h2>
+            <p className="text-slate-500 max-w-xl mx-auto leading-relaxed">
+              Every home is unique — and so should your furniture. Tell us exactly what you want and we'll craft it for you.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-6">
+            {/* Left showcase */}
+            <div className="lg:col-span-2 relative bg-rose-950 rounded-2xl md:rounded-[2rem] overflow-hidden min-h-[400px] flex flex-col justify-between p-8 group">
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.pexels.com/photos/3932930/pexels-photo-3932930.jpeg?auto=compress&cs=tinysrgb&w=900"
+                  alt="Custom Furniture Workshop"
+                  className="w-full h-full object-cover opacity-30 group-hover:opacity-40 group-hover:scale-105 transition-all duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-rose-950 via-rose-950/80 to-rose-950/30" />
+              </div>
+              <div className="relative z-10">
+                <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 text-rose-200 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Made to Order
+                </span>
+              </div>
+              <div className="relative z-10 space-y-6">
+                <div>
+                  <h3 className="text-3xl md:text-4xl font-serif text-white leading-tight mb-3">
+                    Your Vision, <br />
+                    <span className="italic text-rose-200">Our Craft.</span>
+                  </h3>
+                  <p className="text-rose-100/70 text-sm leading-relaxed">
+                    From custom dimensions to bespoke finishes — we bring your dream piece to life.
+                  </p>
+                </div>
+                <div className="flex items-center gap-6 pt-4 border-t border-white/10">
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-white">500+</div>
+                    <div className="text-rose-300/70 text-xs uppercase tracking-widest">Custom Pieces</div>
+                  </div>
+                  <div className="w-px h-8 bg-white/10" />
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-white">4–6 wks</div>
+                    <div className="text-rose-300/70 text-xs uppercase tracking-widest">Lead Time</div>
+                  </div>
+                  <div className="w-px h-8 bg-white/10" />
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-white">100%</div>
+                    <div className="text-rose-300/70 text-xs uppercase tracking-widest">Satisfaction</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right steps */}
+            <div className="lg:col-span-3 flex flex-col gap-4">
+              {customSteps.map((step, i) => (
+                <div
+                  key={i}
+                  className="group flex items-start gap-5 bg-white hover:bg-rose-950 rounded-xl md:rounded-2xl p-5 border border-stone-100 hover:border-transparent transition-all duration-300 cursor-default"
+                >
+                  <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-stone-50 group-hover:bg-white/10 border border-stone-200 group-hover:border-white/20 flex items-center justify-center transition-all duration-300">
+                    <step.icon className="w-5 h-5 text-rose-700 group-hover:text-rose-300 transition-colors duration-300" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-bold tracking-widest text-stone-400 group-hover:text-rose-400 uppercase mb-1 transition-colors duration-300">
+                      Step {step.step}
+                    </div>
+                    <h4 className="font-bold text-slate-900 group-hover:text-white text-sm mb-1 transition-colors duration-300">
+                      {step.title}
+                    </h4>
+                    <p className="text-xs text-slate-500 group-hover:text-rose-100/60 leading-relaxed transition-colors duration-300">
+                      {step.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Material options */}
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Solid Teak Wood', sub: 'Sustainably sourced', color: 'bg-amber-50 border-amber-100', text: 'text-amber-800', sub_text: 'text-amber-600/70' },
+              { label: 'Premium Fabrics', sub: 'Linen, velvet & more', color: 'bg-rose-50 border-rose-100', text: 'text-rose-800', sub_text: 'text-rose-600/70' },
+              { label: 'Custom Dimensions', sub: 'Any size, any shape', color: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-800', sub_text: 'text-emerald-600/70' },
+              { label: 'Hardware Finishes', sub: 'Brass, matte black & more', color: 'bg-slate-50 border-slate-100', text: 'text-slate-800', sub_text: 'text-slate-500' },
+            ].map((item, i) => (
+              <div key={i} className={`${item.color} border rounded-xl md:rounded-2xl px-5 py-4 flex flex-col gap-1`}>
+                <Maximize2 className={`w-4 h-4 mb-1 ${item.text}`} />
+                <span className={`font-bold text-sm ${item.text}`}>{item.label}</span>
+                <span className={`text-xs ${item.sub_text}`}>{item.sub}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-10">
+            <button
+              onClick={() => {
+                setFormData({ 
+                  ...formData, 
+                  subject: 'Custom Furniture Inquiry',
+                  message: 'I would like to inquire about a custom furniture piece...'
+                });
+                document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-rose-950 text-white rounded-full font-bold text-sm hover:bg-rose-900 transition-all shadow-lg shadow-rose-200"
+            >
+              Start Your Custom Request <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* ─── Form + Map/FAQ ─── */}
-      <section className="py-6 pb-24">
+      <section className="py-20">
         <div className="container mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-8">
 
@@ -330,7 +455,7 @@ const Contact = () => {
         </div>
       </section>
 
-      {/* ─── Social + CTA Banner ─── */}
+      {/* ─── Social Banner ─── */}
       <section className="py-20 bg-rose-950 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5">
           <img
@@ -342,8 +467,6 @@ const Contact = () => {
 
         <div className="container mx-auto px-6 relative z-10">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
-
-            {/* Left: Copy */}
             <div>
               <span className="text-rose-300 font-bold tracking-widest text-xs uppercase">Stay Connected</span>
               <h3 className="text-4xl font-serif text-white mt-3 mb-2">
@@ -354,7 +477,6 @@ const Contact = () => {
               </p>
             </div>
 
-            {/* Right: Social buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
               <a
                 href="https://www.facebook.com/doctamamarketing"
