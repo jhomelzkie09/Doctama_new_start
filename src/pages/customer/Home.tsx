@@ -26,6 +26,19 @@ interface ProductWithDetails extends Product {
 // Default placeholder for categories without products
 const DEFAULT_CATEGORY_IMAGE = 'https://images.pexels.com/photos/1571459/pexels-photo-1571459.jpeg?auto=compress&cs=tinysrgb&w=400';
 
+// Skeleton loader for category cards
+const CategorySkeleton = () => (
+  <div className="animate-pulse">
+    <div className="bg-white rounded-xl overflow-hidden border border-stone-100">
+      <div className="aspect-square bg-stone-200" />
+      <div className="p-2 md:p-3 text-center">
+        <div className="h-3 md:h-4 bg-stone-200 rounded w-3/4 mx-auto mb-1" />
+        <div className="h-2 md:h-3 bg-stone-200 rounded w-1/2 mx-auto" />
+      </div>
+    </div>
+  </div>
+);
+
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -37,6 +50,7 @@ const Home = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [allProducts, setAllProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'new' | 'bestsellers'>('new');
 
   // Get the first product image for a category
@@ -73,6 +87,7 @@ const Home = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setCategoriesLoading(true);
     try {
       const [productsData, categoriesData] = await Promise.all([
         productService.getProducts(),
@@ -101,8 +116,10 @@ const Home = () => {
       // Only show categories that have products
       const categoriesWithProducts = categoriesWithCounts.filter(c => c.productCount > 0);
       setCategories(categoriesWithProducts);
+      setCategoriesLoading(false);
     } catch (error) {
       console.error('Failed to load data:', error);
+      setCategoriesLoading(false);
     } finally {
       setLoading(false);
     }
@@ -203,7 +220,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Categories Grid - Using Product Images */}
+      {/* Categories Grid - Smaller Cards with Skeleton Loader */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-8 md:mb-12">
@@ -211,14 +228,22 @@ const Home = () => {
             <p className="text-sm md:text-base text-slate-500">Discover our curated collections flowing through timeless design</p>
           </div>
           
-          {categories.length === 0 ? (
+          {categoriesLoading ? (
+            // Skeleton loader grid
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 md:gap-3">
+              {[...Array(8)].map((_, i) => (
+                <CategorySkeleton key={i} />
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-12 h-12 text-stone-300 mx-auto mb-3" />
               <p className="text-slate-500">No categories available</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-              {categories.slice(0, 12).map((category) => {
+            // Smaller category cards - 8 columns on xl screens
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 md:gap-3">
+              {categories.slice(0, 16).map((category) => {
                 const imageUrl = getCategoryImage(category.id);
                 return (
                   <Link 
@@ -226,23 +251,22 @@ const Home = () => {
                     to={`/shop?category=${category.id}`} 
                     className="group transform transition-all duration-300 hover:-translate-y-1"
                   >
-                    <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-lg group-hover:border-transparent transition-all duration-300">
+                    <div className="bg-white rounded-lg md:rounded-xl overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-md group-hover:border-transparent transition-all duration-300">
                       <div className="aspect-square overflow-hidden bg-stone-100">
                         <img 
                           src={imageUrl} 
                           alt={category.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                           onError={(e) => {
-                            // Fallback if image fails to load
                             (e.target as HTMLImageElement).src = DEFAULT_CATEGORY_IMAGE;
                           }}
                         />
                       </div>
-                      <div className="p-3 md:p-4 text-center">
-                        <h3 className="font-semibold text-slate-800 text-xs md:text-sm group-hover:text-rose-800 transition-colors line-clamp-1">
+                      <div className="p-2 md:p-2.5 text-center">
+                        <h3 className="font-medium text-slate-800 text-[10px] md:text-xs group-hover:text-rose-800 transition-colors line-clamp-1">
                           {category.name}
                         </h3>
-                        <span className="text-[10px] md:text-xs text-slate-400 mt-0.5">
+                        <span className="text-[8px] md:text-[10px] text-slate-400">
                           {category.productCount || 0} items
                         </span>
                       </div>
@@ -253,7 +277,7 @@ const Home = () => {
             </div>
           )}
           
-          {categories.length > 0 && (
+          {!categoriesLoading && categories.length > 0 && (
             <div className="text-center mt-8 md:mt-10">
               <Link to="/shop" className="text-rose-800 font-bold border-b-2 border-rose-800 pb-1 inline-flex items-center group text-sm md:text-base">
                 Browse All Categories <ChevronRight className="w-3 h-3 md:w-4 md:h-4 ml-1 group-hover:translate-x-1 transition" />
