@@ -10,10 +10,8 @@ class OrderService {
     // Check if items exist in the response - handle multiple possible property names
     const itemsData = apiOrder.items || apiOrder.Items || [];
 
-    
     // Convert API items to frontend OrderItem format
     const items: OrderItem[] = itemsData.map((item: any, index: number) => {
-
       return {
         id: item.id?.toString() || '',
         productId: item.productId?.toString() || '',
@@ -67,7 +65,7 @@ class OrderService {
     return convertedOrder;
   }
 
-   async getOrderById(id: number): Promise<Order | null> {
+  async getOrderById(id: number): Promise<Order | null> {
     try {
       const response = await api.get(`${this.baseUrl}/my-orders/${id}`);
       
@@ -100,9 +98,6 @@ class OrderService {
       // Convert each API order to frontend Order type
       const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
       
-      // Log summary of items found
-      const totalItems = convertedOrders.reduce((sum, order) => sum + order.items.length, 0);
-      
       return convertedOrders;
     } catch (error: any) {
       console.error('❌ Error fetching user orders:', error.response?.data || error.message);
@@ -110,38 +105,63 @@ class OrderService {
     }
   }
 
+  // ✅ FIXED: Update order payment with payment proof fields
   async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
-  try {
-    // Format the payload to match backend expectations (PascalCase)
-    const payload: any = { 
-      status: status 
-    };
-    
-    if (details) {
-      payload.details = {
-        ApprovedBy: details.approvedBy || details.ApprovedBy,
-        ApprovedAt: details.approvedAt || details.ApprovedAt || new Date().toISOString(),
-        ApprovedById: details.approvedById || details.ApprovedById,
-        Notes: details.notes || details.Notes,
-        RejectedBy: details.rejectedBy || details.RejectedBy,
-        RejectedAt: details.rejectedAt || details.RejectedAt,
-        Reason: details.reason || details.Reason,
-        Amount: details.amount || details.Amount
+    try {
+      // Build payload with ALL payment proof fields
+      const payload: any = { 
+        paymentStatus: status 
       };
+      
+      if (details) {
+        // Payment proof fields (for customer uploading receipt)
+        if (details.paymentProofImage) {
+          payload.paymentProofImage = details.paymentProofImage;
+        }
+        if (details.paymentProofReference) {
+          payload.paymentProofReference = details.paymentProofReference;
+        }
+        if (details.paymentProofSender) {
+          payload.paymentProofSender = details.paymentProofSender;
+        }
+        if (details.paymentProofDate) {
+          payload.paymentProofDate = details.paymentProofDate;
+        }
+        if (details.paymentProofNotes) {
+          payload.paymentProofNotes = details.paymentProofNotes;
+        }
+        
+        // Admin approval fields
+        if (details.approvedBy) {
+          payload.approvedBy = details.approvedBy;
+        }
+        if (details.approvedAt) {
+          payload.approvedAt = details.approvedAt;
+        }
+        if (details.rejectedBy) {
+          payload.rejectedBy = details.rejectedBy;
+        }
+        if (details.rejectionReason || details.reason) {
+          payload.rejectionReason = details.rejectionReason || details.reason;
+        }
+        if (details.notes) {
+          payload.notes = details.notes;
+        }
+      }
+      
+      console.log('📤 Updating order payment:', { id, payload });
+      
+      // Use the correct endpoint
+      const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
+      
+      // Handle both response formats
+      const orderData = response.data.order || response.data;
+      return this.convertApiOrderToOrder(orderData);
+    } catch (error: any) {
+      console.error('❌ Error updating payment:', error.response?.data || error.message);
+      throw error;
     }
-    
-
-    
-    const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
-    
-    // Handle both response formats (with or without nested 'order' property)
-    const orderData = response.data.order || response.data;
-    return this.convertApiOrderToOrder(orderData);
-  } catch (error: any) {
-    console.error('❌ Error updating payment:', error.response?.data || error.message);
-    throw error;
   }
-}
 
   async createOrder(orderData: any): Promise<Order> {
     try {
@@ -175,11 +195,7 @@ class OrderService {
         total = ordersData.length;
       }
       
-      // Convert each API order to frontend Order type
       const orders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
-      
-      // Log items summary
-      const totalItems = orders.reduce((sum, order) => sum + order.items.length, 0);
       
       return {
         orders,
@@ -198,7 +214,6 @@ class OrderService {
     }
   }
 
-  
   // Get all orders (admin only)
   async getAllOrders(): Promise<Order[]> {
     try {
@@ -209,17 +224,9 @@ class OrderService {
       } else if (response.data.orders && Array.isArray(response.data.orders)) {
         ordersData = response.data.orders;
       }
-
       
-      // Convert each API order to frontend Order type
       const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
       
-      // Log summary
-      const totalItems = convertedOrders.reduce((sum, order) => sum + order.items.length, 0);
-      
-      
-      // Log payment proof info for debugging
-      const ordersWithPaymentProof = convertedOrders.filter(o => o.paymentProofImage);
       return convertedOrders;
     } catch (error: any) {
       console.error('❌ Error fetching orders:', error.response?.data || error.message);
