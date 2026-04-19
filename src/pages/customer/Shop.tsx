@@ -963,6 +963,7 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
               </div>
             )}
 
+            {/* Price and Add to Cart - Price on left, Button on right */}
             <div className="flex items-center justify-between mt-2">
               <span className="text-sm font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
               
@@ -1016,18 +1017,6 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
             Only {product.stockQuantity} left
           </div>
         )}
-
-        {/* Add to cart overlay on hover */}
-        <div className="absolute bottom-0 inset-x-0 p-2 md:p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <button
-            disabled={product.stockQuantity === 0}
-            onClick={(e) => onOpenModal(e, product)}
-            className="w-full py-1.5 md:py-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold flex items-center justify-center gap-1 md:gap-2 hover:bg-rose-900 disabled:bg-slate-300 disabled:text-slate-500 transition"
-          >
-            <ShoppingBag className="w-3 h-3 md:w-3.5 md:h-3.5" />
-            {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
-          </button>
-        </div>
       </div>
 
       {/* Info */}
@@ -1054,7 +1043,7 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
           </div>
         )}
 
-        {/* Color variations - ✅ NEW */}
+        {/* Color variations */}
         {product.colorsVariant?.length > 0 && (
           <div className="flex items-center gap-1 mb-2">
             <Palette className="w-3 h-3 text-slate-400 flex-shrink-0" />
@@ -1079,14 +1068,15 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
 
         <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
 
+        {/* Price and Add to Cart - Price on left, Button on right */}
         <div className="flex items-center justify-between mt-auto pt-2 md:pt-4 border-t border-stone-50">
           <span className="text-sm md:text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
 
-          {/* Mobile-visible cart button - ✅ MOVED BESIDE PRICE */}
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
-            className="p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95 lg:hidden"
+            className="p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95"
+            title="Add to Cart"
           >
             <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
           </button>
@@ -1095,5 +1085,4 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
     </div>
   );
 };
-
 export default Shop;
