@@ -15,7 +15,6 @@ import {
   Store,
   Info,
   Phone,
-  Heart,
   Search,
   Facebook,
   Instagram,
@@ -38,7 +37,9 @@ import {
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
   Twitter as TwitterIcon,
-  Youtube
+  Youtube,
+  PenTool,
+  Wrench
 } from 'lucide-react';
 import AuthSidebar from './AuthSidebar';
 import ConfirmationModal from './ConfirmationModal';
@@ -129,8 +130,8 @@ const Layout = () => {
   const navLinks = [
     { path: '/', label: 'Home', icon: Home },
     { path: '/shop', label: 'Shop', icon: Store },
+    { path: '/contact', label: 'Customize', icon: PenTool },
     { path: '/about', label: 'About', icon: Info },
-    { path: '/contact', label: 'Contact', icon: Phone },
   ];
 
   const socialLinks = [
@@ -190,18 +191,18 @@ const Layout = () => {
         </div>
       </div>
 
-      {/* 2. Mobile-Optimized Navbar */}
+      {/* 2. Mobile-Optimized Navbar with Bigger Logo */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${
         scrolled 
           ? 'bg-white/90 backdrop-blur-lg border-b border-slate-200/50 py-2 shadow-sm' 
-          : 'bg-white py-2 sm:py-3 md:py-5'
+          : 'bg-white py-2 sm:py-3 md:py-4'
       }`}>
         <div className="container mx-auto px-3 sm:px-4 md:px-6">
           <div className="flex justify-between items-center gap-2">
             
-            {/* Logo - Smaller on mobile */}
-            <Link to="/" className="group flex items-center gap-2 flex-shrink-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg flex items-center justify-center">
+            {/* Logo - BIGGER */}
+            <Link to="/" className="group flex items-center gap-2 md:gap-3 flex-shrink-0">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 md:w-16 md:h-16 rounded-lg flex items-center justify-center">
                 <img 
                   src={logo} 
                   alt="Doctama Logo" 
@@ -209,8 +210,8 @@ const Layout = () => {
                 />
               </div>
               <div className="flex flex-col leading-none">
-                <span className="font-black text-xs sm:text-sm md:text-xl tracking-tight text-slate-900 uppercase">Doctama's</span>
-                <span className="text-[6px] sm:text-[8px] md:text-[10px] font-bold text-rose-600 tracking-[0.1em] md:tracking-[0.2em] uppercase">Marketing</span>
+                <span className="font-black text-sm sm:text-base md:text-2xl tracking-tight text-slate-900 uppercase">Doctama's</span>
+                <span className="text-[7px] sm:text-[9px] md:text-[11px] font-bold text-rose-600 tracking-[0.15em] md:tracking-[0.25em] uppercase">Marketing</span>
               </div>
             </Link>
 
@@ -220,7 +221,7 @@ const Layout = () => {
                 <Link
                   key={path}
                   to={path}
-                  className={`px-5 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center gap-2 ${
+                  className={`px-4 md:px-5 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center gap-2 ${
                     isActive(path)
                       ? 'text-rose-600 bg-rose-50'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
@@ -330,7 +331,7 @@ const Layout = () => {
                   )}
                 </div>
               ) : (
-                // Sign In Button - Smaller on mobile
+                // Sign In Button
                 <button
                   onClick={() => handleAuthRequired('login')}
                   className="ml-0 sm:ml-2 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-6 py-1 sm:py-1.5 md:py-2.5 bg-slate-900 text-white text-[11px] sm:text-xs md:text-sm font-bold rounded-full hover:bg-rose-600 transition-all shadow-md shadow-slate-200 active:scale-95"
@@ -341,7 +342,7 @@ const Layout = () => {
                 </button>
               )}
 
-              {/* Mobile menu button - Smaller */}
+              {/* Mobile menu button */}
               <button 
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
                 className="lg:hidden p-1.5 sm:p-2 ml-0 sm:ml-1 text-slate-900"
@@ -375,12 +376,12 @@ const Layout = () => {
         <div className="p-4 h-full flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-                <img src={logo} alt="Doctama Logo" className="w-7 h-7 object-contain" />
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center">
+                <img src={logo} alt="Doctama Logo" className="w-8 h-8 object-contain" />
               </div>
               <div className="flex flex-col">
-                <span className="font-black text-xs text-slate-900 uppercase">Doctama's</span>
-                <span className="text-[7px] font-bold text-rose-600 uppercase">Marketing</span>
+                <span className="font-black text-sm text-slate-900 uppercase">Doctama's</span>
+                <span className="text-[8px] font-bold text-rose-600 uppercase tracking-wider">Marketing</span>
               </div>
             </div>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition">
@@ -447,7 +448,7 @@ const Layout = () => {
             </div>
           )}
 
-          {/* Contact Info in Mobile Menu - Compact */}
+          {/* Contact Info in Mobile Menu */}
           <div className="mt-auto pt-4 border-t border-slate-100">
             <p className="text-[11px] text-slate-400 mb-2">Need help?</p>
             <a href="tel:+639985868888" className="flex items-center gap-3 p-2 text-slate-700 hover:bg-slate-50 rounded-xl transition text-sm">
@@ -491,13 +492,16 @@ const Layout = () => {
         <div className="container mx-auto px-4">
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            {/* Brand Column */}
+            {/* Brand Column - Bigger Logo */}
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-white-600 rounded-lg flex items-center justify-center">
-                  <img src={logo} alt="Doctama Logo" className="w-13 h-13 object-contain" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-white-600 rounded-lg flex items-center justify-center">
+                  <img src={logo} alt="Doctama Logo" className="w-14 h-14 object-contain" />
                 </div>
-                <span className="font-black text-lg tracking-tight uppercase">Doctama's</span>
+                <div className="flex flex-col">
+                  <span className="font-black text-xl tracking-tight uppercase">Doctama's</span>
+                  <span className="text-[10px] font-bold text-rose-500 tracking-wider uppercase">Marketing</span>
+                </div>
               </div>
               <p className="text-slate-400 text-sm leading-relaxed mb-4">
                 Defining the standard of modern living in the Philippines since 2024.
@@ -535,9 +539,9 @@ const Layout = () => {
               <h4 className="font-bold mb-4 text-sm uppercase tracking-widest text-rose-500">Company</h4>
               <ul className="space-y-2 text-slate-400 text-sm">
                 <li><Link to="/about" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Our Story</Link></li>
+                <li><Link to="/contact" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Customize</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Contact</Link></li>
                 <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Showrooms</Link></li>
-                <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Careers</Link></li>
                 <li><Link to="/" className="hover:text-white transition flex items-center gap-2"><ChevronRight className="w-3 h-3" /> Blog</Link></li>
               </ul>
             </div>
