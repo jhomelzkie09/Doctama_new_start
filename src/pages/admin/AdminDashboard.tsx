@@ -9,9 +9,9 @@ import {
   ShoppingCart, Package, TrendingUp, RefreshCw,
   Search, ShoppingBag, Truck, 
   ChevronRight, ChevronLeft, Calendar, Award, Crown, Inbox, Activity,
-  CreditCard, Wallet, Banknote, CheckCircle, Boxes
+  CreditCard, Wallet, Banknote, Boxes
 } from 'lucide-react';
-import { Order, Product, User, OrderItem } from '../../types';
+import { Order, Product, User } from '../../types';
 
 interface DashboardStats {
   totalSales: number;
@@ -51,7 +51,6 @@ const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
 
 const ITEMS_PER_PAGE = 8;
 
-// Helper to convert date to local date string (YYYY-MM-DD)
 const toLocalDateStr = (value: string | Date | undefined): string => {
   if (!value) return '';
   try {
@@ -184,7 +183,6 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      // Fetch orders, products, users, AND stock deliveries
       const [ordersResult, products, users, deliveriesResult] = await Promise.all([
         orderService.getAllOrders().catch(() => []),
         productService.getProducts().catch(() => []),
@@ -197,53 +195,35 @@ const AdminDashboard = () => {
       
       setAllOrders(allOrdersData as Order[]);
       
-      console.log('=== ALL ORDERS ===');
-      console.log('Total orders:', allOrdersData.length);
-      console.log('Total stock deliveries:', allDeliveries.length);
-      
       const filteredPeriodOrders = filterOrdersByDate(allOrdersData as Order[], timeFilter);
-      
-      // Filter stock deliveries by date as well
       const filteredPeriodDeliveries = filterDeliveriesByDate(allDeliveries, timeFilter);
       
-      console.log('=== FILTERED DATA ===');
-      console.log('Time filter:', timeFilter);
-      console.log('Filtered orders count:', filteredPeriodOrders.length);
-      console.log('Filtered stock deliveries count:', filteredPeriodDeliveries.length);
+      // ✅ ONLY COUNT DELIVERED AND PAID ORDERS AS SALES
+      const deliveredAndPaidOrders = filteredPeriodOrders.filter(
+        (order: any) => order.status?.toLowerCase() === 'delivered' && 
+                       order.paymentStatus?.toLowerCase() === 'paid'
+      );
       
-      // Calculate period sales safely
-      const periodSales = filteredPeriodOrders.reduce((sum: number, order: any) => {
+      const deliveredSales = deliveredAndPaidOrders.reduce((sum: number, order: any) => {
         return sum + (Number(order.totalAmount) || 0);
       }, 0);
       
       const periodOrdersCount = filteredPeriodOrders.length;
       
-      // ONLY DELIVERED ORDERS COUNT AS SOLD
-      const deliveredOrders = filteredPeriodOrders.filter(
-        (order: any) => order.status?.toLowerCase() === 'delivered'
-      );
-      
-      console.log('=== DELIVERED ORDERS ===');
-      console.log('Delivered orders count:', deliveredOrders.length);
-      
-      // FIXED: Stock Deliveries = count of RECEIVED stock deliveries in the period
       const periodDeliveries = filteredPeriodDeliveries.filter(
         (delivery: any) => delivery.status?.toLowerCase() === 'received'
       ).length;
       
-      console.log('=== STOCK DELIVERIES ===');
-      console.log('Received stock deliveries count:', periodDeliveries);
-      
-      const deliveredSales = deliveredOrders.reduce((sum: number, order: any) => {
-        return sum + (Number(order.totalAmount) || 0);
-      }, 0);
-      
       const totalProducts = products.length;
       const lowStockCount = products.filter((p: any) => p.stockQuantity > 0 && p.stockQuantity < 10).length;
       const outOfStockCount = products.filter((p: any) => p.stockQuantity === 0).length;
-      const averageOrderValue = periodOrdersCount > 0 ? periodSales / periodOrdersCount : 0;
+      
+      // ✅ Calculate average order value based on delivered AND paid orders
+      const averageOrderValue = deliveredAndPaidOrders.length > 0 
+        ? deliveredSales / deliveredAndPaidOrders.length 
+        : 0;
 
-      // ONLY COUNT DELIVERED ORDERS AS "SOLD"
+      // ✅ ONLY COUNT DELIVERED AND PAID ORDERS FOR PRODUCT SALES
       const productSalesMap = new Map<string, { 
         name: string; 
         sold: number; 
@@ -251,7 +231,7 @@ const AdminDashboard = () => {
         product: Product;
       }>();
       
-      deliveredOrders.forEach((order: any) => {
+      deliveredAndPaidOrders.forEach((order: any) => {
         order.items?.forEach((item: any) => {
           const productId = String(item.productId);
           const quantity = Number(item.quantity) || 0;
@@ -276,15 +256,6 @@ const AdminDashboard = () => {
         });
       });
       
-      console.log('=== PRODUCT SALES MAP ===');
-      const allProductsWithSales = Array.from(productSalesMap.entries()).map(([id, data]) => ({
-        id,
-        name: data.name,
-        sold: data.sold,
-        revenue: data.revenue
-      }));
-      console.log('All products with sales:', allProductsWithSales);
-      
       // Sort by units sold
       const sortedProducts = Array.from(productSalesMap.values())
         .map((data) => ({
@@ -295,18 +266,12 @@ const AdminDashboard = () => {
         }))
         .sort((a, b) => b.sold - a.sold)
         .slice(0, 5);
-      
-      console.log('=== TOP 5 PRODUCTS ===');
-      sortedProducts.forEach((p, i) => {
-        console.log(`${i + 1}. ${p.name}: ${p.sold} sold`);
-      });
 
       const periodOrdersWithDetails = filteredPeriodOrders
         .sort((a: any, b: any) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
         .map((order: any) => {
           const customer = users.find((u: any) => u.id === order.userId);
           const customerName = customer?.fullName || 
-                              customer?.fullName || 
                               (customer?.email ? customer.email.split('@')[0] : null) ||
                               `Customer #${String(order.userId).substring(0, 8)}`;
           return {
@@ -317,8 +282,13 @@ const AdminDashboard = () => {
           };
         });
 
-      // Calculate total sales safely
-      const allTimeTotalSales = (allOrdersData as any[]).reduce((sum: number, order: any) => {
+      // Calculate all-time total sales (delivered + paid only)
+      const allTimeDeliveredAndPaidOrders = (allOrdersData as any[]).filter(
+        (order: any) => order.status?.toLowerCase() === 'delivered' && 
+                       order.paymentStatus?.toLowerCase() === 'paid'
+      );
+      
+      const allTimeTotalSales = allTimeDeliveredAndPaidOrders.reduce((sum: number, order: any) => {
         return sum + (Number(order.totalAmount) || 0);
       }, 0);
 
@@ -327,7 +297,7 @@ const AdminDashboard = () => {
         totalOrders: allOrdersData.length,
         totalProducts,
         averageOrderValue,
-        periodSales,
+        periodSales: deliveredSales,
         periodOrders: periodOrdersCount,
         lowStockCount,
         outOfStockCount,
@@ -481,7 +451,7 @@ const AdminDashboard = () => {
                 {getFilterLabel()}
               </span>
             </div>
-            <p className="text-indigo-200 text-sm font-bold uppercase tracking-wider">Sales</p>
+            <p className="text-indigo-200 text-sm font-bold uppercase tracking-wider">Sales (Delivered & Paid)</p>
             <p className="text-3xl font-black mt-1">{formatCurrency(stats.periodSales)}</p>
             <p className="text-xs font-bold text-indigo-200 mt-3 flex items-center gap-1">
               <div className="w-1 h-1 rounded-full bg-indigo-300" /> Avg: {formatCurrency(stats.averageOrderValue)}
@@ -602,7 +572,7 @@ const AdminDashboard = () => {
                 <div className="py-10 text-center">
                   <Package className="w-10 h-10 text-amber-200 mx-auto mb-3" />
                   <p className="text-amber-600 font-bold text-sm">No sales data yet</p>
-                  <p className="text-amber-500 text-xs mt-1">Products will appear once delivered</p>
+                  <p className="text-amber-500 text-xs mt-1">Products will appear once orders are delivered and paid</p>
                 </div>
               )}
             </div>
@@ -643,7 +613,11 @@ const AdminDashboard = () => {
                   {paginatedOrders.map((order) => {
                     const PaymentIcon = getPaymentMethodIcon(order.paymentMethod || '');
                     return (
-                      <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr 
+                        key={order.id} 
+                        className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                        onClick={() => navigate(`/admin/orders`)}
+                      >
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs flex-shrink-0">
@@ -679,12 +653,6 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-4 py-4 text-right">
                           <p className="text-sm font-black text-slate-900">{formatCurrency(order.totalAmount || 0)}</p>
-                          <button 
-                            onClick={() => navigate(`/admin/orders/${order.id}`)} 
-                            className="text-[10px] font-black text-indigo-600 hover:underline"
-                          >
-                            DETAILS
-                          </button>
                         </td>
                       </tr>
                     );
