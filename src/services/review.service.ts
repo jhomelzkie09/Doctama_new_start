@@ -33,10 +33,13 @@ class ReviewService {
   // Check if user can review a product
   async canReviewProduct(productId: number): Promise<{ canReview: boolean; reason?: string; message?: string }> {
     try {
+      console.log('🔍 Checking review eligibility for product:', productId);
       const response = await api.get(`${this.baseUrl}/can-review/${productId}`);
+      console.log('📋 Review eligibility response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Failed to check review eligibility:', error);
+      console.error('❌ Failed to check review eligibility:', error);
+      console.error('❌ Eligibility check error response:', error?.response?.data);
       return { canReview: false, reason: 'error', message: 'Unable to check eligibility' };
     }
   }

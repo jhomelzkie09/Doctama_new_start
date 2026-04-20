@@ -329,14 +329,28 @@ const OrderDetail = () => {
       showError(`You already reviewed ${product.productName}`);
       return;
     }
-    
-    // Check if user can review this product
+
+    // For delivered and paid orders, allow review regardless of API eligibility check
+    const isDeliveredOrder = order?.status?.toLowerCase() === 'delivered';
+    const isPaidOrder = order?.paymentStatus?.toLowerCase() === 'paid' || order?.paymentMethod === 'cod';
+
+    if (isDeliveredOrder && isPaidOrder) {
+      console.log('✅ Allowing review for delivered and paid order');
+      setSelectedProduct(product);
+      setSelectedRating(ratedProducts.get(product.productId)?.rating || 0);
+      setRatingComment('');
+      setRatingTitle('');
+      setShowRatingModal(true);
+      return;
+    }
+
+    // Check if user can review this product via API
     const canReviewThisProduct = await checkReviewEligibility(product.productId);
     if (!canReviewThisProduct) {
       showError('You are not eligible to review this product');
       return;
     }
-    
+
     setSelectedProduct(product);
     setSelectedRating(ratedProducts.get(product.productId)?.rating || 0);
     setRatingComment('');
@@ -657,8 +671,10 @@ const OrderDetail = () => {
 
   const currentStep = getStatusStep(order);
   const progressSteps = getProgressSteps(order);
-  const isPaymentFailed = order.rejectedBy && order.paymentStatus === 'failed';
-  const isDelivered = order.status?.toLowerCase() === 'delivered';
+  const isPaymentFailed = order?.rejectedBy && order.paymentStatus === 'failed';
+  const isDelivered = order?.status?.toLowerCase() === 'delivered';
+  const isPaid = order?.paymentStatus?.toLowerCase() === 'paid';
+  const canShowRating = isDelivered && (isPaid || order?.paymentMethod === 'cod');
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 md:py-12">
@@ -814,7 +830,7 @@ const OrderDetail = () => {
                           <span>₱{(item.unitPrice || item.price || 0).toLocaleString()} each</span>
                         </div>
                         
-                        {isDelivered && (
+                        {canShowRating && (
                           <div className="mt-3">
                             {hasRated ? (
                               <div className="flex items-center gap-2">
