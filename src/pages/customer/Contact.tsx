@@ -17,8 +17,11 @@ import {
   PenLine,
   Palette,
   Maximize2,
-  Truck
+  Truck,
+  Loader
 } from 'lucide-react';
+import api from '../../../src/api/config';
+import { showSuccess, showError } from '../../../src/utils/toast';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -36,12 +39,29 @@ const Contact = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      setLoading(false);
+    
+    try {
+      // Send contact message to backend
+      await api.post('/contact/send', {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message
+      });
+      
       setSuccess(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
+      showSuccess('Message sent successfully! We\'ll get back to you soon.');
+      
+      // Reset success message after 5 seconds
       setTimeout(() => setSuccess(false), 5000);
-    }, 1000);
+    } catch (err: any) {
+      console.error('Failed to send message:', err);
+      setError(err.response?.data?.message || 'Failed to send message. Please try again.');
+      showError('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const contactInfo = [
@@ -370,7 +390,7 @@ const Contact = () => {
                 >
                   {loading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <Loader className="w-4 h-4 animate-spin" />
                       Sending…
                     </>
                   ) : (
