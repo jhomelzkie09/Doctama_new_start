@@ -282,29 +282,81 @@ const OrderMobileCard: React.FC<{
   };
 
   const calculateStats = () => {
-    const today = new Date().toDateString();
-    const paidDeliveredOrders = orders.filter(o => o.status === 'delivered' && o.paymentStatus === 'paid');
-    const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    
-    const pendingApprovalCount = orders.filter(o => {
-      const isDigitalPending = (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
-        o.paymentStatus === 'pending' && o.paymentProofImage &&
-        o.status !== 'delivered' && o.status !== 'cancelled';
-      const isCODPending = o.paymentMethod === 'cod' && o.status === 'delivered' && o.paymentStatus === 'pending';
-      return isDigitalPending || isCODPending;
-    }).length;
-    
-    setOrderStats({
-      totalSales, totalRevenue,
-      averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
-      pendingPayment: orders.filter(o => o.paymentStatus === 'pending').length,
-      completedOrders: orders.filter(o => o.status === 'delivered').length,
-      todayOrders: orders.filter(o => new Date(o.orderDate).toDateString() === today).length,
-      pendingApproval: pendingApprovalCount,
-      approvedToday: orders.filter(o => o.approvedAt && new Date(o.approvedAt).toDateString() === today).length,
-    });
-  };
+  const today = new Date().toDateString();
+  
+  // ✅ FIXED: Case-insensitive filtering for delivered AND paid orders
+  const paidDeliveredOrders = orders.filter(o => 
+    (o.status?.toLowerCase() === 'delivered') && 
+    (o.paymentStatus?.toLowerCase() === 'paid')
+  );
+  
+  // Calculate total sales from delivered + paid orders only
+  const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  
+  // Total revenue (all orders, regardless of status)
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  
+  // Pending approval count
+  const pendingApprovalCount = orders.filter(o => {
+    const isDigitalPending = (o.paymentMethod === 'gcash' || o.paymentMethod === 'paymaya') &&
+      o.paymentStatus?.toLowerCase() === 'pending' && 
+      o.paymentProofImage &&
+      o.status?.toLowerCase() !== 'delivered' && 
+      o.status?.toLowerCase() !== 'cancelled';
+    const isCODPending = o.paymentMethod === 'cod' && 
+      o.status?.toLowerCase() === 'delivered' && 
+      o.paymentStatus?.toLowerCase() === 'pending';
+    return isDigitalPending || isCODPending;
+  }).length;
+  
+  // Completed orders (delivered, regardless of payment status)
+  const completedOrders = orders.filter(o => 
+    o.status?.toLowerCase() === 'delivered'
+  ).length;
+  
+  // Today's orders
+  const todayOrders = orders.filter(o => 
+    new Date(o.orderDate).toDateString() === today
+  ).length;
+  
+  // Approved today
+  const approvedToday = orders.filter(o => 
+    o.approvedAt && new Date(o.approvedAt).toDateString() === today
+  ).length;
+  
+  // Debug logging - Fixed: Use Array.from() or manual collection
+  console.log('📊 Stats Calculation Debug:');
+  console.log('  Total orders:', orders.length);
+  console.log('  Delivered + Paid orders:', paidDeliveredOrders.length);
+  console.log('  Total Sales:', totalSales);
+  console.log('  Completed Orders:', completedOrders);
+  console.log('  Pending Approval:', pendingApprovalCount);
+  
+  // Fixed: Collect unique statuses without Set iteration
+  const statuses: string[] = [];
+  const paymentStatuses: string[] = [];
+  orders.forEach(o => {
+    if (o.status && !statuses.includes(o.status)) {
+      statuses.push(o.status);
+    }
+    if (o.paymentStatus && !paymentStatuses.includes(o.paymentStatus)) {
+      paymentStatuses.push(o.paymentStatus);
+    }
+  });
+  console.log('  All order statuses:', statuses);
+  console.log('  All payment statuses:', paymentStatuses);
+  
+  setOrderStats({
+    totalSales, 
+    totalRevenue,
+    averageOrderValue: paidDeliveredOrders.length > 0 ? totalSales / paidDeliveredOrders.length : 0,
+    pendingPayment: orders.filter(o => o.paymentStatus?.toLowerCase() === 'pending').length,
+    completedOrders,
+    todayOrders,
+    pendingApproval: pendingApprovalCount,
+    approvedToday,
+  });
+};
 
   const filterOrders = () => {
     let filtered = [...orders];
