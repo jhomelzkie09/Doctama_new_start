@@ -377,13 +377,20 @@ const Shop: React.FC = () => {
   }, [selectedCategory, searchQuery, setSearchParams]);
 
   const handleAddToCartWithOptions = (product: Product, quantity: number, color: string) => {
-    for (let i = 0; i < quantity; i++) addItem(product, color);
-  };
+  // If user is not logged in, prompt login
+  if (!user) {
+    if (onAuthRequired) {
+      onAuthRequired('login');
+    }
+    return;
+  }
+  // User is logged in, add to cart
+  for (let i = 0; i < quantity; i++) addItem(product, color);
+};
 
   const handleOpenModal = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) { if (onAuthRequired) onAuthRequired('login'); return; }
     setSelectedProduct(product);
     setShowModal(true);
   };
