@@ -211,6 +211,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         console.log('📦 Item already exists, increasing quantity');
         return {
           ...state,
+          selectedItems: state.selectedItems,
           items: state.items.map(item =>
             item.uniqueId === uniqueId
               ? { ...item, quantity: item.quantity + 1 }
@@ -264,12 +265,13 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
             ? { ...item, quantity: action.payload.quantity }
             : item
         ),
+        selectedItems: state.selectedItems,
         total: state.total + (item.price * quantityDiff)
       };
     }
     
     case 'CLEAR_CART':
-      return { items: [], total: 0 };
+      return { items: [], selectedItems: new Set(), total: 0 };
 
     case 'LOAD_CART': {
       // ✅ Clean and validate items when loading
@@ -306,6 +308,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       
       return { 
         items: cleanedPayload, 
+        selectedItems: new Set(),
         total: cleanedPayload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
       };
     }
@@ -745,6 +748,9 @@ export const useCart = (): {
   removeItem: (uniqueId: string) => void;
   updateQuantity: (uniqueId: string, quantity: number) => void;
   clearCart: () => void;
+  setSelectedItems: (selectedItems: Set<string>) => void; // ✅ ADD THIS
+  toggleItemSelection: (uniqueId: string) => void; // ✅ ADD THIS
+  getSelectedItems: () => CartItem[];
   isSyncing: boolean;
 } => {
   const context = useContext(CartContext);
