@@ -214,6 +214,7 @@ const Cart = () => {
   const [loading, setLoading] = useState(false);
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(true);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
   // Edit Modal State
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -234,6 +235,12 @@ const Cart = () => {
   useEffect(() => {
     loadRecommendedProducts();
   }, []);
+
+  // Initialize selected items - select all by default
+  useEffect(() => {
+    const allUniqueIds = state.items.map(item => item.uniqueId);
+    setSelectedItems(new Set(allUniqueIds));
+  }, [state.items]);
 
   const loadRecommendedProducts = async () => {
     setLoadingRecommendations(true);
@@ -327,23 +334,34 @@ const Cart = () => {
     setDeleting(false);
   };
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!user) {
-      if (onAuthRequired) {
-        onAuthRequired('login');
+  const handleItemSelection = (uniqueId: string, checked: boolean) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(uniqueId);
+      } else {
+        newSet.delete(uniqueId);
       }
-      return;
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allUniqueIds = state.items.map(item => item.uniqueId);
+      setSelectedItems(new Set(allUniqueIds));
+    } else {
+      setSelectedItems(new Set());
     }
-    
-    // Add to cart with default options
-    addItem(product);
+  };
+
+  const getSelectedItems = () => {
+    return state.items.filter(item => selectedItems.has(item.uniqueId));
   };
 
   const calculateSubtotal = () => {
-    return state.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const selectedItems = getSelectedItems();
+    return selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
 
   const calculateDiscount = () => {
@@ -446,10 +464,35 @@ const Cart = () => {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Cart Items */}
             <div className="flex-1">
+              {/* Select All Checkbox */}
+              <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.size === state.items.length && state.items.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Select All Items ({selectedItems.size} of {state.items.length} selected)
+                  </span>
+                </label>
+              </div>
+
               <div className="bg-white rounded-xl shadow-sm divide-y">
                 {state.items.map((item) => (
                   <div key={item.uniqueId} className="p-6 hover:bg-gray-50 transition group">
                     <div className="flex gap-6">
+                      {/* Checkbox */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.uniqueId)}
+                          onChange={(e) => handleItemSelection(item.uniqueId, e.target.checked)}
+                          className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2"
+                        />
+                      </div>
+
                       {/* Product Image */}
                       <div className="relative">
                         <img
@@ -665,10 +708,17 @@ const Cart = () => {
                 </div>
 
                 <button
-                  onClick={() => navigate('/checkout')}
-                  className="w-full py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-semibold text-lg flex items-center justify-center group mb-3"
+                  onClick={() => {
+                    if (selectedItems.size === 0) {
+                      alert('Please select at least one item to checkout');
+                      return;
+                    }
+                    navigate('/checkout');
+                  }}
+                  disabled={selectedItems.size === 0}
+                  className="w-full py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-semibold text-lg flex items-center justify-center group mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Proceed to Checkout
+                  Proceed to Checkout ({selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''})
                   <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
                 </button>
 

@@ -11,6 +11,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Product } from '../../types';
 import ProductReviews from '../../components/ProductReviews';
+import reviewService from '../../services/review.service';
 
 interface ProductDetailProps {
   isModal?: boolean;
@@ -40,6 +41,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
   const [showZoom, setShowZoom] = useState(false);
   const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [reviewStats, setReviewStats] = useState({
+    averageRating: 0,
+    totalReviews: 0,
+    ratingDistribution: [0, 0, 0, 0, 0]
+  });
 
   useEffect(() => {
     loadProduct();
@@ -65,6 +71,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
       setProduct(data);
       if (data?.colorsVariant?.length) {
         setSelectedColor(data.colorsVariant[0]);
+      }
+      
+      // Load review stats
+      try {
+        const stats = await reviewService.getReviewStats(Number(id));
+        setReviewStats(stats);
+      } catch (error) {
+        // Keep default stats if review loading fails
+        console.warn('Failed to load review stats:', error);
       }
     } catch (error) {
       // Silent fail - error handled by UI
@@ -202,8 +217,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
           </div>
           <h1 className="text-4xl font-black text-gray-900 mb-4 leading-tight">{product.name}</h1>
           <div className="flex items-center justify-between py-4 border-y border-gray-100">
-            {renderStars(4.5)}
-            <span className="text-sm font-medium text-gray-400">12 Verified Reviews</span>
+            {renderStars(reviewStats.averageRating || 4.5)}
+            <span className="text-sm font-medium text-gray-400">{reviewStats.totalReviews} Verified Reviews</span>
           </div>
         </div>
 
@@ -317,7 +332,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ isModal = false, onClose 
             <div className="flex gap-12 border-b border-gray-100 mb-10 overflow-x-auto no-scrollbar">
               {['description', 'reviews'].map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-6 text-sm font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === tab ? 'text-red-600' : 'text-gray-300 hover:text-gray-600'}`}>
-                  {tab} {tab === 'reviews' && '(12)'}
+                  {tab} {tab === 'reviews' && `(${reviewStats.totalReviews})`}
                   {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-1 bg-red-600 rounded-full" />}
                 </button>
               ))}

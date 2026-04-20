@@ -14,6 +14,7 @@ export interface CartItem extends Product {
 
 interface CartState {
   items: CartItem[];
+  selectedItems: Set<string>;
   total: number;
 }
 
@@ -22,7 +23,9 @@ type CartAction =
   | { type: 'REMOVE_ITEM'; payload: { uniqueId: string } }
   | { type: 'UPDATE_QUANTITY'; payload: { uniqueId: string; quantity: number } }
   | { type: 'CLEAR_CART' }
-  | { type: 'LOAD_CART'; payload: CartItem[] };
+  | { type: 'LOAD_CART'; payload: CartItem[] }
+  | { type: 'SET_SELECTED_ITEMS'; payload: Set<string> }
+  | { type: 'TOGGLE_ITEM_SELECTION'; payload: string };
 
 // ✅ Helper to normalize color (convert null/empty to undefined)
 const normalizeColor = (color?: string | null): string | undefined => {
@@ -161,6 +164,9 @@ const CartContext = createContext<{
   removeItem: (uniqueId: string) => void;
   updateQuantity: (uniqueId: string, quantity: number) => void;
   clearCart: () => void;
+  setSelectedItems: (selectedItems: Set<string>) => void;
+  toggleItemSelection: (uniqueId: string) => void;
+  getSelectedItems: () => CartItem[];
   isSyncing: boolean;
 } | undefined>(undefined);
 
@@ -301,6 +307,25 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         total: cleanedPayload.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
       };
     }
+
+    case 'SET_SELECTED_ITEMS':
+      return {
+        ...state,
+        selectedItems: action.payload
+      };
+
+    case 'TOGGLE_ITEM_SELECTION': {
+      const newSelectedItems = new Set(state.selectedItems);
+      if (newSelectedItems.has(action.payload)) {
+        newSelectedItems.delete(action.payload);
+      } else {
+        newSelectedItems.add(action.payload);
+      }
+      return {
+        ...state,
+        selectedItems: newSelectedItems
+      };
+    }
       
     default:
       return state;
@@ -308,7 +333,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 };
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
+  const [state, dispatch] = useReducer(cartReducer, { items: [], selectedItems: new Set(), total: 0 });
   const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState<boolean>(false);
@@ -693,8 +718,20 @@ useEffect(() => {
     showInfo('Cart cleared');
   };
 
+  const setSelectedItems = (selectedItems: Set<string>): void => {
+    dispatch({ type: 'SET_SELECTED_ITEMS', payload: selectedItems });
+  };
+
+  const toggleItemSelection = (uniqueId: string): void => {
+    dispatch({ type: 'TOGGLE_ITEM_SELECTION', payload: uniqueId });
+  };
+
+  const getSelectedItems = (): CartItem[] => {
+    return state.items.filter(item => state.selectedItems.has(item.uniqueId));
+  };
+
   return (
-    <CartContext.Provider value={{ state, addItem, removeItem, updateQuantity, clearCart, isSyncing }}>
+    <CartContext.Provider value={{ state, addItem, removeItem, updateQuantity, clearCart, setSelectedItems, toggleItemSelection, getSelectedItems, isSyncing }}>
       {children}
     </CartContext.Provider>
   );

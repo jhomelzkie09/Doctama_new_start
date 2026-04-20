@@ -7,7 +7,6 @@ import {
   Plus, 
   Search, 
   Edit, 
-  Trash2, 
   Eye, 
   Loader,
   AlertCircle,
@@ -59,17 +58,6 @@ const AdminProducts = () => {
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
-    
-    try {
-      await productService.deleteProduct(id);
-      setAllProducts(allProducts.filter(p => p.id !== id));
-    } catch (err: any) {
-      alert('Failed to delete product');
     }
   };
 
@@ -396,13 +384,6 @@ const AdminProducts = () => {
                               title="Edit Product"
                             >
                               <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete Product"
-                            >
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
