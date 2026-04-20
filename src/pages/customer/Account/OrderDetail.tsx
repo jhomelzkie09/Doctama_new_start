@@ -199,18 +199,6 @@ const OrderDetail = () => {
     }
   };
 
-  const checkReviewEligibility = async (productId: number) => {
-    try {
-      const response = await reviewService.canReviewProduct(productId);
-      setCanReview(response);
-      return response.canReview;
-    } catch (error) {
-      console.error('Failed to check review eligibility:', error);
-      setCanReview({ canReview: false, reason: 'error' });
-      return false;
-    }
-  };
-
   const checkExistingReviews = async () => {
     if (!order?.items) return;
     
@@ -323,34 +311,23 @@ const OrderDetail = () => {
     }
   };
 
-  const handleRateProduct = async (product: OrderItemDisplay) => {
+  const handleRateProduct = (product: OrderItemDisplay) => {
     const existing = existingReviews.get(product.productId);
     if (existing) {
       showError(`You already reviewed ${product.productName}`);
       return;
     }
 
-    // For delivered and paid orders, allow review regardless of API eligibility check
+    // For delivered and paid orders, allow review without API check
     const isDeliveredOrder = order?.status?.toLowerCase() === 'delivered';
     const isPaidOrder = order?.paymentStatus?.toLowerCase() === 'paid' || order?.paymentMethod === 'cod';
 
-    if (isDeliveredOrder && isPaidOrder) {
-      console.log('✅ Allowing review for delivered and paid order');
-      setSelectedProduct(product);
-      setSelectedRating(ratedProducts.get(product.productId)?.rating || 0);
-      setRatingComment('');
-      setRatingTitle('');
-      setShowRatingModal(true);
+    if (!isDeliveredOrder || !isPaidOrder) {
+      showError('You can only review products from delivered and paid orders');
       return;
     }
 
-    // Check if user can review this product via API
-    const canReviewThisProduct = await checkReviewEligibility(product.productId);
-    if (!canReviewThisProduct) {
-      showError('You are not eligible to review this product');
-      return;
-    }
-
+    console.log('✅ Allowing review for delivered and paid order');
     setSelectedProduct(product);
     setSelectedRating(ratedProducts.get(product.productId)?.rating || 0);
     setRatingComment('');
