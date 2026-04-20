@@ -115,6 +115,7 @@ const OrderDetail = () => {
   const [submittingRating, setSubmittingRating] = useState(false);
   const [existingReviews, setExistingReviews] = useState<Map<number, any>>(new Map());
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [canReview, setCanReview] = useState<{ canReview: boolean; reason?: string } | null>(null);
 
   // Complete Payment states
   const [showCompletePaymentModal, setShowCompletePaymentModal] = useState(false);
@@ -195,6 +196,18 @@ const OrderDetail = () => {
       setError(error.message || 'Failed to load order');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkReviewEligibility = async (productId: number) => {
+    try {
+      const response = await reviewService.canReviewProduct(productId);
+      setCanReview(response);
+      return response.canReview;
+    } catch (error) {
+      console.error('Failed to check review eligibility:', error);
+      setCanReview({ canReview: false, reason: 'error' });
+      return false;
     }
   };
 
@@ -310,10 +323,17 @@ const OrderDetail = () => {
     }
   };
 
-  const handleRateProduct = (product: OrderItemDisplay) => {
+  const handleRateProduct = async (product: OrderItemDisplay) => {
     const existing = existingReviews.get(product.productId);
     if (existing) {
       showError(`You already reviewed ${product.productName}`);
+      return;
+    }
+    
+    // Check if user can review this product
+    const canReviewThisProduct = await checkReviewEligibility(product.productId);
+    if (!canReviewThisProduct) {
+      showError('You are not eligible to review this product');
       return;
     }
     
@@ -346,8 +366,7 @@ const OrderDetail = () => {
         rating: selectedRating,
         title: ratingTitle,
         comment: ratingComment,
-        images: [],
-        orderId: order?.id
+        images: []
       });
       
       dismissToast(loadingToast);
@@ -368,7 +387,8 @@ const OrderDetail = () => {
       checkExistingReviews();
     } catch (error: any) {
       dismissToast(loadingToast);
-      const errorMessage = error.response?.data?.message || 'Failed to submit review';
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to submit review';
+      console.error('❌ Review submission error:', error.response?.data);
       showError(errorMessage);
     } finally {
       setSubmittingRating(false);

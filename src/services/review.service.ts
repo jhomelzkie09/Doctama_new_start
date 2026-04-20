@@ -60,10 +60,12 @@ class ReviewService {
         payload.orderId = data.orderId;
       }
 
+      console.log('📤 Creating review with payload:', payload);
       const response = await api.post(this.baseUrl, payload);
       return response.data;
     } catch (error) {
-      console.error('Failed to create review:', error);
+      console.error('❌ Failed to create review:', error);
+      console.error('❌ Error response:', error.response?.data);
       throw error;
     }
   }
