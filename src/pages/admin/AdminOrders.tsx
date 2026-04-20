@@ -210,7 +210,7 @@ const OrderMobileCard: React.FC<{
   </div>
 );
 
-const AdminOrders = () => {
+ const AdminOrders = () => {
   const { isAdmin, user: currentUser } = useAuth();
   const navigate = useNavigate();
   
@@ -583,7 +583,7 @@ const AdminOrders = () => {
                   <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400">Payment</th>
                   <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400">Total</th>
                   <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400">Status</th>
-                  <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400">Action</th>
+                  <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400">nn</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -805,47 +805,67 @@ const AdminOrders = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
-              {/* Digital Payment Approval */}
-              {selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && 
-              (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
-                <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] uppercase tracking-tighter">
-                    <AlertTriangle className="w-3 h-3" /> Payment Verification
-                  </div>
-                  <textarea value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} rows={2}
-                    className="w-full p-3 bg-slate-50 border-none rounded-2xl text-xs" 
-                    placeholder="Enter verification notes (required for rejection)..." />
-                  <div className="flex gap-2">
-                    <button onClick={() => handleApprovePayment(selectedOrder.id)} disabled={updatingStatus}
-                      className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
-                      <Check className="w-4 h-4" /> Approve
-                    </button>
-                    <button onClick={() => handleRejectPayment(selectedOrder.id)} disabled={updatingStatus}
-                      className="flex-1 py-3 bg-rose-100 text-rose-600 rounded-2xl text-xs font-black uppercase hover:bg-rose-200 transition-all flex items-center justify-center gap-2">
-                      <Ban className="w-4 h-4" /> Reject
-                    </button>
-                  </div>
-                </div>
-              )}
+            {/* Action Buttons */}
+<div className="p-6 bg-slate-50 border-t border-slate-200 space-y-4">
+  {/* Digital Payment Approval */}
+  {selectedOrder.paymentMethod !== 'cod' && selectedOrder.paymentStatus === 'pending' && selectedOrder.paymentProofImage && 
+  (selectedOrder.paymentMethod === 'gcash' || selectedOrder.paymentMethod === 'paymaya') && (
+    <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-4">
+      <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] uppercase tracking-tighter">
+        <AlertTriangle className="w-3 h-3" /> Payment Verification
+      </div>
+      <textarea value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} rows={2}
+        className="w-full p-3 bg-slate-50 border-none rounded-2xl text-xs" 
+        placeholder="Enter verification notes (required for rejection)..." />
+      <div className="flex gap-2">
+        <button onClick={() => handleApprovePayment(selectedOrder.id)} disabled={updatingStatus}
+          className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
+          <Check className="w-4 h-4" /> Approve
+        </button>
+        <button onClick={() => handleRejectPayment(selectedOrder.id)} disabled={updatingStatus}
+          className="flex-1 py-3 bg-rose-100 text-rose-600 rounded-2xl text-xs font-black uppercase hover:bg-rose-200 transition-all flex items-center justify-center gap-2">
+          <Ban className="w-4 h-4" /> Reject
+        </button>
+      </div>
+    </div>
+  )}
 
-              {/* COD Payment Confirmation */}
-              {selectedOrder.paymentMethod === 'cod' && selectedOrder.status === 'delivered' && 
-              selectedOrder.paymentStatus === 'pending' && (
-                <button onClick={() => handleConfirmCODPayment(selectedOrder.id)}
-                  className="w-full py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
-                  <Truck className="w-4 h-4" /> Confirm COD Payment Received
-                </button>
-              )}
+  {/* COD Payment Confirmation - FIXED: Show when COD order is delivered and payment is pending */}
+  {selectedOrder.paymentMethod === 'cod' && 
+   (selectedOrder.status === 'delivered' || selectedOrder.status?.toLowerCase() === 'delivered') && 
+   (selectedOrder.paymentStatus === 'pending' || selectedOrder.paymentStatus?.toLowerCase() === 'pending') && (
+    <button 
+      onClick={() => handleConfirmCODPayment(selectedOrder.id)}
+      className="w-full py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+    >
+      <Truck className="w-4 h-4" /> Confirm COD Payment Received
+    </button>
+  )}
 
-              {/* Cancel Order Button */}
-              {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'delivered' && (
-                <button onClick={() => setShowCancelModal(true)}
-                  className="w-full py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-black uppercase border border-rose-100 hover:bg-rose-100 transition-all">
-                  Cancel Order
-                </button>
-              )}
-            </div>
+  {/* Debug info - shows why COD button isn't appearing (remove after testing) */}
+  {selectedOrder.paymentMethod === 'cod' && (
+    <div className="text-[10px] text-slate-400 p-2 bg-slate-100 rounded-lg">
+      COD Order Debug: Status="{selectedOrder.status}", PaymentStatus="{selectedOrder.paymentStatus}"
+      {selectedOrder.status !== 'delivered' && selectedOrder.status?.toLowerCase() !== 'delivered' && (
+        <span className="block text-amber-600">→ Order not delivered yet</span>
+      )}
+      {selectedOrder.paymentStatus !== 'pending' && selectedOrder.paymentStatus?.toLowerCase() !== 'pending' && (
+        <span className="block text-amber-600">→ Payment already {selectedOrder.paymentStatus}</span>
+      )}
+    </div>
+  )}
+
+  {/* Cancel Order Button */}
+  {selectedOrder.status !== 'cancelled' && 
+   selectedOrder.status?.toLowerCase() !== 'cancelled' && 
+   selectedOrder.status !== 'delivered' && 
+   selectedOrder.status?.toLowerCase() !== 'delivered' && (
+    <button onClick={() => setShowCancelModal(true)}
+      className="w-full py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-black uppercase border border-rose-100 hover:bg-rose-100 transition-all">
+      Cancel Order
+    </button>
+  )}
+</div>
           </div>
         </div>
       )}
