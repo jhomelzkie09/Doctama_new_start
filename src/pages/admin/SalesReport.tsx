@@ -114,9 +114,10 @@ const CompanyHeader: React.FC = () => (
 interface SalesTransactionsTableProps {
   orders: any[];
   isLoading?: boolean;
+  showPagination?: boolean;
 }
 
-const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders, isLoading }) => {
+const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders, isLoading, showPagination = true }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -140,6 +141,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
 
   const totalPages = Math.ceil(orders.length / itemsPerPage);
   const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const displayOrders = showPagination ? paginatedOrders : orders;
   
   return (
     <div>
@@ -228,7 +230,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30 no-print">
           <p className="text-xs font-medium text-slate-500">
             Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} transactions
           </p>
@@ -400,6 +402,7 @@ const SalesReport: React.FC = () => {
             th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
             th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; }
             .footer { margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+            .no-print { display: none; }
             @media print { body { margin: 0; } }
           </style>
         </head>
