@@ -346,7 +346,8 @@ const OrderDetail = () => {
         rating: selectedRating,
         title: ratingTitle,
         comment: ratingComment,
-        images: []
+        images: [],
+        orderId: order?.id
       });
       
       dismissToast(loadingToast);

@@ -44,7 +44,23 @@ class ReviewService {
   // Create a review
   async createReview(data: CreateReviewData): Promise<ProductReview> {
     try {
-      const response = await api.post(this.baseUrl, data);
+      const payload: any = {
+        productId: data.productId,
+        rating: data.rating,
+        comment: data.comment
+      };
+
+      if (data.title?.trim()) {
+        payload.title = data.title.trim();
+      }
+      if (data.images && data.images.length > 0) {
+        payload.images = data.images;
+      }
+      if (data.orderId) {
+        payload.orderId = data.orderId;
+      }
+
+      const response = await api.post(this.baseUrl, payload);
       return response.data;
     } catch (error) {
       console.error('Failed to create review:', error);

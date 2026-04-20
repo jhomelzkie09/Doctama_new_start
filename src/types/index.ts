@@ -712,6 +712,7 @@ export interface CreateReviewData {
   title?: string;
   comment: string;
   images?: string[];
+  orderId?: number;
 }
 
 export interface ReviewStats {
