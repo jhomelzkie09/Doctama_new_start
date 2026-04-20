@@ -796,7 +796,10 @@ const Cart = () => {
                     <div className="flex items-center justify-between">
                       <p className="text-red-600 font-bold text-sm">₱{product.price.toLocaleString()}</p>
                       <button
-                        onClick={(e) => handleAddToCart(e, product)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          addItem(product);
+                        }}
                         className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition"
                       >
                         <ShoppingBag className="w-4 h-4" />

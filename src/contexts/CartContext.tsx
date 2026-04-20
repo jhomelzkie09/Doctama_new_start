@@ -231,7 +231,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       
       console.log('✅ Created new cart item:', { 
         id: newItem.id, 
-        name: newItem.name, 
+        name: newItem.name,
         selectedColor: newItem.selectedColor,
         selectedColorType: typeof newItem.selectedColor,
         uniqueId: newItem.uniqueId 
@@ -239,6 +239,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       
       return {
         items: [...state.items, newItem],
+        selectedItems: state.selectedItems,
         total: state.total + product.price
       };
     }
@@ -248,6 +249,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       if (!item) return state;
       return {
         items: state.items.filter(item => item.uniqueId !== action.payload.uniqueId),
+        selectedItems: state.selectedItems,
         total: state.total - (item.price * item.quantity)
       };
     }
@@ -333,7 +335,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 };
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(cartReducer, { items: [], selectedItems: new Set(), total: 0 });
+  const [state, dispatch] = useReducer(cartReducer, { items: [], selectedItems: new Set<string>(), total: 0 });
   const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [hasSyncedWithBackend, setHasSyncedWithBackend] = useState<boolean>(false);
