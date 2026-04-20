@@ -20,6 +20,7 @@ import AccountOrders from './pages/customer/Account/Orders';
 import AccountProfile from './pages/customer/Account/Profile';
 import AccountAddresses from './pages/customer/Account/Addresses';
 import AccountOrderDetails from './pages/customer/Account/OrderDetail';
+import ResetPassword from './pages/auth/ResetPassword';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -48,7 +49,7 @@ function App() {
         <CartProvider>
           <OrderProvider>
             <PromoCodeProvider>
-              {/* Toast Notifications - Place this here */}
+              {/* Toast Notifications */}
               <Toaster 
                 position="top-right"
                 toastOptions={{
@@ -93,6 +94,9 @@ function App() {
                 }}
               />
               <Routes>
+                {/* ========== PUBLIC ROUTES ========== */}
+                <Route path="/reset-password" element={<ResetPassword />} />
+                
                 {/* ========== PUBLIC ROUTES with Layout ========== */}
                 <Route element={<Layout />}>
                   <Route path="/" element={<Home />} />
@@ -155,11 +159,11 @@ function App() {
                     <Route path="promo-codes" element={<PromoCodeManagement />} />
                     <Route path="deliveries" element={<StockDelivery />} />
                     <Route path="deliveries/new" element={<CreateDelivery />} />
-                    <Route path="OrdersDelivery" element={<OrderDelivery />} />
+                    <Route path="deliveries/orders" element={<OrderDelivery />} />
                   </Route>
                 </Route>
                 
-                {/* ========== CATCH ALL - REDIRECT TO HOME ========== */}
+                {/* ========== CATCH ALL ========== */}
                 <Route path="*" element={<Home />} />
               </Routes>
             </PromoCodeProvider>

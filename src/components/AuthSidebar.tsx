@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // Added for smooth transitions
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 interface AuthSidebarProps {
   isOpen: boolean;
@@ -17,13 +17,13 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
   initialMode,
   onModeChange
 }) => {
-  const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -33,7 +33,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
 
   const { login, register } = useAuth();
 
-  // Your original password strength logic
   const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
     if (!password) return { score: 0, label: '', color: 'bg-gray-200' };
     let score = 0;
@@ -109,9 +108,9 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
           password: formData.password,
           fullName: formData.fullName
         });
-        setSuccess('Account created successfully! Please check your email to verify your account.');
+        setSuccess('Account created successfully! You can now sign in.');
         setFormData({ email: '', password: '', fullName: '', confirmPassword: '' });
-        setTimeout(() => { handleModeChange('login'); }, 3000);
+        setTimeout(() => { handleModeChange('login'); }, 2000);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
@@ -126,7 +125,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Enhanced Backdrop with Blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -135,7 +133,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
             onClick={onClose}
           />
 
-          {/* Upgraded Sidebar */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -143,7 +140,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed top-0 right-0 h-full w-full md:w-[400px] bg-white shadow-2xl z-50 flex flex-col"
           >
-            {/* Header Section */}
             <div className="px-6 py-6 border-b border-gray-50 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
@@ -164,10 +160,8 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
               </button>
             </div>
 
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               
-              {/* Sliding Tab Switcher */}
               <div className="relative flex p-1 bg-gray-100 rounded-xl">
                 <motion.div
                   className="absolute inset-y-1 bg-white rounded-lg shadow-sm w-[calc(50%-4px)]"
@@ -188,7 +182,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
                 </button>
               </div>
 
-              {/* Success/Error Alerts */}
               <AnimatePresence mode="wait">
                 {success && (
                   <motion.div 
@@ -245,7 +238,15 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between px-1">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Password</label>
-                    {mode === 'login' && <button type="button" className="text-xs font-bold text-red-600">Forgot?</button>}
+                    {mode === 'login' && (
+                      <button 
+                        type="button" 
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 transition"
+                      >
+                        Forgot?
+                      </button>
+                    )}
                   </div>
                   <div className="relative group">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-500 transition-colors" size={18} />
@@ -266,7 +267,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
                     </button>
                   </div>
 
-                  {/* Your Strength Indicator logic preserved */}
                   {mode === 'register' && formData.password && (
                     <div className="pt-1 px-1">
                       <div className="flex space-x-1 mb-1">
@@ -327,7 +327,6 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
                 </motion.button>
               </form>
 
-              {/* Benefits Section preserved with cleaner UI */}
               {mode === 'register' && (
                 <div className="pt-6 border-t border-gray-50">
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4 text-center">Exclusive Perks</p>
@@ -345,6 +344,16 @@ const AuthSidebar: React.FC<AuthSidebarProps> = ({
               )}
             </div>
           </motion.div>
+
+          {/* Forgot Password Modal */}
+          <ForgotPasswordModal
+            isOpen={showForgotPassword}
+            onClose={() => setShowForgotPassword(false)}
+            onSwitchToLogin={() => {
+              setShowForgotPassword(false);
+              setMode('login');
+            }}
+          />
         </>
       )}
     </AnimatePresence>
