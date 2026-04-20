@@ -114,12 +114,10 @@ const OrderDelivery: React.FC = () => {
       setOutForDeliveryOrders(outForDelivery);
       setDeliveredTodayOrders(deliveredToday);
       
-      // Fetch all delivered orders for the "All Delivered" tab
       try {
         const deliveredResponse = await api.get<DeliveryOrder[]>('/deliveries/all-delivered');
         setAllDeliveredOrders(deliveredResponse.data || []);
       } catch {
-        // If endpoint doesn't exist, use empty array
         setAllDeliveredOrders([]);
       }
       
@@ -153,7 +151,7 @@ const OrderDelivery: React.FC = () => {
       showSuccess(`Order #${order.orderNumber} is out for delivery!`);
       
       setPendingOrders(prev => prev.filter(o => o.orderId !== order.orderId));
-      setOutForDeliveryOrders(prev => [...prev, { ...order, orderStatus: 'OutForDelivery' }]);
+      setOutForDeliveryOrders(prev => [...prev, { ...order, deliveryStatus: 'OutForDelivery', orderStatus: 'OutForDelivery' }]);
       
       await loadDeliveries();
     } catch (err: any) {
@@ -173,7 +171,7 @@ const OrderDelivery: React.FC = () => {
     try {
       let proofImageUrl = '';
       if (proofImage) {
-        // TODO: Implement image upload to Cloudinary or your storage
+        // TODO: Implement image upload
         // proofImageUrl = await uploadImage(proofImage);
       }
       
@@ -319,59 +317,51 @@ const OrderDelivery: React.FC = () => {
   };
 
   const getFilteredOrders = () => {
-  let orders: DeliveryOrder[] = [];
-  
-  if (activeTab === 'pending') {
-    orders = pendingOrders;
-    orders = filterByDate(orders, timeFilter);
-  } else if (activeTab === 'outForDelivery') {
-    orders = outForDeliveryOrders;
-    orders = filterByDate(orders, timeFilter);
-  } else {
-    // Delivered tab
-    if (timeFilter === 'all') {
-      orders = allDeliveredOrders;
+    let orders: DeliveryOrder[] = [];
+    
+    if (activeTab === 'pending') {
+      orders = pendingOrders;
+      orders = filterByDate(orders, timeFilter);
+    } else if (activeTab === 'outForDelivery') {
+      orders = outForDeliveryOrders;
+      orders = filterByDate(orders, timeFilter);
     } else {
-      // Use whichever has data, then filter by date
-      const sourceOrders = allDeliveredOrders.length > 0 ? allDeliveredOrders : deliveredTodayOrders;
-      orders = filterByDate(sourceOrders, timeFilter);
+      if (timeFilter === 'all') {
+        orders = allDeliveredOrders;
+      } else {
+        const sourceOrders = allDeliveredOrders.length > 0 ? allDeliveredOrders : deliveredTodayOrders;
+        orders = filterByDate(sourceOrders, timeFilter);
+      }
     }
-  }
 
-  // Apply search filter
-  return orders.filter(o =>
-    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.shippingAddress.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-};
+    return orders.filter(o =>
+      o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.shippingAddress.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
   const displayOrders = getFilteredOrders();
 
-  // Replace the filteredStats useMemo with this corrected version:
-
-const filteredStats = useMemo(() => {
-  const filteredPending = filterByDate(pendingOrders, timeFilter);
-  const filteredOutForDelivery = filterByDate(outForDeliveryOrders, timeFilter);
-  
-  // For delivered count, always use the appropriate delivered orders list
-  let filteredDelivered: DeliveryOrder[] = [];
-  
-  if (timeFilter === 'all') {
-    // Use allDeliveredOrders for "All Time"
-    filteredDelivered = allDeliveredOrders;
-  } else {
-    // For other filters, check both deliveredToday and allDelivered based on date
-    const allDelivered = allDeliveredOrders.length > 0 ? allDeliveredOrders : deliveredTodayOrders;
-    filteredDelivered = filterByDate(allDelivered, timeFilter);
-  }
-  
-  return {
-    pendingCount: filteredPending.length,
-    outForDeliveryCount: filteredOutForDelivery.length,
-    deliveredCount: filteredDelivered.length,
-  };
-}, [pendingOrders, outForDeliveryOrders, deliveredTodayOrders, allDeliveredOrders, timeFilter]);
+  const filteredStats = useMemo(() => {
+    const filteredPending = filterByDate(pendingOrders, timeFilter);
+    const filteredOutForDelivery = filterByDate(outForDeliveryOrders, timeFilter);
+    
+    let filteredDelivered: DeliveryOrder[] = [];
+    
+    if (timeFilter === 'all') {
+      filteredDelivered = allDeliveredOrders;
+    } else {
+      const allDelivered = allDeliveredOrders.length > 0 ? allDeliveredOrders : deliveredTodayOrders;
+      filteredDelivered = filterByDate(allDelivered, timeFilter);
+    }
+    
+    return {
+      pendingCount: filteredPending.length,
+      outForDeliveryCount: filteredOutForDelivery.length,
+      deliveredCount: filteredDelivered.length,
+    };
+  }, [pendingOrders, outForDeliveryOrders, deliveredTodayOrders, allDeliveredOrders, timeFilter]);
 
   const getFilterLabel = () => {
     return TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label || 'All Time';
@@ -462,7 +452,6 @@ const filteredStats = useMemo(() => {
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Time Filter Dropdown */}
               <div className="relative">
                 <select
                   value={timeFilter}
@@ -476,7 +465,6 @@ const filteredStats = useMemo(() => {
                 <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
               </div>
               
-              {/* Search */}
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
                 <input
@@ -490,7 +478,6 @@ const filteredStats = useMemo(() => {
             </div>
           </div>
           
-          {/* Filter Summary */}
           {timeFilter !== 'all' && (
             <div className="mt-3 pt-3 border-t border-stone-100 flex items-center gap-1.5 text-xs text-stone-400">
               <Filter className="w-3.5 h-3.5" />
@@ -583,6 +570,9 @@ const filteredStats = useMemo(() => {
                         {order.deliveredBy && (
                           <p className="text-sm text-stone-700">By: {order.deliveredBy}</p>
                         )}
+                        <p className="text-[10px] text-stone-400 mt-1">
+                          Status: {order.orderStatus} | Delivery: {order.deliveryStatus}
+                        </p>
                       </div>
                     </div>
 
@@ -600,11 +590,14 @@ const filteredStats = useMemo(() => {
                       </div>
                     )}
 
+                    {/* ✅ FIXED: Button Logic */}
                     <div className="flex items-center gap-3">
-                      {order.orderStatus?.toLowerCase() !== 'shipped' && 
-                       order.orderStatus?.toLowerCase() !== 'outfordelivery' && 
-                       order.deliveryStatus?.toLowerCase() !== 'outfordelivery' && 
-                       order.deliveryStatus?.toLowerCase() !== 'delivered' && (
+                      {/* Mark Out for Delivery - Show for PENDING orders */}
+                      {!order.isDelivered && 
+                       order.deliveryStatus?.toLowerCase() !== 'delivered' &&
+                       order.deliveryStatus?.toLowerCase() !== 'outfordelivery' &&
+                       order.orderStatus?.toLowerCase() !== 'shipped' && 
+                       order.orderStatus?.toLowerCase() !== 'outfordelivery' && (
                         <button
                           onClick={() => handleMarkOutForDelivery(order)}
                           disabled={submitting}
@@ -615,10 +608,12 @@ const filteredStats = useMemo(() => {
                         </button>
                       )}
                       
-                      {(order.orderStatus?.toLowerCase() === 'shipped' || 
+                      {/* Confirm Delivery - Show for OUT FOR DELIVERY orders */}
+                      {!order.isDelivered && 
+                       order.deliveryStatus?.toLowerCase() !== 'delivered' &&
+                       (order.orderStatus?.toLowerCase() === 'shipped' || 
                         order.orderStatus?.toLowerCase() === 'outfordelivery' || 
-                        order.deliveryStatus?.toLowerCase() === 'outfordelivery') && 
-                       order.deliveryStatus?.toLowerCase() !== 'delivered' && !order.isDelivered && (
+                        order.deliveryStatus?.toLowerCase() === 'outfordelivery') && (
                         <button
                           onClick={() => openDeliverModal(order)}
                           className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition"
@@ -628,6 +623,7 @@ const filteredStats = useMemo(() => {
                         </button>
                       )}
                       
+                      {/* Delivered Status */}
                       {(order.deliveryStatus?.toLowerCase() === 'delivered' || order.isDelivered) && (
                         <div className="text-emerald-600 text-sm flex items-center gap-2">
                           <CheckCircle className="w-4 h-4" />
