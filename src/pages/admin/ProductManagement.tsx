@@ -5,7 +5,7 @@ import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
 import orderService from '../../services/order.service';
 import { 
-  Plus, Search, Edit, Trash2, Eye, Filter, Loader, Package, 
+  Plus, Search, Edit, Eye, Filter, Loader, Package, 
   AlertCircle, ChevronLeft, ChevronRight, Grid, List, 
   Layers, ShoppingBag, ArrowUpRight, Inbox, CheckCircle2, AlertTriangle,
   TrendingUp, DollarSign, Calendar, BarChart3, X, TrendingDown,
@@ -246,14 +246,15 @@ const ProductsManagement = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this product permanently?')) return;
+  const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
-      await productService.deleteProduct(id);
-      setAllProducts(allProducts.filter(p => p.id !== id));
-      showSuccess('Product deleted successfully');
+      await productService.toggleProductStatus(id, !currentStatus);
+      setAllProducts(allProducts.map(p => 
+        p.id === id ? { ...p, isActive: !currentStatus } : p
+      ));
+      showSuccess(`Product ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
     } catch (err: any) {
-      showError('Failed to delete product');
+      showError('Failed to update product status');
     }
   };
 
@@ -507,10 +508,15 @@ const ProductsManagement = () => {
                         <Edit className="w-3.5 h-3.5" /> Edit
                       </button>
                       <button 
-                        onClick={() => handleDelete(product.id)}
-                        className="p-2 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors border border-slate-100"
+                        onClick={() => handleToggleStatus(product.id, product.isActive)}
+                        className={`p-2 rounded-lg transition-colors border ${
+                          product.isActive
+                            ? 'bg-green-50 hover:bg-green-100 text-green-600 border-green-200'
+                            : 'bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200'
+                        }`}
+                        title={product.isActive ? 'Deactivate Product' : 'Activate Product'}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {product.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </div>
                   </div>
@@ -601,10 +607,15 @@ const ProductsManagement = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => handleDelete(product.id)} 
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                            onClick={() => handleToggleStatus(product.id, product.isActive)}
+                            className={`p-2 rounded-lg transition-all ${
+                              product.isActive
+                                ? 'text-green-600 hover:bg-green-50'
+                                : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                            title={product.isActive ? 'Deactivate Product' : 'Activate Product'}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {product.isActive ? 'Active' : 'Inactive'}
                           </button>
                         </div>
                       </td>
