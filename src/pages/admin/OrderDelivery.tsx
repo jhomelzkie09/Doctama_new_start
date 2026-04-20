@@ -1,5 +1,5 @@
 // pages/admin/OrderDelivery.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -16,7 +16,9 @@ import {
   Camera,
   User as UserIcon,
   Phone,
-  MapPin
+  MapPin,
+  Calendar,
+  Filter
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import api from '../../api/config';
@@ -55,6 +57,15 @@ interface PendingDeliveriesResponse {
   stats: DeliveryStats;
 }
 
+type TimeFilter = 'all' | 'today' | 'this_week' | 'this_month';
+
+const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
+  { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
+];
+
 const OrderDelivery: React.FC = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -64,9 +75,11 @@ const OrderDelivery: React.FC = () => {
   const [pendingOrders, setPendingOrders] = useState<DeliveryOrder[]>([]);
   const [outForDeliveryOrders, setOutForDeliveryOrders] = useState<DeliveryOrder[]>([]);
   const [deliveredTodayOrders, setDeliveredTodayOrders] = useState<DeliveryOrder[]>([]);
+  const [allDeliveredOrders, setAllDeliveredOrders] = useState<DeliveryOrder[]>([]);
   const [stats, setStats] = useState<DeliveryStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'pending' | 'outForDelivery' | 'deliveredToday'>('pending');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [activeTab, setActiveTab] = useState<'pending' | 'outForDelivery' | 'delivered'>('pending');
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [showDeliverModal, setShowDeliverModal] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
@@ -87,42 +100,48 @@ const OrderDelivery: React.FC = () => {
   }, [isAdmin, navigate]);
 
   const loadDeliveries = async () => {
-  setLoading(true);
-  try {
-    const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
-    
-    console.log('📦 Delivery data received:', response.data);
-    
-    // The backend already categorizes orders
-    const pending = response.data.pending || [];
-    const outForDelivery = response.data.outForDelivery || [];
-    const deliveredToday = response.data.deliveredToday || [];
-    
-    setPendingOrders(pending);
-    setOutForDeliveryOrders(outForDelivery);
-    setDeliveredTodayOrders(deliveredToday);
-    
-    // Use stats from backend, or calculate if not provided
-    if (response.data.stats) {
-      setStats(response.data.stats);
-    } else {
-      // Calculate stats locally
-      setStats({
-        pendingCount: pending.length,
-        outForDeliveryCount: outForDelivery.length,
-        deliveredToday: deliveredToday.length,
-        deliveredThisMonth: 0 // Would need backend for accurate monthly count
-      });
+    setLoading(true);
+    try {
+      const response = await api.get<PendingDeliveriesResponse>('/deliveries/pending');
+      
+      console.log('📦 Delivery data received:', response.data);
+      
+      const pending = response.data.pending || [];
+      const outForDelivery = response.data.outForDelivery || [];
+      const deliveredToday = response.data.deliveredToday || [];
+      
+      setPendingOrders(pending);
+      setOutForDeliveryOrders(outForDelivery);
+      setDeliveredTodayOrders(deliveredToday);
+      
+      // Fetch all delivered orders for the "All Delivered" tab
+      try {
+        const deliveredResponse = await api.get<DeliveryOrder[]>('/deliveries/all-delivered');
+        setAllDeliveredOrders(deliveredResponse.data || []);
+      } catch {
+        // If endpoint doesn't exist, use empty array
+        setAllDeliveredOrders([]);
+      }
+      
+      if (response.data.stats) {
+        setStats(response.data.stats);
+      } else {
+        setStats({
+          pendingCount: pending.length,
+          outForDeliveryCount: outForDelivery.length,
+          deliveredToday: deliveredToday.length,
+          deliveredThisMonth: 0
+        });
+      }
+      
+      setError('');
+    } catch (err: any) {
+      console.error('Failed to load deliveries:', err);
+      setError(err.response?.data?.message || 'Failed to load deliveries');
+    } finally {
+      setLoading(false);
     }
-    
-    setError('');
-  } catch (err: any) {
-    console.error('Failed to load deliveries:', err);
-    setError(err.response?.data?.message || 'Failed to load deliveries');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleMarkOutForDelivery = async (order: DeliveryOrder) => {
     setSubmitting(true);
@@ -133,11 +152,9 @@ const OrderDelivery: React.FC = () => {
       dismissToast(loadingToast);
       showSuccess(`Order #${order.orderNumber} is out for delivery!`);
       
-      // Update local state immediately
       setPendingOrders(prev => prev.filter(o => o.orderId !== order.orderId));
       setOutForDeliveryOrders(prev => [...prev, { ...order, orderStatus: 'OutForDelivery' }]);
       
-      // Refresh from server
       await loadDeliveries();
     } catch (err: any) {
       dismissToast(loadingToast);
@@ -154,7 +171,6 @@ const OrderDelivery: React.FC = () => {
     const loadingToast = showLoading('Confirming delivery...');
     
     try {
-      // Upload proof image if provided
       let proofImageUrl = '';
       if (proofImage) {
         // TODO: Implement image upload to Cloudinary or your storage
@@ -170,15 +186,18 @@ const OrderDelivery: React.FC = () => {
       dismissToast(loadingToast);
       showSuccess(`✅ Order #${selectedOrder.orderNumber} delivered successfully!`);
       
-      // Update local state immediately
       setOutForDeliveryOrders(prev => prev.filter(o => o.orderId !== selectedOrder.orderId));
-      setDeliveredTodayOrders(prev => [{ 
+      
+      const deliveredOrder = { 
         ...selectedOrder, 
         deliveryStatus: 'Delivered', 
         isDelivered: true,
         deliveredAt: new Date().toISOString(),
         recipientName: recipientName || selectedOrder.customerName
-      }, ...prev]);
+      };
+      
+      setDeliveredTodayOrders(prev => [deliveredOrder, ...prev]);
+      setAllDeliveredOrders(prev => [deliveredOrder, ...prev]);
       
       setShowDeliverModal(false);
       setSelectedOrder(null);
@@ -187,7 +206,6 @@ const OrderDelivery: React.FC = () => {
       setProofImage(null);
       setProofImagePreview('');
       
-      // Refresh from server
       await loadDeliveries();
     } catch (err: any) {
       dismissToast(loadingToast);
@@ -218,6 +236,40 @@ const OrderDelivery: React.FC = () => {
     }
   };
 
+  const getDateRange = (filter: TimeFilter): { start: Date; end: Date } => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (filter) {
+      case 'today':
+        return { start: today, end: now };
+      case 'this_week': {
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        return { start: startOfWeek, end: now };
+      }
+      case 'this_month': {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        return { start: startOfMonth, end: now };
+      }
+      default:
+        return { start: new Date(0), end: now };
+    }
+  };
+
+  const filterByDate = (orders: DeliveryOrder[], filter: TimeFilter): DeliveryOrder[] => {
+    if (filter === 'all') return orders;
+    
+    const { start, end } = getDateRange(filter);
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.orderDate);
+      return orderDate >= start && orderDate <= end;
+    });
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '—';
     return new Date(dateString).toLocaleDateString('en-PH', {
@@ -240,7 +292,6 @@ const OrderDelivery: React.FC = () => {
     `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const getStatusBadge = (order: DeliveryOrder) => {
-    // Check deliveryStatus first, then fall back to orderStatus
     const effectiveStatus = order.deliveryStatus !== 'Pending' ? order.deliveryStatus : order.orderStatus;
     
     if (order.isDelivered || effectiveStatus?.toLowerCase() === 'delivered') {
@@ -269,10 +320,22 @@ const OrderDelivery: React.FC = () => {
 
   const getFilteredOrders = () => {
     let orders: DeliveryOrder[] = [];
-    if (activeTab === 'pending') orders = pendingOrders;
-    else if (activeTab === 'outForDelivery') orders = outForDeliveryOrders;
-    else orders = deliveredTodayOrders;
+    
+    if (activeTab === 'pending') {
+      orders = pendingOrders;
+    } else if (activeTab === 'outForDelivery') {
+      orders = outForDeliveryOrders;
+    } else {
+      // For delivered tab, use deliveredToday or allDelivered based on filter
+      orders = timeFilter === 'all' ? allDeliveredOrders : deliveredTodayOrders;
+    }
+    
+    // Apply date filter for pending and outForDelivery tabs
+    if (activeTab !== 'delivered') {
+      orders = filterByDate(orders, timeFilter);
+    }
 
+    // Apply search filter
     return orders.filter(o =>
       o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -281,6 +344,25 @@ const OrderDelivery: React.FC = () => {
   };
 
   const displayOrders = getFilteredOrders();
+
+  // Calculate filtered stats
+  const filteredStats = useMemo(() => {
+    const filteredPending = filterByDate(pendingOrders, timeFilter);
+    const filteredOutForDelivery = filterByDate(outForDeliveryOrders, timeFilter);
+    const filteredDelivered = activeTab === 'delivered' && timeFilter === 'all' 
+      ? allDeliveredOrders 
+      : filterByDate(deliveredTodayOrders, timeFilter);
+    
+    return {
+      pendingCount: filteredPending.length,
+      outForDeliveryCount: filteredOutForDelivery.length,
+      deliveredCount: filteredDelivered.length,
+    };
+  }, [pendingOrders, outForDeliveryOrders, deliveredTodayOrders, allDeliveredOrders, timeFilter, activeTab]);
+
+  const getFilterLabel = () => {
+    return TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label || 'All Time';
+  };
 
   if (loading) {
     return (
@@ -294,6 +376,7 @@ const OrderDelivery: React.FC = () => {
     <div className="min-h-screen bg-stone-50" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px !important; }
       `}</style>
 
       <div className="max-w-7xl mx-auto px-6 py-10">
@@ -308,28 +391,25 @@ const OrderDelivery: React.FC = () => {
         </div>
 
         {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="bg-white border border-stone-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Pending</p>
-              <p className="text-3xl font-light text-amber-600">{stats.pendingCount}</p>
-            </div>
-            <div className="bg-white border border-stone-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Out for Delivery</p>
-              <p className="text-3xl font-light text-blue-600">{stats.outForDeliveryCount}</p>
-            </div>
-            <div className="bg-white border border-emerald-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Delivered Today</p>
-              <p className="text-3xl font-light text-emerald-600">{stats.deliveredToday}</p>
-            </div>
-            <div className="bg-white border border-stone-200 rounded-2xl p-5">
-              <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">This Month</p>
-              <p className="text-3xl font-light text-stone-800">{stats.deliveredThisMonth}</p>
-            </div>
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-white border border-stone-200 rounded-2xl p-5">
+            <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Pending</p>
+            <p className="text-3xl font-light text-amber-600">{filteredStats.pendingCount}</p>
+            <p className="text-xs text-stone-400 mt-1">{getFilterLabel()}</p>
           </div>
-        )}
+          <div className="bg-white border border-stone-200 rounded-2xl p-5">
+            <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Out for Delivery</p>
+            <p className="text-3xl font-light text-blue-600">{filteredStats.outForDeliveryCount}</p>
+            <p className="text-xs text-stone-400 mt-1">{getFilterLabel()}</p>
+          </div>
+          <div className="bg-white border border-emerald-200 rounded-2xl p-5">
+            <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Delivered</p>
+            <p className="text-3xl font-light text-emerald-600">{filteredStats.deliveredCount}</p>
+            <p className="text-xs text-stone-400 mt-1">{getFilterLabel()}</p>
+          </div>
+        </div>
 
-        {/* Tabs and Search */}
+        {/* Tabs, Filter, and Search */}
         <div className="bg-white border border-stone-200 rounded-2xl p-4 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -342,7 +422,7 @@ const OrderDelivery: React.FC = () => {
                 }`}
               >
                 <Package className="w-4 h-4 inline mr-2" />
-                Pending ({pendingOrders.length})
+                Pending ({filteredStats.pendingCount})
               </button>
               <button
                 onClick={() => setActiveTab('outForDelivery')}
@@ -353,32 +433,60 @@ const OrderDelivery: React.FC = () => {
                 }`}
               >
                 <Truck className="w-4 h-4 inline mr-2" />
-                Out for Delivery ({outForDeliveryOrders.length})
+                Out for Delivery ({filteredStats.outForDeliveryCount})
               </button>
               <button
-                onClick={() => setActiveTab('deliveredToday')}
+                onClick={() => setActiveTab('delivered')}
                 className={`px-4 py-2 text-sm font-medium rounded-xl transition ${
-                  activeTab === 'deliveredToday'
+                  activeTab === 'delivered'
                     ? 'bg-stone-900 text-white'
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                 }`}
               >
                 <CheckCircle className="w-4 h-4 inline mr-2" />
-                Delivered Today ({deliveredTodayOrders.length})
+                Delivered ({filteredStats.deliveredCount})
               </button>
             </div>
             
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search orders..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl"
-              />
+            <div className="flex items-center gap-3">
+              {/* Time Filter Dropdown */}
+              <div className="relative">
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
+                  className="py-2 pl-3 pr-8 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-200 min-w-[120px]"
+                >
+                  {TIME_FILTER_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4 pointer-events-none" />
+              </div>
+              
+              {/* Search */}
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search orders..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl"
+                />
+              </div>
             </div>
           </div>
+          
+          {/* Filter Summary */}
+          {timeFilter !== 'all' && (
+            <div className="mt-3 pt-3 border-t border-stone-100 flex items-center gap-1.5 text-xs text-stone-400">
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filtered by <span className="font-medium text-stone-600">{getFilterLabel()}</span></span>
+              {displayOrders.length > 0 && (
+                <span className="ml-1">· {displayOrders.length} result{displayOrders.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Error Display */}
@@ -394,7 +502,11 @@ const OrderDelivery: React.FC = () => {
           {displayOrders.length === 0 ? (
             <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center">
               <Box className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-              <p className="text-stone-500">No orders found</p>
+              <p className="text-stone-500">
+                {timeFilter !== 'all' 
+                  ? `No orders found for ${getFilterLabel().toLowerCase()}` 
+                  : 'No orders found'}
+              </p>
             </div>
           ) : (
             displayOrders.map(order => (
@@ -476,7 +588,6 @@ const OrderDelivery: React.FC = () => {
                     )}
 
                     <div className="flex items-center gap-3">
-                      {/* Show "Mark Out for Delivery" if order is pending/processing */}
                       {order.orderStatus?.toLowerCase() !== 'shipped' && 
                        order.orderStatus?.toLowerCase() !== 'outfordelivery' && 
                        order.deliveryStatus?.toLowerCase() !== 'outfordelivery' && 
@@ -491,7 +602,6 @@ const OrderDelivery: React.FC = () => {
                         </button>
                       )}
                       
-                      {/* Show "Confirm Delivery" if order is out for delivery */}
                       {(order.orderStatus?.toLowerCase() === 'shipped' || 
                         order.orderStatus?.toLowerCase() === 'outfordelivery' || 
                         order.deliveryStatus?.toLowerCase() === 'outfordelivery') && 
@@ -505,7 +615,6 @@ const OrderDelivery: React.FC = () => {
                         </button>
                       )}
                       
-                      {/* Show delivered status */}
                       {(order.deliveryStatus?.toLowerCase() === 'delivered' || order.isDelivered) && (
                         <div className="text-emerald-600 text-sm flex items-center gap-2">
                           <CheckCircle className="w-4 h-4" />
