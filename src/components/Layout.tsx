@@ -27,6 +27,8 @@ import {
   UserCircle,
   Package,
   Award,
+  Moon,
+  Sun,
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
   Twitter as TwitterIcon,
@@ -52,12 +54,35 @@ const Layout = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Theme (dark mode) initialization + persistence
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const storedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+    const initialTheme: 'light' | 'dark' =
+      storedTheme === 'dark' || storedTheme === 'light'
+        ? storedTheme
+        : systemPrefersDark
+          ? 'dark'
+          : 'light';
+
+    setTheme(initialTheme);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   // Load profile picture when user changes
   useEffect(() => {
@@ -117,6 +142,10 @@ const Layout = () => {
     setLoggingOut(false);
   };
 
+  const handleToggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const isActive = (path: string) => location.pathname === path;
 
   const navLinks = [
@@ -134,7 +163,7 @@ const Layout = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-900">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-white dark:bg-slate-950 dark:text-slate-100 transition-colors">
       {/* Confirmation Modal for Logout */}
       <ConfirmationModal
         isOpen={showLogoutModal}
@@ -186,8 +215,8 @@ const Layout = () => {
       {/* Navbar */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${
         scrolled 
-          ? 'bg-white/90 backdrop-blur-lg border-b border-slate-200/50 py-2 shadow-sm' 
-          : 'bg-white py-2 sm:py-3 md:py-4'
+          ? 'bg-white/90 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200/50 dark:border-slate-800/60 py-2 shadow-sm' 
+          : 'bg-white dark:bg-slate-950 py-2 sm:py-3 md:py-4'
       }`}>
         <div className="container mx-auto px-3 sm:px-4 md:px-6">
           <div className="flex justify-between items-center gap-2">
@@ -202,7 +231,7 @@ const Layout = () => {
                 />
               </div>
               <div className="flex flex-col leading-none">
-                <span className="font-black text-sm sm:text-base md:text-2xl tracking-tight text-slate-900 uppercase">Doctama's</span>
+                <span className="font-black text-sm sm:text-base md:text-2xl tracking-tight text-slate-900 dark:text-slate-100 uppercase">Doctama's</span>
                 <span className="text-[7px] sm:text-[9px] md:text-[11px] font-bold text-rose-600 tracking-[0.15em] md:tracking-[0.25em] uppercase">Marketing</span>
               </div>
             </Link>
@@ -215,8 +244,8 @@ const Layout = () => {
                   to={path}
                   className={`px-4 md:px-5 py-2 text-sm font-semibold rounded-full transition-all duration-300 flex items-center gap-2 ${
                     isActive(path)
-                      ? 'text-rose-600 bg-rose-50'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'text-rose-600 bg-rose-50 dark:bg-rose-500/10'
+                      : 'text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-900/40'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -229,7 +258,7 @@ const Layout = () => {
             <div className="flex items-center gap-1 sm:gap-2">
               <button 
                 onClick={() => setSearchOpen(!searchOpen)} 
-                className="p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 transition-colors"
+                className="p-1.5 sm:p-2 text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
               >
                 <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
@@ -240,12 +269,12 @@ const Layout = () => {
                   placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-40 focus:w-64 px-4 py-2 pl-10 text-sm bg-slate-100 border-none rounded-full focus:ring-2 focus:ring-rose-500/20 transition-all placeholder:text-slate-400"
+                  className="w-40 focus:w-64 px-4 py-2 pl-10 text-sm bg-slate-100 dark:bg-slate-900/60 dark:text-slate-100 border-none rounded-full focus:ring-2 focus:ring-rose-500/20 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
-                <Search className="absolute left-3.5 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
               </form>
 
-              <Link to="/cart" onClick={handleAddToCartClick} className="relative p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 transition-colors">
+              <Link to="/cart" onClick={handleAddToCartClick} className="relative p-1.5 sm:p-2 text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
                 <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
                 {state.items.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
@@ -261,7 +290,7 @@ const Layout = () => {
                     onClick={() => setUserMenuOpen(!userMenuOpen)} 
                     className="flex items-center gap-1 group p-1"
                   >
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center overflow-hidden transition-all group-hover:border-rose-300">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full flex items-center justify-center overflow-hidden transition-all group-hover:border-rose-300">
                       {profilePicture ? (
                         <img 
                           src={profilePicture} 
@@ -269,18 +298,18 @@ const Layout = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-xs sm:text-sm font-bold text-slate-700">
+                        <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
                           {user.fullName ? user.fullName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || 'U'}
                         </span>
                       )}
                     </div>
-                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 text-slate-400 dark:text-slate-500 transition-transform duration-200 hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 animate-in fade-in zoom-in-95 duration-200 z-50">
-                      <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl py-2 animate-in fade-in zoom-in-95 duration-200 z-50">
+                      <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-800 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex-shrink-0">
                           {profilePicture ? (
                             <img 
                               src={profilePicture} 
@@ -296,22 +325,44 @@ const Layout = () => {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-900 truncate">
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
                             {user.fullName || user.email?.split('@')[0] || 'User'}
                           </p>
-                          <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-400 truncate">{user.email}</p>
                         </div>
                       </div>
-                      <Link to="/account/profile" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
+                      <Link to="/account/profile" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-300 transition-colors">
                         <UserCircle className="w-4 h-4" /> My Profile
                       </Link>
-                      <Link to="/account/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors">
+                      <Link to="/account/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-slate-600 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-300 transition-colors">
                         <Package className="w-4 h-4" /> My Orders
                       </Link>
-                      <div className="border-t border-slate-100 my-1"></div>
+                      <button
+                        type="button"
+                        onClick={handleToggleTheme}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-2 text-sm text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      >
+                        <span className="flex items-center gap-3">
+                          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                        </span>
+                        <span
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            theme === 'dark' ? 'bg-rose-600' : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              theme === 'dark' ? 'translate-x-4' : 'translate-x-1'
+                            }`}
+                          />
+                        </span>
+                      </button>
+                      <div className="border-t border-slate-100 dark:border-slate-800 my-1"></div>
                       <button 
                         onClick={handleLogoutClick} 
-                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                       >
                         <LogOut className="w-4 h-4" /> Sign Out
                       </button>
@@ -331,7 +382,7 @@ const Layout = () => {
 
               <button 
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
-                className="lg:hidden p-1.5 sm:p-2 ml-0 sm:ml-1 text-slate-900"
+                className="lg:hidden p-1.5 sm:p-2 ml-0 sm:ml-1 text-slate-900 dark:text-slate-100"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
               </button>
@@ -358,7 +409,7 @@ const Layout = () => {
       </nav>
 
       {/* Mobile Menu */}
-      <div className={`fixed inset-0 z-[60] bg-white transition-transform duration-500 lg:hidden ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-0 z-[60] bg-white dark:bg-slate-950 transition-transform duration-500 lg:hidden ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-4 h-full flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
@@ -366,11 +417,11 @@ const Layout = () => {
                 <img src={logo} alt="Doctama Logo" className="w-8 h-8 object-contain" />
               </div>
               <div className="flex flex-col">
-                <span className="font-black text-sm text-slate-900 uppercase">Doctama's</span>
+                <span className="font-black text-sm text-slate-900 dark:text-slate-100 uppercase">Doctama's</span>
                 <span className="text-[8px] font-bold text-rose-600 uppercase tracking-wider">Marketing</span>
               </div>
             </div>
-            <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition">
+            <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-900 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition">
               <X className="w-5 h-5" />
             </button>
           </div>
