@@ -319,46 +319,59 @@ const OrderDelivery: React.FC = () => {
   };
 
   const getFilteredOrders = () => {
-    let orders: DeliveryOrder[] = [];
-    
-    if (activeTab === 'pending') {
-      orders = pendingOrders;
-    } else if (activeTab === 'outForDelivery') {
-      orders = outForDeliveryOrders;
+  let orders: DeliveryOrder[] = [];
+  
+  if (activeTab === 'pending') {
+    orders = pendingOrders;
+    orders = filterByDate(orders, timeFilter);
+  } else if (activeTab === 'outForDelivery') {
+    orders = outForDeliveryOrders;
+    orders = filterByDate(orders, timeFilter);
+  } else {
+    // Delivered tab
+    if (timeFilter === 'all') {
+      orders = allDeliveredOrders;
     } else {
-      // For delivered tab, use deliveredToday or allDelivered based on filter
-      orders = timeFilter === 'all' ? allDeliveredOrders : deliveredTodayOrders;
+      // Use whichever has data, then filter by date
+      const sourceOrders = allDeliveredOrders.length > 0 ? allDeliveredOrders : deliveredTodayOrders;
+      orders = filterByDate(sourceOrders, timeFilter);
     }
-    
-    // Apply date filter for pending and outForDelivery tabs
-    if (activeTab !== 'delivered') {
-      orders = filterByDate(orders, timeFilter);
-    }
+  }
 
-    // Apply search filter
-    return orders.filter(o =>
-      o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.shippingAddress.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
+  // Apply search filter
+  return orders.filter(o =>
+    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    o.shippingAddress.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+};
 
   const displayOrders = getFilteredOrders();
 
-  // Calculate filtered stats
-  const filteredStats = useMemo(() => {
-    const filteredPending = filterByDate(pendingOrders, timeFilter);
-    const filteredOutForDelivery = filterByDate(outForDeliveryOrders, timeFilter);
-    const filteredDelivered = activeTab === 'delivered' && timeFilter === 'all' 
-      ? allDeliveredOrders 
-      : filterByDate(deliveredTodayOrders, timeFilter);
-    
-    return {
-      pendingCount: filteredPending.length,
-      outForDeliveryCount: filteredOutForDelivery.length,
-      deliveredCount: filteredDelivered.length,
-    };
-  }, [pendingOrders, outForDeliveryOrders, deliveredTodayOrders, allDeliveredOrders, timeFilter, activeTab]);
+  // Replace the filteredStats useMemo with this corrected version:
+
+const filteredStats = useMemo(() => {
+  const filteredPending = filterByDate(pendingOrders, timeFilter);
+  const filteredOutForDelivery = filterByDate(outForDeliveryOrders, timeFilter);
+  
+  // For delivered count, always use the appropriate delivered orders list
+  let filteredDelivered: DeliveryOrder[] = [];
+  
+  if (timeFilter === 'all') {
+    // Use allDeliveredOrders for "All Time"
+    filteredDelivered = allDeliveredOrders;
+  } else {
+    // For other filters, check both deliveredToday and allDelivered based on date
+    const allDelivered = allDeliveredOrders.length > 0 ? allDeliveredOrders : deliveredTodayOrders;
+    filteredDelivered = filterByDate(allDelivered, timeFilter);
+  }
+  
+  return {
+    pendingCount: filteredPending.length,
+    outForDeliveryCount: filteredOutForDelivery.length,
+    deliveredCount: filteredDelivered.length,
+  };
+}, [pendingOrders, outForDeliveryOrders, deliveredTodayOrders, allDeliveredOrders, timeFilter]);
 
   const getFilterLabel = () => {
     return TIME_FILTER_OPTIONS.find(t => t.value === timeFilter)?.label || 'All Time';

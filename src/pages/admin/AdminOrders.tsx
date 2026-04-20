@@ -100,19 +100,49 @@ const ColorVariantBadge: React.FC<{ item: any }> = ({ item }) => {
   );
 };
 
+// Replace the StatusPill component with this fixed version:
+
 // ========== STATUS PILL ==========
 const StatusPill: React.FC<{ status: OrderStatus }> = ({ status }) => {
-  const variants: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700 border-amber-200",
-    awaiting_payment: "bg-orange-100 text-orange-700 border-orange-200",
-    processing: "bg-blue-100 text-blue-700 border-blue-200",
-    shipped: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    cancelled: "bg-rose-100 text-rose-700 border-rose-200",
+  const getVariant = (): string => {
+    const normalizedStatus = status?.toLowerCase() || '';
+    
+    switch (normalizedStatus) {
+      case 'pending':
+        return "bg-amber-100 text-amber-700 border-amber-200";
+      case 'awaiting_payment':
+        return "bg-orange-100 text-orange-700 border-orange-200";
+      case 'processing':
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case 'shipped':
+        return "bg-indigo-100 text-indigo-700 border-indigo-200";
+      case 'outfordelivery':
+        return "bg-sky-100 text-sky-700 border-sky-200";
+      case 'delivered':
+        return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      case 'cancelled':
+        return "bg-rose-100 text-rose-700 border-rose-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
   };
+
+  const getDisplayText = (): string => {
+    const normalizedStatus = status?.toLowerCase() || '';
+    
+    switch (normalizedStatus) {
+      case 'awaiting_payment':
+        return 'Awaiting Payment';
+      case 'outfordelivery':
+        return 'Out for Delivery';
+      default:
+        return status.replace(/_/g, ' ');
+    }
+  };
+
   return (
-    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${variants[status] || variants.pending}`}>
-      {status.replace('_', ' ')}
+    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getVariant()}`}>
+      {getDisplayText()}
     </span>
   );
 };
