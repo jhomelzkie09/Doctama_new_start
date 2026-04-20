@@ -136,7 +136,7 @@ const OrderDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (order?.status === 'delivered' && order.items?.length > 0) {
+    if (order?.status?.toLowerCase() === 'delivered' && order.items?.length > 0) {
       checkExistingReviews();
     }
   }, [order]);
@@ -637,7 +637,7 @@ const OrderDetail = () => {
   const currentStep = getStatusStep(order);
   const progressSteps = getProgressSteps(order);
   const isPaymentFailed = order.rejectedBy && order.paymentStatus === 'failed';
-  const isDelivered = order.status === 'delivered';
+  const isDelivered = order.status?.toLowerCase() === 'delivered';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 md:py-12">
