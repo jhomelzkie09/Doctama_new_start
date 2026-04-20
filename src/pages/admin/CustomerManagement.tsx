@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import userService from '../../services/user.service';
 import orderService from '../../services/order.service';
 import {
-  Users, Search, RefreshCw, Eye, Trash2,
+  Users, Search, RefreshCw, Eye,
   Phone, AlertCircle, CheckCircle, XCircle,
   ChevronLeft, ChevronRight, X, MapPin, Package, Loader
 } from 'lucide-react';
@@ -100,7 +100,6 @@ const CustomerManagement = () => {
   
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithStats | null>(null);
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
 
@@ -262,25 +261,6 @@ const CustomerManagement = () => {
     setActionLoading(false);
     setSuccess('Data refreshed');
     setTimeout(() => setSuccess(''), 2000);
-  };
-
-  const handleDeleteCustomer = async () => {
-    if (!selectedCustomer) return;
-    setActionLoading(true);
-    try {
-      await userService.deleteUser(selectedCustomer.id);
-      setSuccess('Customer deleted successfully');
-      setShowDeleteModal(false);
-      setSelectedCustomer(null);
-      // Clear orders cache since customer is deleted
-      ordersCache.current = null;
-      const customers = await fetchAllData(true);
-      applyFiltersAndPagination(customers);
-    } catch (e: any) {
-      setError(e.message || 'Failed to delete customer');
-    } finally {
-      setActionLoading(false);
-    }
   };
 
   const handleToggleStatus = async (customer: CustomerWithStats) => {
@@ -475,10 +455,6 @@ const CustomerManagement = () => {
                         <button className="cm-action-btn" title={customer.isActive ? 'Deactivate' : 'Activate'} onClick={() => handleToggleStatus(customer)} disabled={actionLoading}>
                           {customer.isActive ? <XCircle size={14} /> : <CheckCircle size={14} />}
                         </button>
-                        <button className="cm-action-btn" title="Delete" style={{ color: '#ef4444' }}
-                          onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }} disabled={actionLoading}>
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -596,27 +572,6 @@ const CustomerManagement = () => {
           </div>
         )}
 
-        {/* Delete Modal */}
-        {showDeleteModal && selectedCustomer && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <div className="fade-in" style={{ background: 'var(--surface)', borderRadius: 16, padding: '24px 28px', maxWidth: 400, width: '100%' }}>
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                <Trash2 size={18} color="#ef4444" />
-              </div>
-              <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>Delete customer?</h2>
-              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 24px' }}>
-                <strong>{selectedCustomer.fullName || selectedCustomer.email}</strong> will be permanently removed.
-              </p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button className="cm-btn" onClick={() => setShowDeleteModal(false)} disabled={actionLoading}>Cancel</button>
-                <button onClick={handleDeleteCustomer} disabled={actionLoading}
-                  style={{ background: '#ef4444', border: 'none', color: '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
-                  {actionLoading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
