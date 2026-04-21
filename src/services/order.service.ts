@@ -112,61 +112,74 @@ class OrderService {
     }
   }
 
-  // Update order payment with payment proof fields
-  async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
-    try {
-      const payload: any = { 
-        paymentStatus: status,
-        status: status // Some endpoints expect 'status' instead of 'paymentStatus'
-      };
-      
-      if (details) {
-        // Payment proof fields (for customer uploading receipt)
-        if (details.paymentProofImage) {
-          payload.paymentProofImage = details.paymentProofImage;
-        }
-        if (details.paymentProofReference) {
-          payload.paymentProofReference = details.paymentProofReference;
-        }
-        if (details.paymentProofSender) {
-          payload.paymentProofSender = details.paymentProofSender;
-        }
-        if (details.paymentProofDate) {
-          payload.paymentProofDate = details.paymentProofDate;
-        }
-        if (details.paymentProofNotes) {
-          payload.paymentProofNotes = details.paymentProofNotes;
-        }
-        
-        // Admin approval fields
-        if (details.approvedBy) {
-          payload.approvedBy = details.approvedBy;
-        }
-        if (details.approvedAt) {
-          payload.approvedAt = details.approvedAt;
-        }
-        if (details.rejectedBy) {
-          payload.rejectedBy = details.rejectedBy;
-        }
-        if (details.rejectionReason || details.reason) {
-          payload.rejectionReason = details.rejectionReason || details.reason;
-        }
-        if (details.notes) {
-          payload.notes = details.notes;
-        }
+  // Update the updateOrderPayment method
+async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
+  try {
+    const payload: any = { 
+      paymentStatus: status,
+      status: status
+    };
+    
+    if (details) {
+      // Payment proof fields
+      if (details.paymentProofImage) {
+        payload.paymentProofImage = details.paymentProofImage;
+      }
+      if (details.paymentProofReference) {
+        payload.paymentProofReference = details.paymentProofReference;
+      }
+      if (details.paymentProofSender) {
+        payload.paymentProofSender = details.paymentProofSender;
+      }
+      if (details.paymentProofDate) {
+        payload.paymentProofDate = details.paymentProofDate;
+      }
+      if (details.paymentProofNotes) {
+        payload.paymentProofNotes = details.paymentProofNotes;
       }
       
-      console.log('📤 Updating order payment:', { id, payload });
-      
-      const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
-      
-      const orderData = response.data.order || response.data;
-      return this.convertApiOrderToOrder(orderData);
-    } catch (error: any) {
-      console.error('❌ Error updating payment:', error.response?.data || error.message);
-      throw error;
+      // Admin approval fields (only used by admin)
+      if (details.approvedBy) {
+        payload.approvedBy = details.approvedBy;
+      }
+      if (details.approvedAt) {
+        payload.approvedAt = details.approvedAt;
+      }
+      if (details.rejectedBy) {
+        payload.rejectedBy = details.rejectedBy;
+      }
+      if (details.rejectionReason || details.reason) {
+        payload.rejectionReason = details.rejectionReason || details.reason;
+      }
+      if (details.notes) {
+        payload.notes = details.notes;
+      }
     }
+    
+    console.log('📤 Updating order payment:', { id, payload });
+    
+    // ✅ Determine which endpoint to use
+    const isAdminAction = details?.approvedBy || details?.rejectedBy || 
+                          status === 'paid' || status === 'failed' || status === 'cancelled';
+    
+    let response;
+    if (isAdminAction) {
+      // Admin actions use the admin endpoint
+      console.log('   Using admin endpoint');
+      response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
+    } else {
+      // Customer upload uses the upload-payment-proof endpoint
+      console.log('   Using customer upload endpoint');
+      response = await api.put(`${this.baseUrl}/${id}/upload-payment-proof`, payload);
+    }
+    
+    const orderData = response.data.order || response.data;
+    return this.convertApiOrderToOrder(orderData);
+  } catch (error: any) {
+    console.error('❌ Error updating payment:', error.response?.data || error.message);
+    throw error;
   }
+}
 
   async createOrder(orderData: any): Promise<Order> {
     try {
