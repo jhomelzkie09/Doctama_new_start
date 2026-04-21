@@ -72,6 +72,9 @@ const Orders = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<ApiOrder | null>(null);
 
   // Check for success param on page load (when coming back from order detail)
   useEffect(() => {
@@ -196,6 +199,36 @@ const Orders = () => {
       dismissToast(loadingToast);
       showError('Failed to generate invoice');
     }
+  };
+
+  const handleCancelClick = (order: ApiOrder) => {
+    setOrderToCancel(order);
+    setShowCancelModal(true);
+  };
+
+  const confirmCancel = async () => {
+    if (!orderToCancel) return;
+    
+    setShowCancelModal(false);
+    setCancellingOrderId(orderToCancel.id);
+    
+    try {
+      await orderService.cancelOrder(orderToCancel.id);
+      showSuccess(`Order #${orderToCancel.orderNumber} has been cancelled`);
+      await loadOrders();
+    } catch (error: any) {
+      console.error('Error cancelling order:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to cancel order. Please try again.';
+      showError(errorMessage);
+    } finally {
+      setCancellingOrderId(null);
+      setOrderToCancel(null);
+    }
+  };
+
+  const cancelCancel = () => {
+    setShowCancelModal(false);
+    setOrderToCancel(null);
   };
 
   const getStatusIcon = (status: string, paymentStatus?: string, approvedBy?: string, rejectedBy?: string) => {
@@ -441,6 +474,7 @@ const Orders = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </button>
+                    
                     {order.status === 'delivered' && (
                       <button
                         onClick={() => handleDownloadInvoice(order)}
@@ -450,10 +484,25 @@ const Orders = () => {
                         Download Invoice
                       </button>
                     )}
-                    {order.status === 'pending' && (
-                      <button className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition">
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Cancel Order
+                    
+                    {/* Cancel Order Button */}
+                    {(order.status === 'pending' || order.status === 'awaiting_payment') && (
+                      <button
+                        onClick={() => handleCancelClick(order)}
+                        disabled={cancellingOrderId === order.id}
+                        className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {cancellingOrderId === order.id ? (
+                          <>
+                            <Loader className="w-4 h-4 mr-2 animate-spin" />
+                            Cancelling...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Cancel Order
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -463,6 +512,42 @@ const Orders = () => {
           </div>
         )}
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && orderToCancel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Cancel Order</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-2">
+              Are you sure you want to cancel order <span className="font-semibold">#{orderToCancel.orderNumber}</span>?
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelCancel}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition"
+              >
+                No, Keep Order
+              </button>
+              <button
+                onClick={confirmCancel}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
+              >
+                Yes, Cancel Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

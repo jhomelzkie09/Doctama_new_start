@@ -248,6 +248,20 @@ class OrderService {
     }
   }
 
+  // Add this method to the OrderService class
+async cancelOrder(id: number): Promise<Order> {
+  try {
+    console.log(`📤 Cancelling order ${id}`);
+    const response = await api.put(`${this.baseUrl}/${id}/cancel`);
+    
+    const orderData = response.data.order || response.data;
+    return this.convertApiOrderToOrder(orderData);
+  } catch (error: any) {
+    console.error('❌ Error cancelling order:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
   async updateOrderStatus(id: number, status: string): Promise<Order> {
     try {
       const response = await api.put(`${this.baseUrl}/admin/${id}/status`, { status });
