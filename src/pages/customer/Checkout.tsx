@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import PhilippineAddressAutocomplete from '../../components/PhilippineAddressAutocomplete';
-import qrCode from '../../qr/qr_gcash.png';
+import qrCode_gcash from '../../qr/qr_gcash.jpg';
+import qrCode_paymaya from '../../qr/qr_paymaya.jpg';
 import { 
   CreditCard, 
   Truck, 
@@ -56,7 +57,7 @@ const SHOP_PAYMENT_DETAILS = {
     name: 'GCash',
     accountName: 'Doctama Marketing',
     accountNumber: '09917093996',
-    qrCode: qrCode,
+    qrCode: qrCode_gcash,
     instructions: [
       'Open your GCash app',
       'Tap "Pay QR"', 
@@ -70,7 +71,7 @@ const SHOP_PAYMENT_DETAILS = {
     name: 'PayMaya',
     accountName: 'Doctama Marketing',
     accountNumber: '09917093996',
-    qrCode: qrCode,
+    qrCode: qrCode_paymaya,
     instructions: [
       'Open your PayMaya app',
       'Tap "Send Money"',
