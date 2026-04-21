@@ -260,57 +260,58 @@ const OrderDetail = () => {
   };
 
   const handleCompletePayment = async () => {
-    if (!order) return;
+  if (!order) return;
+  
+  if (!receiptFile) {
+    showError('Please upload your payment receipt');
+    return;
+  }
+  
+  if (!referenceNumber.trim()) {
+    showError('Please enter the reference number');
+    return;
+  }
+  
+  if (!senderName.trim()) {
+    showError('Please enter the sender name');
+    return;
+  }
+  
+  setSubmittingPayment(true);
+  const loadingToast = showLoading('Submitting payment proof...');
+  
+  try {
+    const uploadedUrls = await uploadService.uploadImages([receiptFile]);
+    const receiptImageUrl = uploadedUrls[0];
     
-    if (!receiptFile) {
-      showError('Please upload your payment receipt');
-      return;
-    }
+    // ✅ Use the dedicated uploadPaymentProof method
+    await orderService.uploadPaymentProof(order.id, {
+      paymentProofImage: receiptImageUrl,
+      paymentProofReference: referenceNumber,
+      paymentProofSender: senderName,
+      paymentProofDate: paymentDate,
+      paymentProofNotes: ''
+    });
     
-    if (!referenceNumber.trim()) {
-      showError('Please enter the reference number');
-      return;
-    }
+    dismissToast(loadingToast);
+    showSuccess('Payment proof submitted! Your payment is now under review.');
     
-    if (!senderName.trim()) {
-      showError('Please enter the sender name');
-      return;
-    }
+    setShowCompletePaymentModal(false);
+    setReceiptFile(null);
+    setReceiptPreview('');
+    setReferenceNumber('');
+    setSenderName('');
+    setPaymentDate(new Date().toISOString().split('T')[0]);
     
-    setSubmittingPayment(true);
-    const loadingToast = showLoading('Submitting payment proof...');
-    
-    try {
-      const uploadedUrls = await uploadService.uploadImages([receiptFile]);
-      const receiptImageUrl = uploadedUrls[0];
-      
-      await orderService.updateOrderPayment(order.id, 'pending', {
-        paymentProofImage: receiptImageUrl,
-        paymentProofReference: referenceNumber,
-        paymentProofSender: senderName,
-        paymentProofDate: paymentDate,
-        paymentProofNotes: ''
-      });
-      
-      dismissToast(loadingToast);
-      showSuccess('Payment proof submitted! Your payment is now under review.');
-      
-      setShowCompletePaymentModal(false);
-      setReceiptFile(null);
-      setReceiptPreview('');
-      setReferenceNumber('');
-      setSenderName('');
-      setPaymentDate(new Date().toISOString().split('T')[0]);
-      
-      await loadOrder();
-    } catch (error: any) {
-      dismissToast(loadingToast);
-      showError(error.message || 'Failed to submit payment proof');
-    } finally {
-      setSubmittingPayment(false);
-    }
-  };
-
+    await loadOrder();
+  } catch (error: any) {
+    dismissToast(loadingToast);
+    console.error('Payment proof upload error:', error);
+    showError(error.response?.data?.message || error.message || 'Failed to submit payment proof');
+  } finally {
+    setSubmittingPayment(false);
+  }
+};
   const handleRateProduct = (product: OrderItemDisplay) => {
     const existing = existingReviews.get(product.productId);
     if (existing) {

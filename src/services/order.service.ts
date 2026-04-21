@@ -112,8 +112,7 @@ class OrderService {
     }
   }
 
-  // Update the updateOrderPayment method
-async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
+  async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
   try {
     const payload: any = { 
       paymentStatus: status,
@@ -121,62 +120,65 @@ async updateOrderPayment(id: number, status: string, details?: any): Promise<Ord
     };
     
     if (details) {
-      // Payment proof fields
-      if (details.paymentProofImage) {
-        payload.paymentProofImage = details.paymentProofImage;
-      }
-      if (details.paymentProofReference) {
-        payload.paymentProofReference = details.paymentProofReference;
-      }
-      if (details.paymentProofSender) {
-        payload.paymentProofSender = details.paymentProofSender;
-      }
-      if (details.paymentProofDate) {
-        payload.paymentProofDate = details.paymentProofDate;
-      }
-      if (details.paymentProofNotes) {
-        payload.paymentProofNotes = details.paymentProofNotes;
-      }
+      // Payment proof fields (for customer)
+      if (details.paymentProofImage) payload.paymentProofImage = details.paymentProofImage;
+      if (details.paymentProofReference) payload.paymentProofReference = details.paymentProofReference;
+      if (details.paymentProofSender) payload.paymentProofSender = details.paymentProofSender;
+      if (details.paymentProofDate) payload.paymentProofDate = details.paymentProofDate;
+      if (details.paymentProofNotes) payload.paymentProofNotes = details.paymentProofNotes;
       
-      // Admin approval fields (only used by admin)
-      if (details.approvedBy) {
-        payload.approvedBy = details.approvedBy;
-      }
-      if (details.approvedAt) {
-        payload.approvedAt = details.approvedAt;
-      }
-      if (details.rejectedBy) {
-        payload.rejectedBy = details.rejectedBy;
-      }
-      if (details.rejectionReason || details.reason) {
-        payload.rejectionReason = details.rejectionReason || details.reason;
-      }
-      if (details.notes) {
-        payload.notes = details.notes;
-      }
+      // Admin approval fields
+      if (details.approvedBy) payload.approvedBy = details.approvedBy;
+      if (details.approvedAt) payload.approvedAt = details.approvedAt;
+      if (details.rejectedBy) payload.rejectedBy = details.rejectedBy;
+      if (details.rejectionReason || details.reason) payload.rejectionReason = details.rejectionReason || details.reason;
+      if (details.notes) payload.notes = details.notes;
     }
     
     console.log('📤 Updating order payment:', { id, payload });
     
-    // ✅ Determine which endpoint to use
-    const isAdminAction = details?.approvedBy || details?.rejectedBy || 
-                          status === 'paid' || status === 'failed' || status === 'cancelled';
+    // ✅ Check if this is an admin action
+    const isAdminAction = !!(details?.approvedBy || details?.rejectedBy || 
+                          status === 'paid' || status === 'failed');
     
-    let response;
+    let endpoint;
     if (isAdminAction) {
-      // Admin actions use the admin endpoint
-      console.log('   Using admin endpoint');
-      response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
+      endpoint = `${this.baseUrl}/admin/${id}/payment`;
+      console.log('   Using ADMIN endpoint');
     } else {
-      // Customer upload uses the upload-payment-proof endpoint
-      console.log('   Using customer upload endpoint');
-      response = await api.put(`${this.baseUrl}/${id}/upload-payment-proof`, payload);
+      endpoint = `${this.baseUrl}/${id}/upload-payment-proof`;
+      console.log('   Using CUSTOMER endpoint');
     }
+    
+    const response = await api.put(endpoint, payload);
     
     const orderData = response.data.order || response.data;
     return this.convertApiOrderToOrder(orderData);
   } catch (error: any) {
     console.error('❌ Error updating payment:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async uploadPaymentProof(id: number, proofData: {
+  paymentProofImage: string;
+  paymentProofReference: string;
+  paymentProofSender: string;
+  paymentProofDate: string;
+  paymentProofNotes?: string;
+}): Promise<Order> {
+  try {
+    console.log('📤 Uploading payment proof:', { id, ...proofData });
+    
+    const response = await api.put(`${this.baseUrl}/${id}/upload-payment-proof`, {
+      ...proofData,
+      paymentStatus: 'pending'
+    });
+    
+    const orderData = response.data.order || response.data;
+    return this.convertApiOrderToOrder(orderData);
+  } catch (error: any) {
+    console.error('❌ Error uploading payment proof:', error.response?.data || error.message);
     throw error;
   }
 }
