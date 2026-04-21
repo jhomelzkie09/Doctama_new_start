@@ -235,33 +235,41 @@ async uploadPaymentProof(id: number, proofData: {
   }
 
   // Get all orders (admin only)
-  async getAllOrders(): Promise<Order[]> {
-    try {
-      const response = await api.get(`${this.baseUrl}/admin/all`);
-      let ordersData: any[] = [];
-      if (Array.isArray(response.data)) {
-        ordersData = response.data;
-      } else if (response.data.orders && Array.isArray(response.data.orders)) {
-        ordersData = response.data.orders;
-      }
-      
-      const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
-      
-      console.log('📦 Admin orders loaded:', {
-        count: convertedOrders.length,
-        sample: convertedOrders.slice(0, 2).map(o => ({
-          id: o.id,
-          status: o.status,
-          paymentStatus: o.paymentStatus
-        }))
-      });
-      
-      return convertedOrders;
-    } catch (error: any) {
-      console.error('❌ Error fetching orders:', error.response?.data || error.message);
-      return [];
-    }
+async getAllOrders(): Promise<Order[]> {
+  const token = localStorage.getItem('token');
+  
+  // Don't even make the request if no token
+  if (!token) {
+    throw new Error('Not authenticated');
   }
+  
+  try {
+    const response = await api.get(`${this.baseUrl}/admin/all`);
+    let ordersData: any[] = [];
+    if (Array.isArray(response.data)) {
+      ordersData = response.data;
+    } else if (response.data.orders && Array.isArray(response.data.orders)) {
+      ordersData = response.data.orders;
+    }
+    
+    const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
+    
+    console.log('📦 Admin orders loaded:', {
+      count: convertedOrders.length,
+    });
+    
+    return convertedOrders;
+  } catch (error: any) {
+    // Don't log 401 errors as they're expected when not logged in
+    if (error.response?.status === 401) {
+      console.log('🔒 Not authorized to fetch admin orders');
+    } else {
+      console.error('❌ Error fetching orders:', error.response?.data || error.message);
+    }
+    // Re-throw the error so the component knows it failed
+    throw error;
+  }
+}
 
   // Add this method to the OrderService class
 async cancelOrder(id: number): Promise<Order> {

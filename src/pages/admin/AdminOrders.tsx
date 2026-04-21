@@ -276,30 +276,37 @@ const OrderMobileCard: React.FC<{
   }, [orders, searchQuery, statusFilter, paymentFilter]);
 
   const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const data = await orderService.getAllOrders();
-      const ordersWithDetails: ExtendedOrder[] = data.map((order: any) => ({ 
-        ...order, 
-        itemsCount: order.items?.length || 0,
-        paymentProofImage: order.paymentProofImage || null,
-        paymentProofReference: order.paymentProofReference || null,
-        paymentProofSender: order.paymentProofSender || null,
-        paymentProofDate: order.paymentProofDate || null,
-        paymentProofNotes: order.paymentProofNotes || null,
-        approvedBy: order.approvedBy || null,
-        approvedAt: order.approvedAt || null,
-        rejectedBy: order.rejectedBy || null,
-        rejectionReason: order.rejectionReason || null,
-        codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
-      }));
-      setOrders(ordersWithDetails);
-    } catch (err) {
+  setLoading(true);
+  try {
+    const data = await orderService.getAllOrders();
+    const ordersWithDetails: ExtendedOrder[] = data.map((order: any) => ({ 
+      ...order, 
+      itemsCount: order.items?.length || 0,
+      paymentProofImage: order.paymentProofImage || null,
+      paymentProofReference: order.paymentProofReference || null,
+      paymentProofSender: order.paymentProofSender || null,
+      paymentProofDate: order.paymentProofDate || null,
+      paymentProofNotes: order.paymentProofNotes || null,
+      approvedBy: order.approvedBy || null,
+      approvedAt: order.approvedAt || null,
+      rejectedBy: order.rejectedBy || null,
+      rejectionReason: order.rejectionReason || null,
+      codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
+    }));
+    setOrders(ordersWithDetails);
+    setError('');
+  } catch (err: any) {
+    // If 401, redirect to home
+    if (err?.response?.status === 401) {
+      console.log('Not authorized, redirecting to home');
+      navigate('/');
+    } else {
       setError('Failed to load orders');
-    } finally {
-      setLoading(false);
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const calculateStats = () => {
   const today = new Date().toDateString();
