@@ -55,7 +55,34 @@ const MOCK_PROMO_CODES: PromoCode[] = [
 
 class PromoCodeService {
   private readonly baseUrl = '/promo-codes';
-  private useMockData = true; // Set to false when backend is ready
+  private useMockData =
+    process.env.REACT_APP_USE_MOCK_PROMO_CODES === 'true' ||
+    process.env.REACT_APP_ENVIRONMENT !== 'production'; // Default: real API in production
+
+  private normalizePromoCode(input: any): PromoCode {
+    const id = Number(input?.id ?? input?.Id);
+    const code = String(input?.code ?? input?.Code ?? '').toUpperCase();
+
+    return {
+      id: Number.isFinite(id) ? id : 0,
+      code,
+      description: String(input?.description ?? input?.Description ?? ''),
+      discountType: (input?.discountType ?? input?.DiscountType ?? 'percentage') as PromoCode['discountType'],
+      discountValue: Number(input?.discountValue ?? input?.DiscountValue ?? 0) || 0,
+      minimumOrderAmount: input?.minimumOrderAmount ?? input?.MinimumOrderAmount,
+      maxDiscountAmount: input?.maxDiscountAmount ?? input?.MaxDiscountAmount,
+      startDate: String(input?.startDate ?? input?.StartDate ?? new Date().toISOString()),
+      endDate: String(input?.endDate ?? input?.EndDate ?? new Date().toISOString()),
+      usageLimit: input?.usageLimit ?? input?.UsageLimit ?? input?.usage_limit,
+      usageCount: Number(input?.usageCount ?? input?.UsageCount ?? input?.usage_count ?? 0) || 0,
+      perUserLimit: input?.perUserLimit ?? input?.PerUserLimit ?? input?.per_user_limit,
+      applicableProducts: input?.applicableProducts ?? input?.ApplicableProducts ?? input?.applicable_products,
+      applicableCategories: input?.applicableCategories ?? input?.ApplicableCategories ?? input?.applicable_categories,
+      isActive: Boolean(input?.isActive ?? input?.IsActive ?? true),
+      createdAt: String(input?.createdAt ?? input?.CreatedAt ?? new Date().toISOString()),
+      updatedAt: input?.updatedAt ?? input?.UpdatedAt
+    };
+  }
 
   // Get all promo codes (admin)
   async getAllPromoCodes(): Promise<PromoCode[]> {
@@ -65,7 +92,11 @@ class PromoCodeService {
 
     try {
       const response = await api.get(`${this.baseUrl}/admin/all`);
-      return response.data;
+      const data = Array.isArray(response.data) ? response.data : response.data?.data;
+      if (Array.isArray(data)) {
+        return data.map(p => this.normalizePromoCode(p));
+      }
+      return [];
     } catch (error: any) {
       console.error('Error fetching promo codes:', error);
       return [];
@@ -85,7 +116,11 @@ class PromoCodeService {
 
     try {
       const response = await api.get(`${this.baseUrl}/active`);
-      return response.data;
+      const data = Array.isArray(response.data) ? response.data : response.data?.data;
+      if (Array.isArray(data)) {
+        return data.map(p => this.normalizePromoCode(p));
+      }
+      return [];
     } catch (error: any) {
       console.error('Error fetching active promo codes:', error);
       return [];
@@ -101,7 +136,7 @@ class PromoCodeService {
 
     try {
       const response = await api.get(`${this.baseUrl}/${id}`);
-      return response.data;
+      return this.normalizePromoCode(response.data);
     } catch (error: any) {
       console.error('Error fetching promo code:', error);
       return null;
@@ -133,7 +168,7 @@ class PromoCodeService {
 
     try {
       const response = await api.post(`${this.baseUrl}/admin`, data);
-      return response.data;
+      return this.normalizePromoCode(response.data);
     } catch (error: any) {
       console.error('Error creating promo code:', error);
       throw error;
@@ -153,7 +188,7 @@ class PromoCodeService {
 
     try {
       const response = await api.put(`${this.baseUrl}/admin/${id}`, data);
-      return response.data;
+      return this.normalizePromoCode(response.data);
     } catch (error: any) {
       console.error('Error updating promo code:', error);
       throw error;

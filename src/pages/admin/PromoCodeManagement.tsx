@@ -174,7 +174,7 @@ const PromoCodeManagement: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">Total Uses</p>
               <p className="text-2xl font-bold text-gray-900">
-                {promoCodes.reduce((sum, p) => sum + p.usageCount, 0)}
+                {promoCodes.reduce((sum, p) => sum + (Number(p.usageCount) || 0), 0)}
               </p>
             </div>
           </div>
@@ -235,7 +235,7 @@ const PromoCodeManagement: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {promo.usageCount}{promo.usageLimit ? ` / ${promo.usageLimit}` : ''}
+                    {(Number(promo.usageCount) || 0)}{promo.usageLimit ? ` / ${promo.usageLimit}` : ''}
                   </td>
                   <td className="px-6 py-4">
                     {getStatusBadge(promo)}

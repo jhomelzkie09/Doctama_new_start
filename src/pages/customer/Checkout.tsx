@@ -55,7 +55,7 @@ const SHOP_PAYMENT_DETAILS = {
   gcash: {
     name: 'GCash',
     accountName: 'Doctama Marketing',
-    accountNumber: '09123456789',
+    accountNumber: '09917093996',
     qrCode: qrCode,
     instructions: [
       'Open your GCash app',
@@ -69,7 +69,7 @@ const SHOP_PAYMENT_DETAILS = {
   paymaya: {
     name: 'PayMaya',
     accountName: 'Doctama Marketing',
-    accountNumber: '09123456789',
+    accountNumber: '09917093996',
     qrCode: qrCode,
     instructions: [
       'Open your PayMaya app',
