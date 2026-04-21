@@ -4,7 +4,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import PhilippineAddressAutocomplete from '../../components/PhilippineAddressAutocomplete';
 import qrCode_gcash from '../../qr/qrCode_gcash.jpg';
-import qrCode_paymaya from '../../qr/qrCode_paymaya.jpg';
+import qrCode_paymaya from '../../qr/qrCode_Paymaya.jpg';
 import { 
   CreditCard, 
   Truck, 

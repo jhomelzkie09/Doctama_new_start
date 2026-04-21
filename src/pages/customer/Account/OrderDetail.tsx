@@ -38,7 +38,8 @@ import {
 import { showSuccess, showError, showLoading, dismissToast } from '../../../utils/toast';
 import paymaya_logo from '../../../assets/paymaya_logo.png';
 import gcash_logo from '../../../assets/gcash_logo.png';
-import qrCode from '../../../qr/qr_gcash.png';
+import qrCode_gcash from '../../../qr/qrCode_gcash.jpg';
+import qrCode_paymaya from '../../../qr/qrCode_Paymaya.jpg';
 
 interface OrderItemDisplay {
   id: number;
@@ -87,13 +88,13 @@ const SHOP_PAYMENT_DETAILS = {
     name: 'GCash',
     accountName: 'Doctama Marketing',
     accountNumber: '09123456789',
-    qrCode: qrCode,
+    qrCode: qrCode_gcash,
   },
   paymaya: {
     name: 'PayMaya',
     accountName: 'Doctama Marketing',
     accountNumber: '09123456789',
-    qrCode: qrCode,
+    qrCode: qrCode_paymaya,
   }
 };
 
