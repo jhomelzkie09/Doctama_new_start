@@ -207,25 +207,36 @@ const Orders = () => {
   };
 
   const confirmCancel = async () => {
-    if (!orderToCancel) return;
+  if (!orderToCancel) return;
+  
+  setShowCancelModal(false);
+  setCancellingOrderId(orderToCancel.id);
+  
+  try {
+    const result = await orderService.cancelOrder(orderToCancel.id);
+    console.log('Cancel result:', result);
+    showSuccess(`Order #${orderToCancel.orderNumber} has been cancelled`);
+    await loadOrders();
+  } catch (error: any) {
+    console.error('Error cancelling order:', error);
     
-    setShowCancelModal(false);
-    setCancellingOrderId(orderToCancel.id);
+    // Try to extract the most specific error message
+    let errorMessage = 'Failed to cancel order. Please try again.';
     
-    try {
-      await orderService.cancelOrder(orderToCancel.id);
-      showSuccess(`Order #${orderToCancel.orderNumber} has been cancelled`);
-      await loadOrders();
-    } catch (error: any) {
-      console.error('Error cancelling order:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to cancel order. Please try again.';
-      showError(errorMessage);
-    } finally {
-      setCancellingOrderId(null);
-      setOrderToCancel(null);
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
+    } else if (error.message) {
+      errorMessage = error.message;
     }
-  };
-
+    
+    showError(errorMessage);
+  } finally {
+    setCancellingOrderId(null);
+    setOrderToCancel(null);
+  }
+};
   const cancelCancel = () => {
     setShowCancelModal(false);
     setOrderToCancel(null);
