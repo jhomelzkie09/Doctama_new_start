@@ -25,15 +25,20 @@ class OrderService {
       };
     });
 
+    // ✅ FIXED: Keep original case for status fields
+    const rawStatus = apiOrder.status || apiOrder.Status || 'Pending';
+    const rawPaymentStatus = apiOrder.paymentStatus || apiOrder.PaymentStatus || 'Pending';
+    const rawPaymentMethod = apiOrder.paymentMethod || apiOrder.PaymentMethod || 'cod';
+
     const convertedOrder: Order = {
       id: apiOrder.id?.toString() || '',
       orderNumber: apiOrder.orderNumber || apiOrder.OrderNumber || '',
       userId: apiOrder.userId || '',
       orderDate: apiOrder.orderDate || apiOrder.OrderDate || new Date().toISOString(),
       totalAmount: apiOrder.totalAmount || apiOrder.TotalAmount || 0,
-      status: (apiOrder.status || apiOrder.Status || 'pending').toString().toLowerCase(),
-      paymentStatus: (apiOrder.paymentStatus || apiOrder.PaymentStatus || 'pending').toString().toLowerCase(),
-      paymentMethod: (apiOrder.paymentMethod || apiOrder.PaymentMethod || 'cod').toString().toLowerCase(),
+      status: rawStatus, // ✅ Keep original case
+      paymentStatus: rawPaymentStatus, // ✅ Keep original case
+      paymentMethod: rawPaymentMethod, // ✅ Keep original case
       items: items,
       shippingAddress: apiOrder.shippingAddress || apiOrder.ShippingAddress || '',
       customerName: apiOrder.customerName || apiOrder.CustomerName,
@@ -62,18 +67,22 @@ class OrderService {
       updatedAt: apiOrder.updatedAt
     };
     
+    console.log('🔄 Converted order:', {
+      id: convertedOrder.id,
+      orderNumber: convertedOrder.orderNumber,
+      status: convertedOrder.status,
+      paymentStatus: convertedOrder.paymentStatus,
+      paymentMethod: convertedOrder.paymentMethod
+    });
+    
     return convertedOrder;
   }
 
   async getOrderById(id: number): Promise<Order | null> {
     try {
       const response = await api.get(`${this.baseUrl}/my-orders/${id}`);
-      
       const apiOrder = response.data;
-      
-      // Convert API order to frontend Order type
       const order = this.convertApiOrderToOrder(apiOrder);
-      
       return order;
     } catch (error: any) {
       console.error(`❌ Error fetching order ${id}:`, error.response?.data || error.message);
@@ -95,9 +104,7 @@ class OrderService {
         ordersData = response.data.data;
       }
       
-      // Convert each API order to frontend Order type
       const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
-      
       return convertedOrders;
     } catch (error: any) {
       console.error('❌ Error fetching user orders:', error.response?.data || error.message);
@@ -105,12 +112,12 @@ class OrderService {
     }
   }
 
-  // ✅ FIXED: Update order payment with payment proof fields
+  // Update order payment with payment proof fields
   async updateOrderPayment(id: number, status: string, details?: any): Promise<Order> {
     try {
-      // Build payload with ALL payment proof fields
       const payload: any = { 
-        paymentStatus: status 
+        paymentStatus: status,
+        status: status // Some endpoints expect 'status' instead of 'paymentStatus'
       };
       
       if (details) {
@@ -151,10 +158,8 @@ class OrderService {
       
       console.log('📤 Updating order payment:', { id, payload });
       
-      // Use the correct endpoint
       const response = await api.put(`${this.baseUrl}/admin/${id}/payment`, payload);
       
-      // Handle both response formats
       const orderData = response.data.order || response.data;
       return this.convertApiOrderToOrder(orderData);
     } catch (error: any) {
@@ -226,6 +231,15 @@ class OrderService {
       }
       
       const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
+      
+      console.log('📦 Admin orders loaded:', {
+        count: convertedOrders.length,
+        sample: convertedOrders.slice(0, 2).map(o => ({
+          id: o.id,
+          status: o.status,
+          paymentStatus: o.paymentStatus
+        }))
+      });
       
       return convertedOrders;
     } catch (error: any) {
