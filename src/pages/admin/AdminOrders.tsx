@@ -254,8 +254,20 @@ const OrderMobileCard: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) navigate('/');
-    else fetchOrders();
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      navigate('/');
+      return;
+    }
+    
+    if (!isAdmin) {
+      navigate('/');
+      return;
+    }
+    
+    // Only fetch if we're sure user is admin
+    fetchOrders();
   }, [isAdmin, navigate]);
 
   useEffect(() => {
