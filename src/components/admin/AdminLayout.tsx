@@ -104,7 +104,7 @@ const AdminLayout = () => {
       icon: <ShoppingCart className="w-5 h-5" />,
       submenu: [
         { title: 'All Orders', path: '/admin/orders' },
-        { title: 'Delivery Tracker', path: '/deliveries/orders' }
+        { title: 'Delivery Tracker', path: '/admin/deliveries/orders' } 
       ]
     },
     {
