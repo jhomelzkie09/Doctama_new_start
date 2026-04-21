@@ -121,6 +121,10 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [orders]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -139,7 +143,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
     );
   }
 
-  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const totalPages = showPagination ? Math.ceil(orders.length / itemsPerPage) : 1;
   const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const displayOrders = showPagination ? paginatedOrders : orders;
   
@@ -159,11 +163,13 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
               <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {paginatedOrders.map((order) => {
-              const PaymentIcon = getPaymentMethodIcon(order.paymentMethod || '');
-              return (
-                <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
+            <tbody className="divide-y divide-slate-100">
+              {displayOrders.map((order) => {
+                const PaymentIcon = getPaymentMethodIcon(order.paymentMethod || '');
+                const paymentStatus = String(order.paymentStatus ?? '').toLowerCase();
+                const orderStatus = String(order.status ?? '').toLowerCase();
+                return (
+                  <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
                     {toDisplayDate(order.orderDate ?? order.createdAt)}
                   </td>
@@ -186,16 +192,16 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold border ${
-                      order.paymentStatus === 'paid' || order.paymentStatus === 'completed' 
+                      paymentStatus === 'paid' || paymentStatus === 'completed' 
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                        : order.paymentStatus === 'failed' 
+                        : paymentStatus === 'failed' 
                           ? 'bg-rose-50 text-rose-700 border-rose-200'
                           : 'bg-amber-50 text-amber-700 border-amber-200'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        order.paymentStatus === 'paid' || order.paymentStatus === 'completed' 
+                        paymentStatus === 'paid' || paymentStatus === 'completed' 
                           ? 'bg-emerald-500' 
-                          : order.paymentStatus === 'failed' 
+                          : paymentStatus === 'failed' 
                             ? 'bg-rose-500'
                             : 'bg-amber-500'
                       }`}></span>
@@ -204,17 +210,17 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold border ${
-                      order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      order.status === 'shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      order.status === 'processing' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                      order.status === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      orderStatus === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      orderStatus === 'shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      orderStatus === 'processing' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      orderStatus === 'cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                       'bg-amber-50 text-amber-700 border-amber-200'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        order.status === 'delivered' ? 'bg-emerald-500' :
-                        order.status === 'shipped' ? 'bg-blue-500' :
-                        order.status === 'processing' ? 'bg-purple-500' :
-                        order.status === 'cancelled' ? 'bg-rose-500' :
+                        orderStatus === 'delivered' ? 'bg-emerald-500' :
+                        orderStatus === 'shipped' ? 'bg-blue-500' :
+                        orderStatus === 'processing' ? 'bg-purple-500' :
+                        orderStatus === 'cancelled' ? 'bg-rose-500' :
                         'bg-amber-500'
                       }`}></span>
                       {order.status || 'Pending'}
@@ -229,7 +235,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {showPagination && totalPages > 1 && (
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/30 no-print">
           <p className="text-xs font-medium text-slate-500">
             Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} transactions
@@ -319,16 +325,24 @@ const SalesReport: React.FC = () => {
     const applyFilter = async () => {
       setIsFiltering(true);
       await new Promise(resolve => setTimeout(resolve, 300));
-      
+       
       const filtered = orders.filter((order) => {
         const orderDate = toLocalDateStr(order.orderDate ?? order.createdAt);
         if (!orderDate) return false;
-        return orderDate >= dateRange.start && orderDate <= dateRange.end;
+        const isWithinDateRange = orderDate >= dateRange.start && orderDate <= dateRange.end;
+        if (!isWithinDateRange) return false;
+
+        const orderStatus = String(order.status ?? '').toLowerCase();
+        const paymentStatus = String(order.paymentStatus ?? '').toLowerCase();
+        const isDelivered = orderStatus === 'delivered';
+        const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed';
+
+        return isDelivered && isPaid;
       });
       setFilteredOrders(filtered);
       setIsFiltering(false);
     };
-    
+     
     applyFilter();
   }, [orders, dateRange]);
 
@@ -600,7 +614,7 @@ const SalesReport: React.FC = () => {
           <>
             <CompanyHeader />
             <div className="border border-slate-100 rounded-xl overflow-hidden">
-              <SalesTransactionsTable orders={filteredOrders} />
+              <SalesTransactionsTable orders={filteredOrders} showPagination={false} />
             </div>
           </>
         </PDFReportModal>
