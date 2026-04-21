@@ -18,6 +18,8 @@ interface CustomerWithStats extends User {
   };
   recentOrders: Order[];
   addressSummary?: string;
+  addressFull?: string;
+  addressSource?: 'profile' | 'order' | 'none';
 }
 
 interface CustomerFilters {
@@ -41,6 +43,19 @@ const formatDate = (d: string) =>
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(n);
+
+const parseShippingAddressSummary = (shippingAddress: string): string => {
+  const parts = shippingAddress
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  const city = parts[2];
+  const provinceZip = parts[3];
+  const province = provinceZip?.split(/\s+\d{4}\b/)[0]?.trim() || provinceZip;
+
+  return [city, province].filter(Boolean).join(', ') || shippingAddress;
+};
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 const Avatar = ({ customer }: { customer: CustomerWithStats }) => {
@@ -152,7 +167,27 @@ const CustomerManagement = () => {
         const recentOrders = [...customerOrders]
           .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
           .slice(0, 5);
-        const addrParts = [c.address, c.city, c.state].filter(Boolean);
+
+        const profileAddressParts = [c.address, c.city, c.state, (c as any).zipCode, (c as any).country].filter(Boolean);
+        const profileAddressFull = profileAddressParts.join(', ').trim();
+
+        const latestOrderWithAddress = recentOrders.find(o => (o.shippingAddress || '').trim());
+        const orderAddressFull = (latestOrderWithAddress?.shippingAddress || '').trim();
+
+        const addressSource: CustomerWithStats['addressSource'] =
+          profileAddressFull ? 'profile' : orderAddressFull ? 'order' : 'none';
+
+        const addressFull =
+          addressSource === 'profile' ? profileAddressFull :
+          addressSource === 'order' ? orderAddressFull :
+          undefined;
+
+        const addressSummary =
+          addressSource === 'profile'
+            ? [c.address, c.city, c.state].filter(Boolean).join(', ') || profileAddressFull
+            : addressSource === 'order'
+              ? parseShippingAddressSummary(orderAddressFull)
+              : 'No address';
         
         return {
           ...c,
@@ -162,7 +197,9 @@ const CustomerManagement = () => {
             lastOrderDate: recentOrders[0]?.orderDate
           },
           recentOrders,
-          addressSummary: addrParts.join(', ') || 'No address'
+          addressSummary,
+          addressFull,
+          addressSource
         };
       });
 
@@ -332,7 +369,7 @@ const CustomerManagement = () => {
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 600, color: 'var(--text)', margin: '0 0 4px', letterSpacing: '-0.02em' }}>Customers</h1>
             <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-              {totalStats.totalCustomers} total · {totalStats.activeCustomers} active · {formatCurrency(totalStats.totalRevenue)} revenue
+              {totalStats.totalCustomers} total · {totalStats.activeCustomers} active · {formatCurrency(totalStats.totalRevenue)} Sales
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -531,8 +568,18 @@ const CustomerManagement = () => {
                   <MapPin size={14} color="var(--muted)" /> Address
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', background: 'var(--bg)', padding: '12px 14px', borderRadius: 8 }}>
-                  {selectedCustomer.address || 'No address provided'}<br />
-                  {[selectedCustomer.city, selectedCustomer.state, (selectedCustomer as any).zipCode].filter(Boolean).join(', ')}
+                  {selectedCustomer.addressFull ? (
+                    <>
+                      <span style={{ display: 'block', whiteSpace: 'pre-line' }}>{selectedCustomer.addressFull}</span>
+                      {selectedCustomer.addressSource === 'order' && (
+                        <span style={{ display: 'block', marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
+                          Based on latest order shipping address
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span style={{ color: 'var(--muted)' }}>No address provided</span>
+                  )}
                 </p>
               </div>
 
