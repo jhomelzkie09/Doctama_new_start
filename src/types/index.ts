@@ -130,7 +130,7 @@ export interface OrderItem {
 }
 
 export type PaymentMethod = 'cod' | 'gcash' | 'paymaya';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'awaiting_payment';
 
 // MAIN Order interface
