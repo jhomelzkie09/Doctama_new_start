@@ -43,9 +43,18 @@ api.interceptors.response.use(
       data: error.response?.data
     });
     
-    // Only redirect on 401 for non-auth endpoints
+    // Handle 401 errors
     if (error.response?.status === 401) {
-      const isAuthEndpoint = error.config?.url?.includes('/auth/');
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/auth/');
+      const isCancelEndpoint = url.includes('/cancel');
+      
+      // DON'T logout on cancel endpoint 401 - just let the component handle it
+      if (isCancelEndpoint) {
+        console.log('⚠️ Cancel endpoint returned 401 - user not authorized, not logging out');
+        // Don't clear token, don't redirect - just pass error to component
+        return Promise.reject(error);
+      }
       
       if (!isAuthEndpoint) {
         // Token expired or invalid - clear storage and redirect to home
@@ -58,6 +67,7 @@ api.interceptors.response.use(
         }
       }
     }
+    
     return Promise.reject(error);
   }
 );
