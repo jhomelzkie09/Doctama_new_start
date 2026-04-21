@@ -211,24 +211,29 @@ const ProductsReport: React.FC = () => {
         productSalesMap.set(productId, { sold: 0, revenue: 0 });
       });
       
-      allOrders.forEach((order: any) => {
-        const orderDate = order.orderDate ?? order.createdAt;
-        const isWithinDateRange = orderDate && toLocalDateStr(orderDate) >= dateRange.start && toLocalDateStr(orderDate) <= dateRange.end;
-        
-        if (!isWithinDateRange) return;
-        
-        if (order.status === 'delivered') {
-          order.items?.forEach((item: any) => {
-            const productId = String(item.productId);
-            const existing = productSalesMap.get(productId);
-            if (existing) {
-              const itemRevenue = (item.unitPrice ?? item.price) * item.quantity;
-              existing.sold += item.quantity;
-              existing.revenue += itemRevenue;
-            }
-          });
-        }
-      });
+       allOrders.forEach((order: any) => {
+         const orderDate = order.orderDate ?? order.createdAt;
+         const isWithinDateRange = orderDate && toLocalDateStr(orderDate) >= dateRange.start && toLocalDateStr(orderDate) <= dateRange.end;
+         
+         if (!isWithinDateRange) return;
+         
+         const orderStatus = String(order.status ?? '').toLowerCase();
+         if (orderStatus === 'delivered') {
+           order.items?.forEach((item: any) => {
+             const productId = String(item.productId);
+             const existing = productSalesMap.get(productId);
+             if (existing) {
+               const unitPriceRaw = Number(item.unitPrice ?? item.price ?? 0);
+               const quantityRaw = Number(item.quantity ?? 0);
+               const unitPrice = Number.isFinite(unitPriceRaw) ? unitPriceRaw : 0;
+               const quantity = Number.isFinite(quantityRaw) ? quantityRaw : 0;
+               const itemRevenue = unitPrice * quantity;
+               existing.sold += quantity;
+               existing.revenue += itemRevenue;
+              }
+            });
+          }
+        });
       
       const stats: ProductStat[] = Array.from(productSalesMap.entries())
         .map(([id, sales]) => {
