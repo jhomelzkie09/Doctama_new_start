@@ -247,30 +247,6 @@ const Shop: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
 
-  // Function to calculate sales count for a product
-  const calculateProductSales = async (productId: number): Promise<number> => {
-    try {
-      const allOrders = await orderService.getAllOrders();
-      let totalSold = 0;
-      
-      const deliveredOrders = allOrders.filter((order: any) => order.status === 'delivered');
-      
-      deliveredOrders.forEach((order: any) => {
-        order.items?.forEach((item: any) => {
-          const itemProductId = typeof item.productId === 'string' ? parseInt(item.productId) : item.productId;
-          if (itemProductId === productId) {
-            totalSold += item.quantity;
-          }
-        });
-      });
-      
-      return totalSold;
-    } catch (error) {
-      console.error('Failed to calculate product sales:', error);
-      return 0;
-    }
-  };
-
   // Function to fetch product reviews and calculate average rating
   const fetchProductReviews = async (productId: number): Promise<{ averageRating: number; reviewCount: number }> => {
     try {
@@ -293,11 +269,10 @@ const Shop: React.FC = () => {
       
       // Calculate sales counts and reviews for each product
       const productsWithDetails = await Promise.all(productsData.map(async (product: Product) => {
-        const salesCount = await calculateProductSales(product.id);
         const { averageRating, reviewCount } = await fetchProductReviews(product.id);
         return { 
           ...product, 
-          salesCount,
+          salesCount: product.totalSold || 0,
           rating: averageRating,
           reviewCount
         };
@@ -427,6 +402,7 @@ const Shop: React.FC = () => {
           case 'name-asc': return a.name.localeCompare(b.name);
           case 'name-desc': return b.name.localeCompare(a.name);
           case 'rating': return (b.rating || 0) - (a.rating || 0);
+          case 'best-selling': return (b.totalSold || 0) - (a.totalSold || 0);
           default: return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
         }
       });
@@ -690,6 +666,7 @@ const Shop: React.FC = () => {
                 className="text-xs font-medium text-slate-600 bg-stone-100 border-none rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-rose-200 cursor-pointer appearance-none"
               >
                 <option value="newest">Newest First</option>
+                <option value="best-selling">Best Selling</option>
                 <option value="price-low">Price: Low → High</option>
                 <option value="price-high">Price: High → Low</option>
                 <option value="rating">Top Rated</option>

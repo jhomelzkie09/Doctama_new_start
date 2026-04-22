@@ -59,6 +59,7 @@ export interface Product {
   rating?: number;
   reviewCount?: number;
   isFeatured?: boolean;
+  totalSold?: number;
 }
 
 export interface CreateProductData {
