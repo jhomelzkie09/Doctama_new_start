@@ -1,5 +1,6 @@
 const config = {
-  API_URL: process.env.REACT_APP_API_URL?.trim() || 'https://doctamaapi-simple.onrender.com/api',
+  //API_URL: process.env.REACT_APP_API_URL?.trim() || 'https://doctamaapi-simple.onrender.com/api',
+  API_URL: process.env.REACT_APP_API_URL?.trim() || 'https://doctamaapisimple-production.up.railway.app/api',
   ENVIRONMENT: process.env.REACT_APP_ENVIRONMENT || 'production'
 };
 
