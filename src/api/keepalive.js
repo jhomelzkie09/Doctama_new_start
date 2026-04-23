@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const API_URL = process.env.RENDER_API_URL || 'https://doctamaapi-simple.onrender.com';
+  const API_URL = process.env.RENDER_API_URL || 'doctamaapisimple-production.up.railway.app';
   
   try {
     const response = await fetch(`${API_URL}/api/health`);

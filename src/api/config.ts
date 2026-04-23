@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Get API URL from environment or use default
-const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapi-simple.onrender.com/api';
+//const API_URL = process.env.REACT_APP_API_URL || 'https://doctamaapi-simple.onrender.com/api';
+const API_URL = process.env.REACT_APP_API_URL || 'doctamaapisimple-production.up.railway.app/api';
 
 // Clean up URL if it has spaces
 const cleanApiUrl = API_URL?.trim();

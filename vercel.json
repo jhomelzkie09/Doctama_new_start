@@ -5,7 +5,7 @@
   "installCommand": "npm install",
   "framework": "create-react-app",
   "env": {
-    "REACT_APP_API_URL": "https://doctamaapi-simple.onrender.com/api",
+    "REACT_APP_API_URL": "https://doctamaapisimple-production.up.railway.app/api",
     "REACT_APP_ENVIRONMENT": "production"
   }
 }
