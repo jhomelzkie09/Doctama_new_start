@@ -130,7 +130,7 @@ const ProductQuickViewModal = ({
                   <span className="text-xs text-slate-400">({product.reviewCount || 0} reviews)</span>
                 </div>
                 <div className="flex items-baseline gap-3">
-                  <span className="text-3xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
+                  <span className="text-3xl font-bold text-rose-900">₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 {product.stockQuantity < 10 && product.stockQuantity > 0 && (
                   <p className="text-xs text-amber-600 font-semibold mt-1">Only {product.stockQuantity} left in stock</p>
@@ -179,7 +179,7 @@ const ProductQuickViewModal = ({
 
               <div className="bg-stone-50 rounded-xl px-5 py-4 flex justify-between items-center">
                 <span className="text-sm text-slate-500 font-medium">Subtotal</span>
-                <span className="text-2xl font-bold text-rose-900">₱{(product.price * quantity).toLocaleString()}</span>
+                <span className="text-2xl font-bold text-rose-900">₱{(product.price * quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex gap-3">
@@ -949,7 +949,7 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
 
             {/* Price and Add to Cart - Price on left, Button on right */}
             <div className="flex items-center justify-between mt-2">
-              <span className="text-sm font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
+              <span className="text-sm font-bold text-rose-900">₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               
               <button
                 disabled={product.stockQuantity === 0}
@@ -1050,11 +1050,9 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
           </div>
         )}
 
-        <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4">{product.description}</p>
-
         {/* Price and Add to Cart - Price on left, Button on right */}
-        <div className="flex items-center justify-between mt-auto pt-2 md:pt-4 border-t border-stone-50">
-          <span className="text-sm md:text-xl font-bold text-rose-900">₱{product.price.toLocaleString()}</span>
+        <div className="flex items-center justify-between mt-auto pt-2 md:pt-3 border-t border-stone-50">
+          <span className="text-sm md:text-xl font-bold text-rose-900">₱{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 
           <button
             disabled={product.stockQuantity === 0}
