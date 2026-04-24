@@ -268,7 +268,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, totalSales, isLoading }
 
 const OrdersReport: React.FC = () => {
   const { state, getAllOrders } = useOrders();
-  const { orders, loading: ordersLoading } = state;
+  const { orders, loading: ordersLoading, error: ordersError } = state;
 
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -321,7 +321,11 @@ const OrdersReport: React.FC = () => {
     return s;
   }, [filteredOrders])();
 
-  const paidDeliveredOrders = orders.filter(o => o.status === 'delivered' && o.paymentStatus === 'paid');
+  const paidDeliveredOrders = orders.filter((o) => {
+    const orderStatus = String(o.status ?? '').toLowerCase();
+    const paymentStatus = String(o.paymentStatus ?? '').toLowerCase();
+    return orderStatus === 'delivered' && (paymentStatus === 'paid' || paymentStatus === 'completed');
+  });
   const totalSales = paidDeliveredOrders.reduce((sum, o) => sum + resolveOrderTotal(o), 0);
 
   const handleRefresh = async () => {
@@ -440,6 +444,11 @@ const OrdersReport: React.FC = () => {
       {isRefreshing && <LoadingOverlay message="Refreshing data..." />}
       
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+        {ordersError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-3 text-sm font-medium">
+            {ordersError}
+          </div>
+        )}
         {/* Simple Header - No company logo here */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>

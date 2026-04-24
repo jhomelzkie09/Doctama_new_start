@@ -304,7 +304,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
 
 const SalesReport: React.FC = () => {
   const { state, getAllOrders } = useOrders();
-  const { orders, loading: ordersLoading } = state;
+  const { orders, loading: ordersLoading, error: ordersError } = state;
 
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [periodType, setPeriodType] = useState<PeriodType>('daily');
@@ -498,6 +498,11 @@ const SalesReport: React.FC = () => {
       {isGenerating && <LoadingOverlay message="Generating report..." />}
       
       <div className="p-6 md:p-8 space-y-6 bg-slate-50/50 min-h-screen text-slate-900 font-sans">
+        {ordersError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-3 text-sm font-medium">
+            {ordersError}
+          </div>
+        )}
         {/* Simple Header - No company logo here */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>

@@ -314,7 +314,7 @@ const OrderMobileCard: React.FC<{
   // ✅ FIXED: Case-insensitive filtering for delivered AND paid orders
   const paidDeliveredOrders = orders.filter(o => 
     (o.status?.toLowerCase() === 'delivered') && 
-    (o.paymentStatus?.toLowerCase() === 'paid')
+    (o.paymentStatus?.toLowerCase() === 'paid' || o.paymentStatus?.toLowerCase() === 'completed')
   );
   
   // Calculate total sales from delivered + paid orders only

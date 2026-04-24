@@ -183,12 +183,23 @@ const AdminDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      const [ordersResult, products, users, deliveriesResult] = await Promise.all([
-        orderService.getAllOrders().catch(() => []),
-        productService.getProducts().catch(() => []),
-        userService.getAllUsers().catch(() => []),
-        deliveryService.getAllDeliveries().catch(() => [])
+      const results = await Promise.allSettled([
+        orderService.getAllOrders(),
+        productService.getProducts(),
+        userService.getAllUsers(),
+        deliveryService.getAllDeliveries()
       ]);
+
+      const [ordersRes, productsRes, usersRes, deliveriesRes] = results;
+
+      const ordersResult = ordersRes.status === 'fulfilled' ? ordersRes.value : [];
+      const products = productsRes.status === 'fulfilled' ? productsRes.value : [];
+      const users = usersRes.status === 'fulfilled' ? usersRes.value : [];
+      const deliveriesResult = deliveriesRes.status === 'fulfilled' ? deliveriesRes.value : [];
+
+      if (ordersRes.status === 'rejected') {
+        throw ordersRes.reason;
+      }
 
       const allOrdersData = Array.isArray(ordersResult) ? ordersResult : [];
       const allDeliveries = Array.isArray(deliveriesResult) ? deliveriesResult : [];
@@ -201,7 +212,7 @@ const AdminDashboard = () => {
       // ✅ ONLY COUNT DELIVERED AND PAID ORDERS AS SALES
       const deliveredAndPaidOrders = filteredPeriodOrders.filter(
         (order: any) => order.status?.toLowerCase() === 'delivered' && 
-                       order.paymentStatus?.toLowerCase() === 'paid'
+                       (order.paymentStatus?.toLowerCase() === 'paid' || order.paymentStatus?.toLowerCase() === 'completed')
       );
       
       const deliveredSales = deliveredAndPaidOrders.reduce((sum: number, order: any) => {
@@ -285,7 +296,7 @@ const AdminDashboard = () => {
       // Calculate all-time total sales (delivered + paid only)
       const allTimeDeliveredAndPaidOrders = (allOrdersData as any[]).filter(
         (order: any) => order.status?.toLowerCase() === 'delivered' && 
-                       order.paymentStatus?.toLowerCase() === 'paid'
+                       (order.paymentStatus?.toLowerCase() === 'paid' || order.paymentStatus?.toLowerCase() === 'completed')
       );
       
       const allTimeTotalSales = allTimeDeliveredAndPaidOrders.reduce((sum: number, order: any) => {
@@ -308,7 +319,11 @@ const AdminDashboard = () => {
       setTopProducts(sortedProducts);
     } catch (err: any) {
       console.error('Dashboard error:', err);
-      setError('System synchronization failed. Please refresh.');
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        setError('Not authorized. Please sign in again.');
+      } else {
+        setError('System synchronization failed. Please refresh.');
+      }
     } finally {
       setLoading(false);
     }

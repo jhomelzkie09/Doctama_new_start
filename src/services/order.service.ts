@@ -240,6 +240,7 @@ async getAllOrders(): Promise<Order[]> {
   
   // Don't even make the request if no token
   if (!token) {
+    throw new Error('Not authenticated');
     console.log('⏭️ Skipping admin orders - no token');
     return [];
   }
@@ -251,6 +252,8 @@ async getAllOrders(): Promise<Order[]> {
       ordersData = response.data;
     } else if (response.data.orders && Array.isArray(response.data.orders)) {
       ordersData = response.data.orders;
+    } else if (response.data.data && Array.isArray(response.data.data)) {
+      ordersData = response.data.data;
     }
     
     const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
@@ -263,6 +266,7 @@ async getAllOrders(): Promise<Order[]> {
   } catch (error: any) {
     // Silently handle auth errors - return empty array
     if (error.response?.status === 401 || error.response?.status === 403) {
+      throw error;
       console.log('🔒 Not authorized for admin orders - returning empty');
       return []; // ✅ Return empty, don't throw!
     }
