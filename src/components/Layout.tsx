@@ -258,7 +258,7 @@ const Layout = () => {
             <div className="flex items-center gap-1 sm:gap-2">
               <button 
                 onClick={() => setSearchOpen(!searchOpen)} 
-                className="p-1.5 sm:p-2 text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                className="md:hidden p-1.5 sm:p-2 text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
               >
                 <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
