@@ -29,7 +29,7 @@ const DEFAULT_CATEGORY_IMAGE = 'https://images.pexels.com/photos/1571459/pexels-
 // Skeleton loader for category cards
 const CategorySkeleton = () => (
   <div className="animate-pulse">
-    <div className="bg-white rounded-xl overflow-hidden border border-stone-100">
+    <div className="bg-white rounded-lg overflow-hidden border border-slate-200/70 shadow-sm">
       <div className="aspect-square bg-stone-200" />
       <div className="p-2 md:p-3 text-center">
         <div className="h-3 md:h-4 bg-stone-200 rounded w-3/4 mx-auto mb-1" />
@@ -161,7 +161,7 @@ const Home = () => {
         
         <div className="container mx-auto px-4 md:px-6 relative z-10 py-12 md:py-0">
           <div className="max-w-3xl space-y-4 md:space-y-8 text-white">
-            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-full text-white text-xs md:text-sm font-medium">
+            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-md text-white text-xs md:text-sm font-medium">
               <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
               <span>The 2026 Spring Collection is here</span>
             </div>
@@ -176,11 +176,11 @@ const Home = () => {
             </p>
             
             <div className="flex flex-wrap gap-3 md:gap-5 pt-2 md:pt-4">
-              <Link to="/shop" className="px-5 md:px-8 py-2.5 md:py-4 bg-rose-600 text-white rounded-full text-sm md:text-base font-medium hover:bg-rose-700 transition-all transform hover:-translate-y-1 flex items-center shadow-xl shadow-black/20">
+              <Link to="/shop" className="px-5 md:px-8 py-2.5 md:py-4 bg-rose-600 text-white rounded-lg text-sm md:text-base font-medium hover:bg-rose-700 transition-all transform hover:-translate-y-1 flex items-center shadow-xl shadow-black/20">
                 Shop Collection <MoveRight className="w-4 h-4 md:w-5 md:h-5 ml-1 md:ml-2" />
               </Link>
               <button className="flex items-center space-x-2 md:space-x-3 text-white font-semibold group">
-                <div className="p-2 md:p-3 rounded-full border border-white/30 group-hover:bg-white/10 transition-all">
+                <div className="p-2 md:p-3 rounded-lg border border-white/30 group-hover:bg-white/10 transition-all">
                   <PlayCircle className="w-4 h-4 md:w-6 md:h-6" />
                 </div>
                 <span className="text-sm md:text-base">Watch Lookbook</span>
@@ -207,7 +207,7 @@ const Home = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {benefits.map((b, i) => (
               <div key={i} className="flex flex-col items-center text-center space-y-3">
-                <div className="p-4 md:p-5 bg-stone-50 rounded-2xl">
+                <div className="p-4 md:p-5 bg-stone-50 rounded-lg">
                   <b.icon className="w-7 h-7 md:w-8 md:h-8 text-rose-900" />
                 </div>
                 <div>
@@ -251,12 +251,12 @@ const Home = () => {
                     to={`/shop?category=${category.id}`} 
                     className="group transform transition-all duration-300 hover:-translate-y-1"
                   >
-                    <div className="bg-white rounded-lg md:rounded-xl overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-md group-hover:border-transparent transition-all duration-300">
+                    <div className="bg-white rounded-lg overflow-hidden border border-slate-200/70 shadow-sm group-hover:shadow-md transition-shadow duration-300 focus-within:ring-2 focus-within:ring-rose-200/60">
                       <div className="aspect-square overflow-hidden bg-stone-100">
                         <img 
                           src={imageUrl} 
                           alt={category.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = DEFAULT_CATEGORY_IMAGE;
                           }}
@@ -293,7 +293,7 @@ const Home = () => {
           <div className="text-center mb-8 md:mb-12">
             <span className="text-rose-800 font-bold tracking-widest text-[10px] md:text-xs uppercase">Our Catalog</span>
             <h2 className="text-2xl md:text-4xl font-serif text-slate-900 mt-2 mb-6">Trending Now</h2>
-            <div className="inline-flex p-1 bg-stone-200/50 backdrop-blur rounded-xl">
+            <div className="inline-flex p-1 bg-stone-200/50 backdrop-blur rounded-lg">
               {[
                 { id: 'new', label: 'New Arrivals' },
                 { id: 'bestsellers', label: 'Best Sellers' }
@@ -318,21 +318,21 @@ const Home = () => {
               </div>
             ) : (
               (activeTab === 'new' ? newArrivals.slice(0, 4) : bestSellers.slice(0, 4)).map((product) => (
-                <div key={product.id} className="group">
-                  <div className="relative aspect-[4/5] rounded-xl md:rounded-2xl overflow-hidden bg-stone-100 mb-3 shadow-sm">
+                <div key={product.id} className="group bg-white rounded-lg border border-slate-200/70 overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 focus-within:ring-2 focus-within:ring-rose-200/60">
+                  <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
                     <Link to={`/products/${product.id}`} className="block w-full h-full">
-                      <img src={product.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={product.name} />
+                      <img src={product.imageUrl} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700" alt={product.name} />
                     </Link>
                     <div className="absolute top-2 right-2 md:top-4 md:right-4">
-                      <button onClick={(e) => handleAddToCart(e, product)} className="p-2 md:p-3 bg-white/90 backdrop-blur rounded-full shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0">
+                      <button onClick={(e) => handleAddToCart(e, product)} className="p-2 md:p-3 bg-white/90 backdrop-blur rounded-md shadow-lg hover:bg-rose-900 hover:text-white transition-all transform translate-x-12 group-hover:translate-x-0">
                         <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
                       </button>
                     </div>
                     {product.stockQuantity < 5 && product.stockQuantity > 0 && (
-                      <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] md:text-xs font-bold px-2 py-0.5 rounded-full">Low Stock</div>
+                      <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] md:text-xs font-bold px-2 py-0.5 rounded-md shadow-sm">Low Stock</div>
                     )}
                   </div>
-                  <div>
+                  <div className="p-3 md:p-4">
                     <div className="flex justify-between items-start mb-1">
                       <h3 className="font-bold text-slate-900 text-xs md:text-base hover:text-rose-800 transition line-clamp-1">
                         <Link to={`/products/${product.id}`}>{product.name}</Link>
@@ -356,7 +356,7 @@ const Home = () => {
           </div>
 
           <div className="text-center mt-10 md:mt-12">
-            <Link to="/shop" className="inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3 border-2 border-rose-200 rounded-full font-bold text-rose-800 text-sm md:text-base hover:bg-rose-50 transition-all">
+            <Link to="/shop" className="inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3 border-2 border-rose-200 rounded-lg font-bold text-rose-800 text-sm md:text-base hover:bg-rose-50 transition-all">
               Discover All Products <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
             </Link>
           </div>
