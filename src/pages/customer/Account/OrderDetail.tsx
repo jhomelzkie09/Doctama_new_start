@@ -143,8 +143,20 @@ const OrderDetail = () => {
     }
   }, [order]);
 
-  const loadOrder = async () => {
-    setLoading(true);
+  // Auto-refresh every 30 seconds to get updated status (especially important for GCash payments)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (order && !loading) {
+        loadOrder(true); // Silent refresh
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [order, loading]);
+
+  const loadOrder = async (silent: boolean = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError('');
     try {
       const orderId = parseInt(id as string);
@@ -156,7 +168,9 @@ const OrderDetail = () => {
       const data = await orderService.getOrderById(orderId);
       
       if (!data) {
-        setError('Order not found');
+        if (!silent) {
+          setError('Order not found');
+        }
       } else {
         const displayOrder: OrderDisplay = {
           id: typeof data.id === 'string' ? parseInt(data.id) : data.id,
@@ -190,13 +204,31 @@ const OrderDetail = () => {
           rejectedBy: (data as any).rejectedBy,
           rejectionReason: (data as any).rejectionReason
         };
+        
+        // Check if status changed for silent refresh
+        if (silent && order) {
+          const statusChanged = 
+            order.status !== displayOrder.status || 
+            order.paymentStatus !== displayOrder.paymentStatus ||
+            order.approvedBy !== displayOrder.approvedBy ||
+            order.rejectedBy !== displayOrder.rejectedBy;
+          
+          if (statusChanged) {
+            showSuccess('Order status updated!');
+          }
+        }
+        
         setOrder(displayOrder);
       }
     } catch (error: any) {
       console.error('❌ Failed to load order:', error);
-      setError(error.message || 'Failed to load order');
+      if (!silent) {
+        setError(error.message || 'Failed to load order');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -496,15 +528,16 @@ const OrderDetail = () => {
   };
 
   const getStatusStep = (order: OrderDisplay): number => {
+    // If payment is approved for digital payments, show as processing
+    if (order.approvedBy && order.paymentStatus === 'paid' && order.paymentMethod !== 'cod') {
+      return 3; // Processing step
+    }
+    
     const steps = order.paymentMethod === 'cod' 
       ? ['pending', 'processing', 'shipped', 'delivered']
       : ['pending', 'awaiting_payment', 'processing', 'shipped', 'delivered'];
     
     const currentIndex = steps.indexOf(order.status);
-    
-    if (order.approvedBy && order.paymentStatus === 'paid' && currentIndex <= 1) {
-      return 3;
-    }
     
     return currentIndex >= 0 ? currentIndex + 1 : 0;
   };
@@ -538,6 +571,17 @@ const OrderDetail = () => {
           ? `Reason: ${order.rejectionReason}` 
           : 'Your payment was rejected due to invalid or insufficient payment proof.',
         color: 'bg-red-50 border-red-200 text-red-800'
+      };
+    }
+    
+    // Check for approved payments first (for GCash/PayMaya)
+    if (order.approvedBy && order.paymentStatus === 'paid' && order.paymentMethod !== 'cod') {
+      return {
+        type: 'processing',
+        icon: <Package className="w-6 h-6 text-blue-600" />,
+        title: 'Payment Approved - Order Processing',
+        message: 'Your payment has been verified and your order is now being prepared for shipment.',
+        color: 'bg-green-50 border-green-200 text-green-800'
       };
     }
     
