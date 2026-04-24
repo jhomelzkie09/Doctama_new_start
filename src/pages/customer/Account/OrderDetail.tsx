@@ -709,11 +709,20 @@ const OrderDetail = () => {
           </div>
 
           {/* Order Progress Tracker */}
-          <div className="mt-8">
-            <div className="flex items-center justify-between">
+          <div className="mt-10 bg-gradient-to-r from-gray-50 to-white rounded-2xl p-8 border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900 mb-6 text-center">Order Progress</h3>
+            <div className="flex items-center justify-between relative">
+              {/* Progress line background */}
+              <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
+              {/* Progress line foreground */}
+              <div
+                className="absolute top-5 left-0 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${((currentStep - 1) / (progressSteps.length - 1)) * 100}%` }}
+              ></div>
+
               {progressSteps.map((step, index) => {
                 let stepCompleted = false;
-                
+
                 if (order.paymentMethod === 'cod') {
                   const adjustedCurrentStep = currentStep >= 2 ? currentStep - 1 : currentStep;
                   stepCompleted = index < adjustedCurrentStep;
@@ -732,7 +741,7 @@ const OrderDetail = () => {
                     stepCompleted = index < currentStep - 1;
                   }
                 }
-                
+
                 const isCurrent = (() => {
                   if (order.paymentMethod === 'cod') {
                     const adjustedCurrentStep = currentStep >= 2 ? currentStep - 1 : currentStep;
@@ -740,41 +749,41 @@ const OrderDetail = () => {
                   }
                   return index === currentStep - 1;
                 })();
-                
-                const isPaymentStepCurrent = order.paymentMethod !== 'cod' && 
-                  index === 1 && 
-                  order.paymentProofImage && 
+
+                const isPaymentStepCurrent = order.paymentMethod !== 'cod' &&
+                  index === 1 &&
+                  order.paymentProofImage &&
                   order.paymentStatus === 'pending' &&
                   !order.approvedBy;
-                
+
                 const effectiveIsCurrent = isCurrent || isPaymentStepCurrent;
-                
+
                 return (
-                  <React.Fragment key={step}>
-                    <div className="flex flex-col items-center relative">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                        stepCompleted || (isPaymentFailed && index === 1)
-                          ? isPaymentFailed && index === 1
-                            ? 'bg-red-600 text-white shadow-lg shadow-red-200'
-                            : 'bg-red-600 text-white shadow-lg shadow-red-200'
-                          : 'bg-gray-200 text-gray-400'
-                      } ${effectiveIsCurrent ? 'ring-4 ring-red-100' : ''}`}>
-                        {stepCompleted || (isPaymentFailed && index === 1) ? 
-                          isPaymentFailed && index === 1 ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" /> 
-                          : index + 1}
-                      </div>
-                      <span className={`text-xs mt-2 font-medium ${
-                        stepCompleted || (isPaymentFailed && index === 1) ? 'text-red-600' : 'text-gray-400'
-                      }`}>
-                        {step}
-                      </span>
+                  <div key={step} className="flex flex-col items-center relative z-10">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
+                      stepCompleted || (isPaymentFailed && index === 1)
+                        ? isPaymentFailed && index === 1
+                          ? 'bg-red-500 text-white shadow-red-200 scale-110'
+                          : 'bg-red-600 text-white shadow-red-200 scale-105'
+                        : effectiveIsCurrent
+                          ? 'bg-blue-500 text-white shadow-blue-200 scale-110 animate-pulse'
+                          : 'bg-white border-2 border-gray-300 text-gray-400 scale-100'
+                    }`}>
+                      {stepCompleted || (isPaymentFailed && index === 1) ?
+                        isPaymentFailed && index === 1 ? <XCircle className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />
+                        : effectiveIsCurrent ? <Clock className="w-6 h-6 animate-spin" /> : <span className="text-sm font-bold">{index + 1}</span>}
                     </div>
-                    {index < progressSteps.length - 1 && (
-                      <div className={`flex-1 h-1 mx-2 rounded-full ${
-                        stepCompleted && !(isPaymentFailed && index === 0) ? 'bg-red-600' : 'bg-gray-200'
-                      }`} />
+                    <span className={`text-sm mt-3 font-semibold text-center max-w-20 leading-tight ${
+                      stepCompleted || (isPaymentFailed && index === 1)
+                        ? isPaymentFailed && index === 1 ? 'text-red-600' : 'text-red-600'
+                        : effectiveIsCurrent ? 'text-blue-600' : 'text-gray-500'
+                    }`}>
+                      {step}
+                    </span>
+                    {effectiveIsCurrent && (
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 animate-ping"></div>
                     )}
-                  </React.Fragment>
+                  </div>
                 );
               })}
             </div>
@@ -783,77 +792,99 @@ const OrderDetail = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Package className="w-5 h-5 mr-2 text-red-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mr-3">
+                  <Package className="w-5 h-5 text-red-600" />
+                </div>
                 Order Items ({order.items?.length || 0})
               </h2>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {order.items?.map((item, idx) => {
                   const hasRated = existingReviews.has(item.productId);
                   const userRating = ratedProducts.get(item.productId);
-                  
+
                   return (
-                    <div key={idx} className="flex gap-4 py-4 border-b last:border-0">
-                      <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
-                        ) : (
-                          <Package className="w-8 h-8 text-gray-400 m-4" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{item.productName}</h3>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                          <span>Qty: {item.quantity}</span>
-                          <span>₱{(item.unitPrice || item.price || 0).toLocaleString()} each</span>
+                    <div key={idx} className="bg-gradient-to-r from-gray-50 to-white rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-all duration-200">
+                      <div className="flex gap-6">
+                        <div className="w-24 h-24 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0 shadow-sm">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-10 h-10 text-gray-400" />
+                            </div>
+                          )}
                         </div>
-                        
-                        {canShowRating && (
-                          <div className="mt-3">
-                            {hasRated ? (
-                              <div className="flex items-center gap-2">
-                                {renderStars(userRating?.rating || 0, 4)}
-                                <span className="text-xs text-green-600 flex items-center gap-1">
-                                  <Check className="w-3 h-3" />
-                                  Rated
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleRateProduct(item)}
-                                className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 transition group"
-                              >
-                                <Star className="w-4 h-4 group-hover:fill-yellow-400 group-hover:text-yellow-400" />
-                                Rate this product
-                              </button>
-                            )}
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-gray-900 mb-2">{item.productName}</h3>
+                          <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Quantity:</span>
+                              <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold">{item.quantity}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Price:</span>
+                              <span className="text-gray-900 font-semibold">₱{(item.unitPrice || item.price || 0).toLocaleString()}</span>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-red-600">
-                          {formatCurrency((item.unitPrice || item.price || 0) * item.quantity)}
-                        </p>
+
+                          {canShowRating && (
+                            <div className="mt-4">
+                              {hasRated ? (
+                                <div className="flex items-center gap-3 bg-green-50 px-4 py-2 rounded-xl border border-green-100">
+                                  {renderStars(userRating?.rating || 0, 4)}
+                                  <span className="text-sm text-green-700 font-medium flex items-center gap-1">
+                                    <Check className="w-4 h-4" />
+                                    You rated this product
+                                  </span>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleRateProduct(item)}
+                                  className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-all duration-200 group bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl border border-red-100 hover:border-red-200"
+                                >
+                                  <Star className="w-5 h-5 group-hover:fill-yellow-400 group-hover:text-yellow-400 transition-colors" />
+                                  <span className="font-medium">Rate this product</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500 mb-1">Subtotal</div>
+                          <p className="text-2xl font-bold text-red-600">
+                            {formatCurrency((item.unitPrice || item.price || 0) * item.quantity)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">{formatCurrency(order.totalAmount)}</span>
+              <div className="mt-8 bg-gradient-to-r from-gray-50 to-white rounded-2xl p-6 border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                  <DollarSign className="w-5 h-5 mr-2 text-red-600" />
+                  Order Summary
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-600 font-medium">Subtotal</span>
+                    <span className="font-semibold text-gray-900">{formatCurrency(order.totalAmount)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping</span>
-                    <span className="text-green-600 font-medium">Free</span>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-600 font-medium">Shipping</span>
+                    <span className="text-green-600 font-semibold flex items-center gap-1">
+                      <Check className="w-4 h-4" />
+                      Free
+                    </span>
                   </div>
-                  <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-100">
-                    <span>Total</span>
-                    <span className="text-red-600">{formatCurrency(order.totalAmount)}</span>
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xl font-bold text-gray-900">Total Amount</span>
+                      <span className="text-2xl font-bold text-red-600">{formatCurrency(order.totalAmount)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -914,26 +945,36 @@ const OrderDetail = () => {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <CreditCard className="w-5 h-5 mr-2 text-red-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mr-3">
+                  <CreditCard className="w-5 h-5 text-red-600" />
+                </div>
                 Payment Information
               </h3>
-              
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl mb-3">
-                {getPaymentMethodIcon(order.paymentMethod)}
-                <div>
-                  <p className="text-sm text-gray-500">Payment Method</p>
-                  <p className="font-medium capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-3">
-                <span className="text-sm text-gray-500">Payment Status</span>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${paymentStatusDisplay.color}`}>
-                  {paymentStatusDisplay.text}
-                </span>
-              </div>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-2xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    {getPaymentMethodIcon(order.paymentMethod)}
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">Payment Method</p>
+                      <p className="font-bold text-gray-900 capitalize">{getPaymentMethodName(order.paymentMethod)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-2xl border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium">Payment Status</p>
+                      <p className="font-bold text-gray-900">{paymentStatusDisplay.text}</p>
+                    </div>
+                    <span className={`px-4 py-2 rounded-full text-sm font-bold ${paymentStatusDisplay.color} shadow-sm`}>
+                      {paymentStatusDisplay.text}
+                    </span>
+                  </div>
+                </div>
 
               {order.paymentStatus === 'failed' && order.rejectionReason && (
                 <div className="mb-3 p-3 bg-red-50 rounded-lg border border-red-100">
@@ -1026,57 +1067,90 @@ const OrderDetail = () => {
               )}
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <MapPin className="w-5 h-5 mr-2 text-red-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mr-3">
+                  <MapPin className="w-5 h-5 text-red-600" />
+                </div>
                 Shipping Address
               </h3>
-              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{order.shippingAddress}</p>
+              <div className="bg-gradient-to-r from-gray-50 to-white p-6 rounded-2xl border border-gray-100">
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line font-medium">{order.shippingAddress}</p>
+              </div>
               {order.trackingNumber && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-xl">
-                  <p className="text-xs text-blue-600 font-medium">Tracking Number</p>
-                  <p className="text-sm font-medium text-blue-800">{order.trackingNumber}</p>
+                <div className="mt-6 bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <Truck className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-700 font-bold">Tracking Number</p>
+                      <p className="text-lg font-mono font-bold text-blue-800">{order.trackingNumber}</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <User className="w-5 h-5 mr-2 text-red-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mr-3">
+                  <User className="w-5 h-5 text-red-600" />
+                </div>
                 Customer Details
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-700">{order.customerName || 'Guest'}</span>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-2xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-500" />
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium">Full Name</p>
+                      <p className="font-semibold text-gray-900">{order.customerName || 'Guest'}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 p-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-700">{order.customerEmail}</span>
+                <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-2xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-5 h-5 text-gray-500" />
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium">Email Address</p>
+                      <p className="font-semibold text-gray-900">{order.customerEmail}</p>
+                    </div>
+                  </div>
                 </div>
                 {order.customerPhone && (
-                  <div className="flex items-center gap-3 p-2">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">{order.customerPhone}</span>
+                  <div className="bg-gradient-to-r from-gray-50 to-white p-4 rounded-2xl border border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-5 h-5 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">Phone Number</p>
+                        <p className="font-semibold text-gray-900">{order.customerPhone}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Need Help?</h3>
-              <div className="space-y-3">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mr-3">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                </div>
+                Need Help?
+              </h3>
+              <div className="space-y-4">
                 {order.status === 'delivered' && (
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition">
-                    <Download className="w-4 h-4" />
+                  <button className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-2xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg shadow-green-200 hover:shadow-xl hover:shadow-green-300 transform hover:-translate-y-0.5 font-semibold">
+                    <Download className="w-5 h-5" />
                     Download Invoice
                   </button>
                 )}
                 <Link
                   to="/contact"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition"
+                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-2xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 shadow-lg shadow-gray-200 hover:shadow-xl hover:shadow-gray-300 transform hover:-translate-y-0.5 font-semibold"
                 >
-                  <AlertCircle className="w-4 h-4" />
+                  <MessageCircle className="w-5 h-5" />
                   Contact Support
                 </Link>
               </div>

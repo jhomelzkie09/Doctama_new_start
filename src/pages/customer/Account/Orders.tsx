@@ -397,101 +397,117 @@ const Orders = () => {
 
         {/* Orders List */}
         {filteredOrders.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-            <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
-            <p className="text-gray-500 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingBag className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">No orders found</h3>
+            <p className="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">
               {searchQuery || statusFilter !== 'all' || dateFilter !== 'all'
-                ? 'Try adjusting your filters'
-                : "You haven't placed any orders yet"}
+                ? 'Try adjusting your filters or search terms to find what you\'re looking for.'
+                : "You haven't placed any orders yet. Start shopping to see your orders here!"}
             </p>
             <Link
               to="/shop"
-              className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-2xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg shadow-red-200 hover:shadow-xl hover:shadow-red-300 transform hover:-translate-y-0.5"
             >
+              <ShoppingBag className="w-5 h-5" />
               Start Shopping
-              <ChevronRight className="w-5 h-5 ml-2" />
+              <ChevronRight className="w-5 h-5" />
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+              <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-red-100 transition-all duration-300 group">
                 {/* Order Header */}
-                <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Order Number</p>
-                      <p className="font-bold text-gray-900">{order.orderNumber}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Placed on</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <p className="font-medium text-gray-900">{formatDate(order.orderDate)}</p>
+                <div className="bg-gradient-to-r from-gray-50 to-white p-6 border-b border-gray-100">
+                  <div className="flex flex-wrap items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                        <Package className="w-6 h-6 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 uppercase tracking-wider font-medium">Order Number</p>
+                        <p className="text-xl font-bold text-gray-900 group-hover:text-red-600 transition-colors">#{order.orderNumber}</p>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Total Amount</p>
-                      <p className="font-bold text-red-600 text-lg">{formatCurrency(order.totalAmount)}</p>
-                    </div>
-                    <div>
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 ${getStatusColor(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}`}>
-                        {getStatusIcon(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}
-                        {getStatusText(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}
-                      </span>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500 uppercase tracking-wider font-medium">Total Amount</p>
+                      <p className="text-2xl font-bold text-red-600">{formatCurrency(order.totalAmount)}</p>
                     </div>
                   </div>
-                  
+
+                  <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-600 font-medium">{formatDate(order.orderDate)}</span>
+                    </div>
+                    <span className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 ${getStatusColor(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)} shadow-sm`}>
+                      {getStatusIcon(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}
+                      {getStatusText(order.status, order.paymentStatus, order.approvedBy, order.rejectedBy)}
+                    </span>
+                  </div>
+
                   {/* Rejection reason for failed payments */}
                   {order.rejectedBy && order.paymentStatus === 'failed' && order.rejectionReason && (
-                    <div className="mt-3 flex items-start gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-                      <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                      <span className="flex-1">{order.rejectionReason}</span>
+                    <div className="mt-4 flex items-start gap-3 text-sm text-red-700 bg-red-50 p-4 rounded-xl border border-red-100">
+                      <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold mb-1">Payment Rejected</p>
+                        <span className="text-red-600">{order.rejectionReason}</span>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Order Items Preview */}
                 <div className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    {order.items?.slice(0, 3).map((item, idx) => (
-                      <div key={idx} className="w-16 h-16 bg-gray-100 rounded-xl overflow-hidden">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
-                        ) : (
-                          <Package className="w-8 h-8 text-gray-400 m-4" />
-                        )}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      {order.items?.slice(0, 4).map((item, idx) => (
+                        <div key={idx} className="relative">
+                          <div className="w-16 h-16 bg-gray-100 rounded-xl overflow-hidden border-2 border-white shadow-sm">
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                            ) : (
+                              <Package className="w-8 h-8 text-gray-400 m-4" />
+                            )}
+                          </div>
+                          {idx === 3 && (order.items?.length || 0) > 4 && (
+                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                              +{(order.items!.length - 4)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div className="ml-2">
+                        <p className="text-sm font-medium text-gray-900">
+                          {order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Click "View Details" to see all items
+                        </p>
                       </div>
-                    ))}
-                    {(order.items?.length || 0) > 3 && (
-                      <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center text-sm font-bold text-gray-600">
-                        +{order.items!.length - 3}
-                      </div>
-                    )}
-                    <div className="flex-1 text-right">
-                      <p className="text-sm text-gray-500">
-                        {order.items?.length || 0} item(s)
-                      </p>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3 justify-end">
+                  <div className="flex flex-wrap gap-3 justify-end">
                     <button
                       onClick={() => handleViewOrder(order.id)}
-                      className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition"
+                      className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 hover:text-red-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                     >
-                      <Eye className="w-4 h-4 mr-2" />
+                      <Eye className="w-5 h-5" />
                       View Details
                     </button>
                     
                     {order.status === 'delivered' && (
                       <button
                         onClick={() => handleDownloadInvoice(order)}
-                        className="flex items-center px-4 py-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition"
+                        className="flex items-center gap-2 px-6 py-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 hover:text-green-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                       >
-                        <Download className="w-4 h-4 mr-2" />
+                        <Download className="w-5 h-5" />
                         Download Invoice
                       </button>
                     )}
@@ -501,16 +517,16 @@ const Orders = () => {
                       <button
                         onClick={() => handleCancelClick(order)}
                         disabled={cancellingOrderId === order.id}
-                        className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 hover:text-red-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {cancellingOrderId === order.id ? (
                           <>
-                            <Loader className="w-4 h-4 mr-2 animate-spin" />
+                            <Loader className="w-5 h-5 animate-spin" />
                             Cancelling...
                           </>
                         ) : (
                           <>
-                            <XCircle className="w-4 h-4 mr-2" />
+                            <XCircle className="w-5 h-5" />
                             Cancel Order
                           </>
                         )}
