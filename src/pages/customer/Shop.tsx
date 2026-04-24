@@ -892,13 +892,13 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
   // List view
   if (!isGrid) {
     return (
-      <div className="group bg-white rounded-xl border border-stone-100 overflow-hidden hover:shadow-md transition-all duration-300">
+      <div className="group bg-white rounded-lg border border-slate-200/70 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 focus-within:ring-2 focus-within:ring-rose-200/60">
         <div className="flex flex-row gap-3 p-3">
           <Link to={`/products/${product.id}`} className="block w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
             <img
               src={product.imageUrl || 'https://via.placeholder.com/400'}
               alt={product.name}
-              className="w-full h-full object-cover rounded-lg"
+              className="w-full h-full object-cover rounded-md"
             />
           </Link>
 
@@ -954,7 +954,7 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
               <button
                 disabled={product.stockQuantity === 0}
                 onClick={(e) => onOpenModal(e, product)}
-                className="p-1.5 bg-rose-950 text-white rounded-lg hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95"
+                className="p-1.5 bg-rose-950 text-white rounded-md shadow-sm hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95"
                 title="Add to Cart"
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
@@ -968,7 +968,7 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
 
   // Grid view
   return (
-    <div className="group bg-white rounded-xl md:rounded-2xl border border-stone-100 overflow-hidden hover:shadow-xl hover:border-transparent hover:-translate-y-1 transition-all duration-300">
+    <div className="group bg-white rounded-lg border border-slate-200/70 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-rose-200/60">
       
       {/* Image */}
       <div className="relative overflow-hidden bg-stone-50 aspect-square">
@@ -976,28 +976,28 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
           <img
             src={product.imageUrl || 'https://via.placeholder.com/400'}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
           />
         </Link>
 
         {/* Badges */}
         {isBestSeller && (
-          <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md shadow-sm">
             Best Seller
           </div>
         )}
         {isTopRated && (
-          <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md shadow-sm">
             Top Rated
           </div>
         )}
         {product.stockQuantity === 0 && (
-          <div className="absolute top-2 left-2 bg-slate-800 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-slate-800 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md shadow-sm">
             Sold Out
           </div>
         )}
         {product.stockQuantity > 0 && product.stockQuantity < 5 && (
-          <div className="absolute top-2 left-2 bg-orange-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-full">
+          <div className="absolute top-2 left-2 bg-orange-500 text-white text-[8px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md shadow-sm">
             Only {product.stockQuantity} left
           </div>
         )}
@@ -1059,7 +1059,7 @@ const ProductCard = ({ product, viewMode, onOpenModal, renderStars }: any) => {
           <button
             disabled={product.stockQuantity === 0}
             onClick={(e) => onOpenModal(e, product)}
-            className="p-1.5 md:p-2.5 bg-rose-950 text-white rounded-lg md:rounded-xl hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95"
+            className="p-1.5 md:p-2.5 bg-rose-950 text-white rounded-md shadow-sm hover:bg-rose-900 disabled:bg-stone-100 disabled:text-stone-300 transition-all active:scale-95"
             title="Add to Cart"
           >
             <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
