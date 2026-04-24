@@ -189,6 +189,8 @@ const ProductsReport: React.FC = () => {
   });
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [categories, setCategories] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
   const loadData = async () => {
@@ -272,6 +274,10 @@ const ProductsReport: React.FC = () => {
     loadData();
   }, [dateRange]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterCategory, dateRange.start, dateRange.end, productStats.length]);
+
   const handleDateRangeChange = (field: 'start' | 'end', value: string) => {
     setDateRange(prev => ({ ...prev, [field]: value }));
   };
@@ -287,6 +293,18 @@ const ProductsReport: React.FC = () => {
   const filteredProducts = filterCategory === 'all' 
     ? productStats 
     : productStats.filter(p => p.category === filterCategory);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, filteredProducts.length, itemsPerPage]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const startItem = filteredProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(filteredProducts.length, currentPage * itemsPerPage);
 
   const stats = useCallback((): TotalStats => {
     const filtered = filteredProducts;
@@ -499,7 +517,44 @@ const ProductsReport: React.FC = () => {
           </div>
 
           <div id="report-print-content">
-            <ProductTable products={filteredProducts} stats={stats} isLoading={loading} />
+            <ProductTable products={paginatedProducts} stats={stats} isLoading={loading} />
+          </div>
+
+          <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-gray-500">
+              Showing {startItem} to {endItem} of {filteredProducts.length} products
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-xs text-gray-500">Rows per page</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+              >
+                {[10, 20, 50].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <div className="inline-flex rounded-lg overflow-hidden border border-gray-200">
+                <button
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 bg-white text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 bg-white text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
