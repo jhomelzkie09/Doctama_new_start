@@ -234,13 +234,14 @@ async uploadPaymentProof(id: number, proofData: {
     }
   }
 
-  // Get all orders (admin only)
+// Get all orders (admin only)
 async getAllOrders(): Promise<Order[]> {
   const token = localStorage.getItem('token');
   
   // Don't even make the request if no token
   if (!token) {
-    throw new Error('Not authenticated');
+    console.log('⏭️ Skipping admin orders - no token');
+    return [];
   }
   
   try {
@@ -260,14 +261,13 @@ async getAllOrders(): Promise<Order[]> {
     
     return convertedOrders;
   } catch (error: any) {
-    // Don't log 401 errors as they're expected when not logged in
-    if (error.response?.status === 401) {
-      console.log('🔒 Not authorized to fetch admin orders');
-    } else {
-      console.error('❌ Error fetching orders:', error.response?.data || error.message);
+    // Silently handle auth errors - return empty array
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.log('🔒 Not authorized for admin orders - returning empty');
+      return []; // ✅ Return empty, don't throw!
     }
-    // Re-throw the error so the component knows it failed
-    throw error;
+    console.error('❌ Error fetching orders:', error.response?.data || error.message);
+    return []; // ✅ Return empty for any error
   }
 }
 
