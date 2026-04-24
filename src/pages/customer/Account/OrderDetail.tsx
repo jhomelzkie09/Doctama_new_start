@@ -1408,7 +1408,8 @@ const OrderDetail = () => {
         </div>
       )}
     </div>
-  );
+  </div>
+);
 };
 
 export default OrderDetail;
