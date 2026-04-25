@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import api from '../../api/config';
+import uploadService from '../../services/upload.service';
 
 interface DeliveryOrder {
   id: number;
@@ -87,9 +88,13 @@ const OrderDelivery: React.FC = () => {
   // Form states
   const [recipientName, setRecipientName] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [proofImage, setProofImage] = useState<File | null>(null);
+  const [proofImage, setProofImage] = useState<string | null>(null);
   const [proofImagePreview, setProofImagePreview] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+
+
 
   useEffect(() => {
     if (!isAdmin) {
@@ -170,43 +175,26 @@ const OrderDelivery: React.FC = () => {
       return;
     }
     
+    if (!recipientName.trim()) {
+      showError('Recipient name is required');
+      return;
+    }
+    
     setSubmitting(true);
     const loadingToast = showLoading('Confirming delivery...');
     
     try {
-      let proofImageUrl = '';
-      if (proofImage) {
-        // Upload the image
-        const formData = new FormData();
-        formData.append('file', proofImage);
-        const uploadResponse = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        proofImageUrl = uploadResponse.data.fileUrl || uploadResponse.data.url || '';
-      }
-      
+      // proofImage already contains the Cloudinary URL
       await api.post(`/deliveries/${selectedOrder.orderId}/deliver`, {
         recipentName: recipientName || selectedOrder.customerName,
         deliveryNotes,
-        proofImageUrl
+        proofImageUrl: proofImage // Send the URL
       });
       
       dismissToast(loadingToast);
       showSuccess(`✅ Order #${selectedOrder.orderNumber} delivered successfully!`);
       
-      setOutForDeliveryOrders(prev => prev.filter(o => o.orderId !== selectedOrder.orderId));
-      
-      const deliveredOrder = { 
-        ...selectedOrder, 
-        deliveryStatus: 'Delivered', 
-        isDelivered: true,
-        deliveredAt: new Date().toISOString(),
-        recipientName: recipientName || selectedOrder.customerName
-      };
-      
-      setDeliveredTodayOrders(prev => [deliveredOrder, ...prev]);
-      setAllDeliveredOrders(prev => [deliveredOrder, ...prev]);
-      
+      // Reset state
       setShowDeliverModal(false);
       setSelectedOrder(null);
       setRecipientName('');
@@ -223,6 +211,46 @@ const OrderDelivery: React.FC = () => {
     }
   };
 
+const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
+  // Show preview immediately
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setProofImagePreview(reader.result as string);
+  };
+  reader.readAsDataURL(file);
+  
+  setUploading(true);
+  try {
+    // Upload to Cloudinary via upload service
+    const url = await uploadService.uploadImage(file);
+    setProofImage(url); // Store the Cloudinary URL
+    console.log('✅ Image uploaded:', url);
+  } catch (error) {
+    console.error('Upload failed:', error);
+    showError('Failed to upload image. Please try again.');
+  } finally {
+    setUploading(false);
+  }
+};
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const url = await uploadService.uploadImage(file);
+      setProofImage(url);
+    } catch (error) {
+      console.error('Upload failed:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const openDeliverModal = (order: DeliveryOrder) => {
     setSelectedOrder(order);
     setRecipientName(order.customerName);
@@ -232,17 +260,16 @@ const OrderDelivery: React.FC = () => {
     setShowDeliverModal(true);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setProofImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProofImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const handleImageUpload = async (file: File) => {
+  try {
+    // Use the upload service instead of direct API call
+    const url = await uploadService.uploadImage(file);
+    return url;
+  } catch (error) {
+    console.error('Upload failed:', error);
+    throw error;
+  }
+};
 
   const getDateRange = (filter: TimeFilter): { start: Date; end: Date } => {
     const now = new Date();
@@ -733,6 +760,7 @@ const OrderDelivery: React.FC = () => {
                         type="file"
                         accept="image/*"
                         onChange={handleImageChange}
+                        disabled={uploading}
                         className="hidden"
                       />
                     </label>
