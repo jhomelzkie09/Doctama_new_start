@@ -152,7 +152,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50/50 border-y border-slate-200">
+            <tr className="bg-slate-100 border-y border-slate-200">
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Order #</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
@@ -186,7 +186,7 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5">
-                      <PaymentIcon className="w-3.5 h-3.5 text-slate-400" />
+                      <PaymentIcon className="payment-method-icon w-3.5 h-3.5 text-slate-400" />
                       <span className="text-slate-600 font-medium text-xs">{formatPaymentMethod(order.paymentMethod || '')}</span>
                     </div>
                   </td>
@@ -418,6 +418,7 @@ const SalesReport: React.FC = () => {
             th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; }
             .footer { margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
             .no-print { display: none; }
+            .payment-method-icon { display: none; }
             @media print { body { margin: 0; } }
           </style>
         </head>
