@@ -22,6 +22,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Category } from '../../types';
+import { showSuccess, showError } from '../../utils/toast';
 
 interface FormData {
   name: string;
@@ -190,10 +191,28 @@ const ProductForm = () => {
     return null;
   };
 
+  const checkProductExists = async (): Promise<boolean> => {
+    try {
+      return await productService.checkProductNameExists(formData.name.trim(), isEditMode ? Number(id) : undefined);
+    } catch (err) {
+      console.error('Error checking product existence:', err);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validationError = validateForm();
-    if (validationError) { alert(validationError); return; }
+    if (validationError) { showError(validationError); return; }
+
+    // Check for duplicate product name (only for new products)
+    if (!isEditMode) {
+      const productExists = await checkProductExists();
+      if (productExists) {
+        showError('A product with this name already exists. Please choose a different name.');
+        return;
+      }
+    }
 
     setSaving(true);
     setError('');
@@ -247,12 +266,12 @@ const ProductForm = () => {
         alert('Product updated successfully!');
       } else {
         await productService.createProduct(productData);
-        alert('Product created successfully!');
+        showSuccess('Product created successfully!');
       }
       navigate('/admin/products');
     } catch (err: any) {
       setError(err.message || 'Failed to save product');
-      alert(err.message || 'Failed to save product');
+      showError(err.message || 'Failed to save product');
     } finally {
       setSaving(false);
       setUploadingImages(false);

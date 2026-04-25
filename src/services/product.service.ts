@@ -58,6 +58,21 @@ class ProductService {
     }
   }
 
+  // Check if product name already exists
+  async checkProductNameExists(name: string, excludeId?: number): Promise<boolean> {
+    try {
+      const products = await this.getProducts();
+      const normalizedName = name.trim().toLowerCase();
+      return products.some(product => 
+        product.name.trim().toLowerCase() === normalizedName && 
+        (!excludeId || product.id !== excludeId)
+      );
+    } catch (error: any) {
+      console.error('❌ Error checking product name:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
   // Create product
   async createProduct(productData: any): Promise<Product> {
     try {
