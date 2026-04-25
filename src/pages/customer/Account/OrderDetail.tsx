@@ -445,40 +445,45 @@ const OrderDetail = () => {
   };
 
   const getDisplayStatus = () => {
-    if (!order) return '';
-    
-    if (order.rejectedBy && order.paymentStatus === 'failed') {
-      return 'PAYMENT FAILED';
-    }
-    
-    if (order.approvedBy && order.paymentStatus === 'paid') {
-      return 'PAYMENT APPROVED';
-    }
-    
-    return order.status.replace('_', ' ').toUpperCase();
-  };
+  if (!order) return '';
+
+  if (order.rejectedBy && order.paymentStatus === 'failed') {
+    return 'PAYMENT FAILED';
+  }
+
+  if (order.approvedBy && order.paymentStatus === 'paid') {
+    if (order.status === 'delivered') return 'DELIVERED';
+    if (order.status === 'shipped' || order.status === 'outfordelivery') return 'SHIPPED';
+    return 'PROCESSING';
+  }
+
+  return (order.status || '').replace(/_/g, ' ').toUpperCase();
+};
 
   const getDisplayStatusColor = () => {
-    if (!order) return '';
-    
-    if (order.rejectedBy && order.paymentStatus === 'failed') {
-      return 'bg-red-100 text-red-800 border-red-200';
-    }
-    
-    if (order.approvedBy && order.paymentStatus === 'paid') {
-      return 'bg-green-100 text-green-800 border-green-200';
-    }
-    
-    switch(order.status) {
-      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
-      case 'shipped': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'processing': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'pending': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'awaiting_payment': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  if (!order) return '';
+  
+  const status = order.status?.toLowerCase() || '';
+  
+  if (order.rejectedBy && order.paymentStatus === 'failed') {
+    return 'bg-red-100 text-red-800 border-red-200';
+  }
+  
+  if (order.approvedBy && order.paymentStatus === 'paid') {
+    return 'bg-green-100 text-green-800 border-green-200';
+  }
+  
+  switch(status) {
+    case 'delivered': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    case 'shipped':
+    case 'outfordelivery': return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'processing': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+    case 'pending': return 'bg-amber-100 text-amber-800 border-amber-200';
+    case 'awaiting_payment': return 'bg-orange-100 text-orange-800 border-orange-200';
+    case 'cancelled': return 'bg-rose-100 text-rose-800 border-rose-200';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
 
   const getPaymentStatusDisplay = (paymentStatus: string, rejectedBy?: string) => {
     if (rejectedBy && paymentStatus === 'failed') {
@@ -530,26 +535,53 @@ const OrderDetail = () => {
   };
 
   const getStatusStep = (order: OrderDisplay): number => {
-    // If payment is approved for digital payments, show as processing
-    if (order.approvedBy && order.paymentStatus === 'paid' && order.paymentMethod !== 'cod') {
-      return 3; // Processing step
-    }
-    
-    const steps = order.paymentMethod === 'cod' 
-      ? ['pending', 'processing', 'shipped', 'delivered']
-      : ['pending', 'awaiting_payment', 'processing', 'shipped', 'delivered'];
-    
-    const currentIndex = steps.indexOf(order.status);
-    
-    return currentIndex >= 0 ? currentIndex + 1 : 0;
-  };
+  const status = order.status?.toLowerCase() || '';
+  const paymentStatus = order.paymentStatus?.toLowerCase() || '';
+  
+  // COD flow: pending → processing → shipped → delivered
+  if (order.paymentMethod === 'cod') {
+    const codSteps = ['pending', 'processing', 'shipped', 'outfordelivery', 'delivered'];
+    const idx = codSteps.indexOf(status);
+    return idx >= 0 ? idx + 1 : 0;
+  }
+  
+  // Digital payment flow: pending → awaiting_payment → processing → shipped → delivered
+  const digitalSteps = ['pending', 'awaiting_payment', 'processing', 'shipped', 'outfordelivery', 'delivered'];
+  
+  // If payment proof uploaded and pending, still at payment step
+  if (order.paymentProofImage && paymentStatus === 'pending' && !order.approvedBy) {
+    return 2; // Payment step
+  }
+  
+  // If payment approved, advance to processing
+  if (order.approvedBy && paymentStatus === 'paid' && status === 'processing') {
+    return 3; // Processing
+  }
+  
+  // Shipped
+  if (status === 'shipped' || status === 'outfordelivery') {
+    return 4; // Shipped
+  }
+  
+  // Delivered
+  if (status === 'delivered') {
+    return 5; // Delivered
+  }
+  
+  const idx = digitalSteps.indexOf(status);
+  return idx >= 0 ? idx + 1 : 1; // Default to first step
+};
 
-  const getProgressSteps = (order: OrderDisplay) => {
-    if (order.paymentMethod === 'cod') {
-      return ['Pending', 'Processing', 'Shipped', 'Delivered'];
-    }
-    return ['Pending', 'Payment', 'Processing', 'Shipped', 'Delivered'];
-  };
+const getProgressSteps = (order: OrderDisplay) => {
+  if (order.paymentMethod === 'cod') {
+    return ['Order Placed', 'Processing', 'Shipped', 'Delivered'];
+  }
+  return ['Order Placed', 'Payment', 'Processing', 'Shipped', 'Delivered'];
+};
+
+const getTotalSteps = (order: OrderDisplay) => {
+  return order.paymentMethod === 'cod' ? 4 : 5;
+};
 
   const getNotification = () => {
     if (!order) return null;
@@ -767,68 +799,52 @@ const OrderDetail = () => {
               ></div>
 
               {progressSteps.map((step, index) => {
-                let stepCompleted = false;
-
-                if (order.paymentMethod === 'cod') {
-                  const adjustedCurrentStep = currentStep >= 2 ? currentStep - 1 : currentStep;
-                  stepCompleted = index < adjustedCurrentStep;
-                } else {
-                  if (index === 1) {
-                    if (isPaymentFailed) {
-                      stepCompleted = false;
-                    } else if (order.approvedBy && order.paymentStatus === 'paid') {
-                      stepCompleted = true;
-                    } else if (order.paymentProofImage && order.paymentStatus === 'pending') {
-                      stepCompleted = true;
-                    } else {
-                      stepCompleted = currentStep > 2;
-                    }
-                  } else {
-                    stepCompleted = index < currentStep - 1;
+                // Simple step completion check
+                let stepCompleted = index < currentStep - 1;
+                
+                // Special handling for payment step (index 1) in digital payments
+                if (order.paymentMethod !== 'cod' && index === 1) {
+                  if (isPaymentFailed) {
+                    stepCompleted = false; // Failed payment step
+                  } else if (order.approvedBy && order.paymentStatus === 'paid') {
+                    stepCompleted = true; // Payment approved
+                  } else if (order.paymentProofImage && order.paymentStatus === 'pending') {
+                    stepCompleted = true; // Payment proof uploaded, awaiting approval
                   }
                 }
-
-                const isCurrent = (() => {
-                  if (order.paymentMethod === 'cod') {
-                    const adjustedCurrentStep = currentStep >= 2 ? currentStep - 1 : currentStep;
-                    return index === adjustedCurrentStep;
-                  }
-                  return index === currentStep - 1;
-                })();
-
-                const isPaymentStepCurrent = order.paymentMethod !== 'cod' &&
-                  index === 1 &&
-                  order.paymentProofImage &&
-                  order.paymentStatus === 'pending' &&
-                  !order.approvedBy;
-
-                const effectiveIsCurrent = isCurrent || isPaymentStepCurrent;
+                
+                // Current step is the one at currentStep - 1
+                const isCurrent = index === currentStep - 1;
+                
+                // Step status colors
+                let stepColor = 'bg-white border-2 border-gray-300 text-gray-400';
+                let iconEl = <span className="text-sm font-bold">{index + 1}</span>;
+                
+                if (isPaymentFailed && index === 1) {
+                  stepColor = 'bg-red-500 text-white shadow-red-200 scale-110';
+                  iconEl = <XCircle className="w-6 h-6" />;
+                } else if (stepCompleted) {
+                  stepColor = 'bg-red-600 text-white shadow-red-200 scale-105';
+                  iconEl = <CheckCircle className="w-6 h-6" />;
+                } else if (isCurrent) {
+                  stepColor = 'bg-blue-500 text-white shadow-blue-200 scale-110 animate-pulse';
+                  iconEl = <Clock className="w-6 h-6 animate-spin" />;
+                }
+                
+                let labelColor = 'text-gray-500';
+                if (isPaymentFailed && index === 1) labelColor = 'text-red-600';
+                else if (stepCompleted) labelColor = 'text-red-600';
+                else if (isCurrent) labelColor = 'text-blue-600';
 
                 return (
                   <div key={step} className="flex flex-col items-center relative z-10">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
-                      stepCompleted || (isPaymentFailed && index === 1)
-                        ? isPaymentFailed && index === 1
-                          ? 'bg-red-500 text-white shadow-red-200 scale-110'
-                          : 'bg-red-600 text-white shadow-red-200 scale-105'
-                        : effectiveIsCurrent
-                          ? 'bg-blue-500 text-white shadow-blue-200 scale-110 animate-pulse'
-                          : 'bg-white border-2 border-gray-300 text-gray-400 scale-100'
-                    }`}>
-                      {stepCompleted || (isPaymentFailed && index === 1) ?
-                        isPaymentFailed && index === 1 ? <XCircle className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />
-                        : effectiveIsCurrent ? <Clock className="w-6 h-6 animate-spin" /> : <span className="text-sm font-bold">{index + 1}</span>}
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${stepColor}`}>
+                      {iconEl}
                     </div>
-                    <span className={`text-sm mt-3 font-semibold text-center max-w-20 leading-tight ${
-                      stepCompleted || (isPaymentFailed && index === 1)
-                        ? isPaymentFailed && index === 1 ? 'text-red-600' : 'text-red-600'
-                        : effectiveIsCurrent ? 'text-blue-600' : 'text-gray-500'
-                    }`}>
+                    <span className={`text-sm mt-3 font-semibold text-center max-w-24 leading-tight ${labelColor}`}>
                       {step}
                     </span>
-                    {effectiveIsCurrent && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 animate-ping"></div>
-                    )}
+                    {isCurrent && <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 animate-ping"></div>}
                   </div>
                 );
               })}
