@@ -147,6 +147,10 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
   const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const displayOrders = showPagination ? paginatedOrders : orders;
   
+  // Calculate total sales for the current display (paginated or all)
+  const displayTotalSales = displayOrders.reduce((sum, order) => sum + (order.totalAmount ?? 0), 0);
+  const allTotalSales = orders.reduce((sum, order) => sum + (order.totalAmount ?? 0), 0);
+  
   return (
     <div>
       <div className="overflow-x-auto">
@@ -230,8 +234,16 @@ const SalesTransactionsTable: React.FC<SalesTransactionsTableProps> = ({ orders,
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+          </tbody>          <tfoot>
+            <tr className="bg-slate-100 border-t-2 border-slate-200">
+              <td colSpan={7} className="px-6 py-4 text-right font-bold text-slate-800">
+                Total Sales ({showPagination ? `${displayOrders.length} of ${orders.length} transactions` : `${orders.length} transactions`}):
+              </td>
+              <td className="px-6 py-4 text-right font-bold text-indigo-600 text-lg">
+                {peso(showPagination ? displayTotalSales : allTotalSales)}
+              </td>
+            </tr>
+          </tfoot>        </table>
       </div>
 
       {/* Pagination */}
@@ -416,6 +428,7 @@ const SalesReport: React.FC = () => {
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
             th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; }
+            tfoot td { background: #f1f5f9; font-weight: bold; }
             .footer { margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
             .no-print { display: none; }
             .payment-method-icon { display: none; }
