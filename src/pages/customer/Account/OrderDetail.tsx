@@ -790,11 +790,12 @@ const getTotalSteps = (order: OrderDisplay) => {
           <div className="mt-10 bg-gradient-to-r from-gray-50 to-white rounded-2xl p-8 border border-gray-100">
             <h3 className="text-lg font-bold text-gray-900 mb-6 text-center">Order Progress</h3>
             <div className="flex items-center justify-between relative">
-              {/* Progress line background */}
-              <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
-              {/* Progress line foreground */}
+               {/* Progress line background */}
+                <div className="absolute top-5 left-6 right-6 h-1 bg-gray-200 rounded-full"></div>
+                
+                {/* Progress line foreground */}
                 <div
-                  className="absolute top-5 left-0 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
+                  className="absolute top-5 left-6 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
                   style={{ 
                     width: `${((currentStep - 1) / (getTotalSteps(order) - 1)) * 100}%` 
                   }}
