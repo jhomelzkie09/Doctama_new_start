@@ -793,10 +793,12 @@ const getTotalSteps = (order: OrderDisplay) => {
               {/* Progress line background */}
               <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
               {/* Progress line foreground */}
-              <div
-                className="absolute top-5 left-0 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${((currentStep - 1) / (progressSteps.length - 1)) * 100}%` }}
-              ></div>
+                <div
+                  className="absolute top-5 left-0 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
+                  style={{ 
+                    width: `${((currentStep - 1) / (getTotalSteps(order) - 1)) * 100}%` 
+                  }}
+                ></div>
 
               {progressSteps.map((step, index) => {
                 // Simple step completion check
