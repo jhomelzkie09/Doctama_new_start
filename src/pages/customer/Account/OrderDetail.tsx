@@ -788,69 +788,71 @@ const getTotalSteps = (order: OrderDisplay) => {
 
           {/* Order Progress Tracker */}
           <div className="mt-10 bg-gradient-to-r from-gray-50 to-white rounded-2xl p-8 border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-6 text-center">Order Progress</h3>
-            <div className="flex items-center justify-between relative">
-               {/* Progress line background */}
-                <div className="absolute top-5 left-6 right-6 h-1 bg-gray-200 rounded-full"></div>
-                
-                {/* Progress line foreground */}
-                <div
-                  className="absolute top-5 left-6 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
-                  style={{ 
-                    width: `${((currentStep - 1) / (getTotalSteps(order) - 1)) * 100}%` 
-                  }}
-                ></div>
+            <h3 className="text-lg font-bold text-gray-900 mb-8 text-center">Order Progress</h3>
+            
+            <div className="relative px-4">
+              {/* Progress line background */}
+              <div className="absolute top-5 left-8 right-8 h-1 bg-gray-200 rounded-full"></div>
+              
+              {/* Progress line foreground */}
+              <div
+                className="absolute top-5 left-8 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
+                style={{ 
+                  width: `calc(${((currentStep - 1) / (getTotalSteps(order) - 1)) * 100}% - 32px)` 
+                }}
+              ></div>
 
-              {progressSteps.map((step, index) => {
-                // Simple step completion check
-                let stepCompleted = index < currentStep - 1;
-                
-                // Special handling for payment step (index 1) in digital payments
-                if (order.paymentMethod !== 'cod' && index === 1) {
-                  if (isPaymentFailed) {
-                    stepCompleted = false; // Failed payment step
-                  } else if (order.approvedBy && order.paymentStatus === 'paid') {
-                    stepCompleted = true; // Payment approved
-                  } else if (order.paymentProofImage && order.paymentStatus === 'pending') {
-                    stepCompleted = true; // Payment proof uploaded, awaiting approval
+              {/* Step circles */}
+              <div className="flex items-start justify-between relative z-10">
+                {progressSteps.map((step, index) => {
+                  let stepCompleted = index < currentStep - 1;
+                  
+                  if (order.paymentMethod !== 'cod' && index === 1) {
+                    if (isPaymentFailed) {
+                      stepCompleted = false;
+                    } else if (order.approvedBy && order.paymentStatus === 'paid') {
+                      stepCompleted = true;
+                    } else if (order.paymentProofImage && order.paymentStatus === 'pending') {
+                      stepCompleted = true;
+                    }
                   }
-                }
-                
-                // Current step is the one at currentStep - 1
-                const isCurrent = index === currentStep - 1;
-                
-                // Step status colors
-                let stepColor = 'bg-white border-2 border-gray-300 text-gray-400';
-                let iconEl = <span className="text-sm font-bold">{index + 1}</span>;
-                
-                if (isPaymentFailed && index === 1) {
-                  stepColor = 'bg-red-500 text-white shadow-red-200 scale-110';
-                  iconEl = <XCircle className="w-6 h-6" />;
-                } else if (stepCompleted) {
-                  stepColor = 'bg-red-600 text-white shadow-red-200 scale-105';
-                  iconEl = <CheckCircle className="w-6 h-6" />;
-                } else if (isCurrent) {
-                  stepColor = 'bg-blue-500 text-white shadow-blue-200 scale-110 animate-pulse';
-                  iconEl = <Clock className="w-6 h-6 animate-spin" />;
-                }
-                
-                let labelColor = 'text-gray-500';
-                if (isPaymentFailed && index === 1) labelColor = 'text-red-600';
-                else if (stepCompleted) labelColor = 'text-red-600';
-                else if (isCurrent) labelColor = 'text-blue-600';
+                  
+                  const isCurrent = index === currentStep - 1;
+                  
+                  let stepColor = 'bg-white border-2 border-gray-300 text-gray-400';
+                  let iconEl = <span className="text-xs font-bold">{index + 1}</span>;
+                  
+                  if (isPaymentFailed && index === 1) {
+                    stepColor = 'bg-red-500 text-white shadow-red-200';
+                    iconEl = <XCircle className="w-5 h-5" />;
+                  } else if (stepCompleted) {
+                    stepColor = 'bg-red-600 text-white shadow-red-200';
+                    iconEl = <CheckCircle className="w-5 h-5" />;
+                  } else if (isCurrent) {
+                    stepColor = 'bg-blue-500 text-white shadow-blue-200 animate-pulse';
+                    iconEl = <Clock className="w-5 h-5 animate-spin" />;
+                  }
+                  
+                  let labelColor = 'text-gray-400';
+                  if (isPaymentFailed && index === 1) labelColor = 'text-red-600';
+                  else if (stepCompleted) labelColor = 'text-red-600 font-semibold';
+                  else if (isCurrent) labelColor = 'text-blue-600 font-semibold';
 
-                return (
-                  <div key={step} className="flex flex-col items-center relative z-10">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${stepColor}`}>
-                      {iconEl}
+                  return (
+                    <div key={step} className="flex flex-col items-center" style={{ width: '60px' }}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm ${stepColor}`}>
+                        {iconEl}
+                      </div>
+                      <span className={`text-[11px] mt-2 text-center leading-tight ${labelColor}`}>
+                        {step}
+                      </span>
+                      {isCurrent && (
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1 animate-ping"></div>
+                      )}
                     </div>
-                    <span className={`text-sm mt-3 font-semibold text-center max-w-24 leading-tight ${labelColor}`}>
-                      {step}
-                    </span>
-                    {isCurrent && <div className="w-2 h-2 bg-blue-500 rounded-full mt-1 animate-ping"></div>}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
