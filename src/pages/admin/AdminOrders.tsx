@@ -26,6 +26,12 @@ interface ExtendedOrder extends Order {
   rejectedBy?: string;
   rejectionReason?: string;
   codPaymentConfirmedAt?: string;
+  proofImageUrl?: string;
+  recipientName?: string;
+  deliveryNotes?: string;
+  deliveredBy?: string;
+  deliveredAt?: string;
+  deliveryStatus?: string;
 }
 
 interface AdminNote {
@@ -292,6 +298,12 @@ const OrderMobileCard: React.FC<{
         rejectedBy: order.rejectedBy || null,
         rejectionReason: order.rejectionReason || null,
         codPaymentConfirmedAt: order.codPaymentConfirmedAt || null,
+        proofImageUrl: order.proofImageUrl || null,
+        recipientName: order.recipientName || null,
+        deliveryNotes: order.deliveryNotes || null,
+        deliveredBy: order.deliveredBy || null,
+        deliveredAt: order.deliveredAt || null,
+        deliveryStatus: order.deliveryStatus || null,
       }));
       setOrders(ordersWithDetails);
       setError('');
@@ -933,6 +945,67 @@ const OrderMobileCard: React.FC<{
       )}
     </div>
   )}
+
+  {/* Delivery Proof Section */}
+{(selectedOrder as any).proofImageUrl && (
+  <section className="space-y-4">
+    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+      <Truck className="w-4 h-4" /> Proof of Delivery
+    </h3>
+    <div className="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100 space-y-3">
+      <div className="relative group overflow-hidden rounded-2xl cursor-zoom-in" 
+           onClick={() => {
+             setSelectedOrder({...selectedOrder, paymentProofImage: (selectedOrder as any).proofImageUrl});
+             setShowReceiptModal(true);
+           }}>
+        <img 
+          src={(selectedOrder as any).proofImageUrl} 
+          alt="Proof of Delivery" 
+          className="w-full h-48 object-cover group-hover:scale-105 transition-transform" 
+        />
+        <div className="absolute inset-0 bg-emerald-600/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+          <span className="text-white text-xs font-bold">Click to enlarge</span>
+        </div>
+      </div>
+      {(selectedOrder as any).recipientName && (
+        <div className="flex items-center gap-2 text-sm text-emerald-800">
+          <CheckCircle className="w-4 h-4 text-emerald-600" />
+          <span>Received by: <strong>{(selectedOrder as any).recipientName}</strong></span>
+        </div>
+      )}
+      {(selectedOrder as any).deliveredBy && (
+        <p className="text-xs text-slate-500">
+          Delivered by: {(selectedOrder as any).deliveredBy}
+        </p>
+      )}
+      {(selectedOrder as any).deliveredAt && (
+        <p className="text-xs text-slate-400">
+          {formatDate((selectedOrder as any).deliveredAt)}
+        </p>
+      )}
+      {(selectedOrder as any).deliveryNotes && (
+        <p className="text-xs text-slate-500 bg-white p-3 rounded-xl">
+          📝 {(selectedOrder as any).deliveryNotes}
+        </p>
+      )}
+    </div>
+  </section>
+)}
+
+{/* Delivered Status */}
+{(selectedOrder.status?.toLowerCase() === 'delivered' || (selectedOrder as any).deliveryStatus?.toLowerCase() === 'delivered') && !(selectedOrder as any).proofImageUrl && (
+  <section className="space-y-4">
+    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+      <div className="flex items-center gap-2 text-emerald-700">
+        <CheckCircle className="w-5 h-5" />
+        <span className="text-sm font-bold">Order Delivered</span>
+      </div>
+      {(selectedOrder as any).recipientName && (
+        <p className="text-xs text-emerald-600 mt-1">Received by: {(selectedOrder as any).recipientName}</p>
+      )}
+    </div>
+  </section>
+)}
 
   {/* Cancel Order Button */}
   {selectedOrder.status !== 'cancelled' && 
