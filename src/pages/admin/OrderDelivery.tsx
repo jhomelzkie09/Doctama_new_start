@@ -165,14 +165,24 @@ const OrderDelivery: React.FC = () => {
   const handleConfirmDelivery = async () => {
     if (!selectedOrder) return;
     
+    if (!proofImage) {
+      showError('Delivery proof image is required');
+      return;
+    }
+    
     setSubmitting(true);
     const loadingToast = showLoading('Confirming delivery...');
     
     try {
       let proofImageUrl = '';
       if (proofImage) {
-        // TODO: Implement image upload
-        // proofImageUrl = await uploadImage(proofImage);
+        // Upload the image
+        const formData = new FormData();
+        formData.append('file', proofImage);
+        const uploadResponse = await api.post('/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        proofImageUrl = uploadResponse.data.fileUrl || uploadResponse.data.url || '';
       }
       
       await api.post(`/deliveries/${selectedOrder.orderId}/deliver`, {
@@ -698,7 +708,9 @@ const OrderDelivery: React.FC = () => {
               </div>
               
               <div>
-                <label className="block text-xs text-stone-400 mb-1">Proof of Delivery (Optional)</label>
+                <label className="block text-xs text-stone-400 mb-1">
+                  Proof of Delivery <span className="text-rose-500">*</span>
+                </label>
                 <div className="border-2 border-dashed border-stone-200 rounded-lg p-4 text-center">
                   {proofImagePreview ? (
                     <div className="relative">
@@ -738,7 +750,7 @@ const OrderDelivery: React.FC = () => {
               </button>
               <button
                 onClick={handleConfirmDelivery}
-                disabled={submitting || !recipientName.trim()}
+                disabled={submitting || !recipientName.trim() || !proofImage}
                 className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting ? (

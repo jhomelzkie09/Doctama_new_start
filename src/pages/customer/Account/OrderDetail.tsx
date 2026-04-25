@@ -74,6 +74,7 @@ interface OrderDisplay {
   approvedAt?: string;
   rejectedBy?: string;
   rejectionReason?: string;
+  deliveryProofImageUrl?: string;
 }
 
 interface RatedProduct {
@@ -195,6 +196,7 @@ const OrderDetail = () => {
           })) || [],
           trackingNumber: (data as any).trackingNumber,
           paymentProofImage: (data as any).paymentProofImage,
+          deliveryProofImageUrl: (data as any).deliveryProofImageUrl,
           paymentProofReference: (data as any).paymentProofReference,
           paymentProofSender: (data as any).paymentProofSender,
           paymentProofDate: (data as any).paymentProofDate,
@@ -1107,6 +1109,19 @@ const OrderDetail = () => {
                       <span className="font-medium">Sender:</span> {order.paymentProofSender}
                     </div>
                   )}
+                </div>
+              )}
+
+              {order.deliveryProofImageUrl && order.status?.toLowerCase() === 'delivered' && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-sm text-gray-500 mb-2">Delivery Proof</p>
+                  <div className="relative group overflow-hidden rounded-xl">
+                    <img
+                      src={order.deliveryProofImageUrl}
+                      alt="Delivery proof"
+                      className="w-full h-32 object-cover rounded-xl border border-gray-200"
+                    />
+                  </div>
                 </div>
               )}
             </div>
