@@ -67,13 +67,13 @@ class OrderService {
       updatedAt: apiOrder.updatedAt
     };
     
-    console.log('🔄 Converted order:', {
-      id: convertedOrder.id,
-      orderNumber: convertedOrder.orderNumber,
-      status: convertedOrder.status,
-      paymentStatus: convertedOrder.paymentStatus,
-      paymentMethod: convertedOrder.paymentMethod
-    });
+    // console.log('🔄 Converted order:', {
+    //   id: convertedOrder.id,
+    //   orderNumber: convertedOrder.orderNumber,
+    //   status: convertedOrder.status,
+    //   paymentStatus: convertedOrder.paymentStatus,
+    //   paymentMethod: convertedOrder.paymentMethod
+    // });
     
     return convertedOrder;
   }
@@ -258,9 +258,9 @@ async getAllOrders(): Promise<Order[]> {
     
     const convertedOrders = ordersData.map(apiOrder => this.convertApiOrderToOrder(apiOrder));
     
-    console.log('📦 Admin orders loaded:', {
-      count: convertedOrders.length,
-    });
+    // console.log('📦 Admin orders loaded:', {
+    //   count: convertedOrders.length,
+    // });
     
     return convertedOrders;
   } catch (error: any) {
