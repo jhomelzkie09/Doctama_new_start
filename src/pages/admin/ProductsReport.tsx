@@ -335,7 +335,7 @@ const ProductsReport: React.FC = () => {
   };
 
   const handlePrint = () => {
-    const content = document.getElementById('report-print-content');
+    const content = document.getElementById('report-print-content-full');
     if (!content) return;
     const win = window.open('', '_blank');
     if (!win) return;
@@ -518,6 +518,10 @@ const ProductsReport: React.FC = () => {
 
           <div id="report-print-content">
             <ProductTable products={paginatedProducts} stats={stats} isLoading={loading} />
+          </div>
+
+          <div id="report-print-content-full" className="hidden">
+            <ProductTable products={filteredProducts} stats={stats} />
           </div>
 
           <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -334,8 +334,9 @@ const SalesReport: React.FC = () => {
 
         const orderStatus = String(order.status ?? '').toLowerCase();
         const paymentStatus = String(order.paymentStatus ?? '').toLowerCase();
+        const paymentMethod = String(order.paymentMethod ?? '').toLowerCase();
         const isDelivered = orderStatus === 'delivered';
-        const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed';
+        const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed' || paymentMethod === 'cod';
 
         return isDelivered && isPaid;
       });
