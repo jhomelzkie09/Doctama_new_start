@@ -813,6 +813,10 @@ const getTotalSteps = (order: OrderDisplay) => {
               <div className="flex items-start justify-between relative z-10">
                 {progressSteps.map((step, index) => {
                   let stepCompleted = index < currentStep - 1;
+
+                  if (order.status?.toLowerCase() === 'delivered' && index === progressSteps.length - 1) {
+                    stepCompleted = true;
+                  }
                   
                   if (order.paymentMethod !== 'cod' && index === 1) {
                     if (isPaymentFailed) {
@@ -842,7 +846,7 @@ const getTotalSteps = (order: OrderDisplay) => {
                   
                   let labelColor = 'text-gray-400';
                   if (isPaymentFailed && index === 1) labelColor = 'text-red-600';
-                  else if (stepCompleted) labelColor = 'text-red-600 font-semibold';
+                  else if (stepCompleted) labelColor = order.status?.toLowerCase() === 'delivered' && index === progressSteps.length - 1 ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold';
                   else if (isCurrent) labelColor = 'text-blue-600 font-semibold';
 
                   return (
