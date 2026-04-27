@@ -535,15 +535,18 @@ const OrderDetail = () => {
   };
 
   const getStatusStep = (order: OrderDisplay): number => {
-  const status = order.status?.toLowerCase() || '';
-  const paymentStatus = order.paymentStatus?.toLowerCase() || '';
-  
-  // COD flow: pending → processing → shipped → delivered
-  if (order.paymentMethod === 'cod') {
-    const codSteps = ['pending', 'processing', 'shipped', 'outfordelivery', 'delivered'];
-    const idx = codSteps.indexOf(status);
-    return idx >= 0 ? idx + 1 : 0;
-  }
+    const status = order.status?.toLowerCase() || '';
+    const paymentStatus = order.paymentStatus?.toLowerCase() || '';
+    
+    // COD flow: pending → processing → shipped/out for delivery → delivered
+    if (order.paymentMethod === 'cod') {
+      if (status === 'shipped' || status === 'outfordelivery') return 3;
+      if (status === 'delivered') return 4;
+
+      const codSteps = ['pending', 'processing'];
+      const idx = codSteps.indexOf(status);
+      return idx >= 0 ? idx + 1 : 1;
+    }
   
   // Digital payment flow: pending → awaiting_payment → processing → shipped → delivered
   const digitalSteps = ['pending', 'awaiting_payment', 'processing', 'shipped', 'outfordelivery', 'delivered'];
@@ -728,6 +731,12 @@ const getTotalSteps = (order: OrderDisplay) => {
 
   const currentStep = getStatusStep(order);
   const progressSteps = getProgressSteps(order);
+  const progressStepsCount = getTotalSteps(order);
+  const progressPercent = (() => {
+    const steps = progressStepsCount - 1;
+    const raw = steps > 0 ? ((currentStep - 1) / steps) * 100 : 0;
+    return Math.max(0, Math.min(100, raw));
+  })();
   const isPaymentFailed = order?.rejectedBy && order.paymentStatus === 'failed';
   const isDelivered = order?.status?.toLowerCase() === 'delivered';
   const isPaid = order?.paymentStatus?.toLowerCase() === 'paid';
@@ -797,9 +806,7 @@ const getTotalSteps = (order: OrderDisplay) => {
               {/* Progress line foreground */}
               <div
                 className="absolute top-5 left-8 h-1 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-500 ease-out"
-                style={{ 
-                  width: `calc(${((currentStep - 1) / (getTotalSteps(order) - 1)) * 100}% - 32px)` 
-                }}
+                style={{ width: `calc(${progressPercent}% - 8px)` }}
               ></div>
 
               {/* Step circles */}
