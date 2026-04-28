@@ -259,7 +259,7 @@ const ProductsManagement = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return `₱${amount.toLocaleString()}`;
+    return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const getCategoryName = (categoryId: number) => categories.find(c => c.id === categoryId)?.name || 'General';
