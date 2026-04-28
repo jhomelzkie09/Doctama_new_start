@@ -463,7 +463,7 @@ const ProductsManagement = () => {
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-1">
                       <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide">{getCategoryName(product.categoryId)}</p>
-                      <p className="text-lg font-black text-slate-900">{formatCurrency(product.price)}</p>
+                      <p className="text-lg font-black text-slate-900">{formatCurrency(product.price)}{product.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <h3 className="font-bold text-slate-800 mb-1 line-clamp-1">{product.name}</h3>
                     
